@@ -1,5 +1,5 @@
 # 🖥️ SpecCheck-AI: 견적 검증 AI 평가 시스템
-> **AI-based PC Build Evaluation System for User-Proposed Configurations**
+> **AI-based PC Build Evaluation System for User-Proposed Configurations** 
 
 사용자가 직접 구성한 PC 견적을 입력하면, 인공지능이 **가격 적정성, 성능 균형, 호환성, 용도 적합성**을 종합 분석하여 객관적인 검증 결과를 제공합니다.
 
