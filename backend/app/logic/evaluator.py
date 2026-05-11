@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from app.services.price_manager import get_price
 
 DATA_DIR = Path(__file__).parent.parent.parent / "data"
 
@@ -9,39 +10,45 @@ def _load(filename: str) -> dict:
         return json.load(f)
 
 
-def _find_score(benchmark: dict, query: str) -> tuple:
-    """부품명으로 벤치마크 점수 검색 (부분 일치)"""
+def _find_component(benchmark: dict, query: str) -> tuple:
+    """부품명으로 벤치마크 데이터 검색 (부분 일치)"""
     q = query.lower().strip()
+    if not q:
+        return None, None
+        
     # 완전 일치
-    for name, score in benchmark.items():
+    for name, data in benchmark.items():
         if name.lower() == q:
-            return name, score
+            return name, data
     # 부분 일치
-    for name, score in benchmark.items():
+    for name, data in benchmark.items():
         if q in name.lower() or name.lower() in q:
-            return name, score
+            return name, data
     # 키워드 다수 일치
     keywords = [k for k in q.split() if len(k) > 2]
     best, best_cnt = None, 0
-    for name, score in benchmark.items():
+    for name, data in benchmark.items():
         cnt = sum(1 for k in keywords if k in name.lower())
         if cnt > best_cnt:
             best_cnt = cnt
-            best = (name, score)
+            best = (name, data)
     if best and best_cnt > 0:
         return best
-    return None, 0
+    return None, None
 
 
 def evaluate_build(build: dict) -> dict:
     cpu_db = _load("cpu_benchmark.json")
     gpu_db = _load("gpu_benchmark.json")
 
-    cpu_name, cpu_score = _find_score(cpu_db, build.get("cpu", ""))
-    gpu_name, gpu_score = _find_score(gpu_db, build.get("gpu", ""))
+    cpu_name, cpu_data = _find_component(cpu_db, build.get("cpu", ""))
+    gpu_name, gpu_data = _find_component(gpu_db, build.get("gpu", ""))
 
-    max_cpu = max(cpu_db.values())
-    max_gpu = max(gpu_db.values())
+    cpu_score = cpu_data.get("score", 0) if cpu_data else 0
+    gpu_score = gpu_data.get("score", 0) if gpu_data else 0
+
+    max_cpu = max([data.get("score", 0) for data in cpu_db.values()]) if cpu_db else 1
+    max_gpu = max([data.get("score", 0) for data in gpu_db.values()]) if gpu_db else 1
 
     cpu_norm = (cpu_score / max_cpu * 100) if cpu_score else 0
     gpu_norm = (gpu_score / max_gpu * 100) if gpu_score else 0
@@ -70,11 +77,17 @@ def evaluate_build(build: dict) -> dict:
 
     overall = min(overall, 100)
 
+    # 실시간 가격 연동
+    cpu_price_info = get_price(cpu_name) if cpu_name else {}
+    gpu_price_info = get_price(gpu_name) if gpu_name else {}
+
     return {
         "cpu_matched": cpu_name,
         "cpu_score": cpu_score,
+        "cpu_price_krw": cpu_price_info.get("price_krw"),
         "gpu_matched": gpu_name,
         "gpu_score": gpu_score,
+        "gpu_price_krw": gpu_price_info.get("price_krw"),
         "cpu_norm": round(cpu_norm, 1),
         "gpu_norm": round(gpu_norm, 1),
         "overall_score": overall,
