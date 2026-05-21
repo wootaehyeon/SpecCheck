@@ -1,12 +1,58 @@
-const pages = document.querySelectorAll('.page');
+﻿const OPEN_MARKET_API_URL = 'http://localhost:8000/api/market-prices';
+const PAGE_URLS = {
+  main: 'index.html',
+  input: 'input.html',
+  analyzing: 'analyzing.html',
+  result: 'result.html',
+  detail: 'detail.html',
+  recommend: 'recommend.html'
+};
 
-// 실제 백엔드가 준비되면 이 주소를 /api/market-prices 같은 API로 바꾸면 됨.
-const OPEN_MARKET_API_URL = 'http://localhost:8000/api/market-prices';
+function navigateTo(page) {
+  const target = PAGE_URLS[page] || page;
+  window.location.href = target;
+}
 
-function showPage(pageId) {
-  pages.forEach((page) => page.classList.remove('active'));
-  document.getElementById(pageId).classList.add('active');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+function getCurrentPageName() {
+  const fileName = window.location.pathname.split('/').pop();
+  if (!fileName || fileName === 'index.html') {
+    return 'main';
+  }
+  return fileName.replace('.html', '');
+}
+
+function saveData(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+function loadData(key) {
+  const raw = localStorage.getItem(key);
+  return raw ? JSON.parse(raw) : null;
+}
+
+function safeGet(id) {
+  return document.getElementById(id);
+}
+
+function safeSetText(id, text) {
+  const el = safeGet(id);
+  if (el) el.textContent = text;
+}
+
+function safeSetValue(id, value) {
+  const el = safeGet(id);
+  if (el) el.value = value ?? '';
+}
+
+function setBadgeClass(element, status) {
+  if (!element) return;
+  element.classList.remove('badge-good', 'badge-warning', 'badge-danger');
+
+  if (status.includes('비쌈') || status.includes('보류') || status.includes('위험')) {
+    element.classList.add(status.includes('많이') || status.includes('보류') ? 'badge-danger' : 'badge-warning');
+  } else {
+    element.classList.add('badge-good');
+  }
 }
 
 function toNumber(value) {
@@ -20,61 +66,24 @@ function formatWon(value) {
 }
 
 function updateTotalPrice() {
-  const total = [
-    'cpuPrice',
-    'gpuPrice',
-    'ramPrice',
-    'storagePrice',
-    'motherboardPrice',
-    'powerPrice'
-  ].reduce((sum, id) => sum + toNumber(document.getElementById(id).value), 0);
-
-  document.getElementById('totalPrice').value = total;
+  const ids = ['cpuPrice', 'gpuPrice', 'ramPrice', 'storagePrice', 'motherboardPrice', 'powerPrice'];
+  const total = ids.reduce((sum, id) => sum + toNumber(safeGet(id)?.value), 0);
+  safeSetValue('totalPrice', total);
   return total;
 }
 
 function getEstimateInput() {
   const parts = [
-    {
-      category: 'CPU',
-      key: 'cpu',
-      name: document.getElementById('cpu').value,
-      userPrice: toNumber(document.getElementById('cpuPrice').value)
-    },
-    {
-      category: 'GPU',
-      key: 'gpu',
-      name: document.getElementById('gpu').value,
-      userPrice: toNumber(document.getElementById('gpuPrice').value)
-    },
-    {
-      category: 'RAM',
-      key: 'ram',
-      name: document.getElementById('ram').value,
-      userPrice: toNumber(document.getElementById('ramPrice').value)
-    },
-    {
-      category: '저장장치',
-      key: 'storage',
-      name: document.getElementById('storage').value,
-      userPrice: toNumber(document.getElementById('storagePrice').value)
-    },
-    {
-      category: '메인보드',
-      key: 'motherboard',
-      name: document.getElementById('motherboard').value,
-      userPrice: toNumber(document.getElementById('motherboardPrice').value)
-    },
-    {
-      category: '파워',
-      key: 'power',
-      name: document.getElementById('power').value,
-      userPrice: toNumber(document.getElementById('powerPrice').value)
-    }
+    { category: 'CPU', key: 'cpu', name: safeGet('cpu')?.value, userPrice: toNumber(safeGet('cpuPrice')?.value) },
+    { category: 'GPU', key: 'gpu', name: safeGet('gpu')?.value, userPrice: toNumber(safeGet('gpuPrice')?.value) },
+    { category: 'RAM', key: 'ram', name: safeGet('ram')?.value, userPrice: toNumber(safeGet('ramPrice')?.value) },
+    { category: '저장장치', key: 'storage', name: safeGet('storage')?.value, userPrice: toNumber(safeGet('storagePrice')?.value) },
+    { category: '메인보드', key: 'motherboard', name: safeGet('motherboard')?.value, userPrice: toNumber(safeGet('motherboardPrice')?.value) },
+    { category: '파워', key: 'power', name: safeGet('power')?.value, userPrice: toNumber(safeGet('powerPrice')?.value) }
   ];
 
   return {
-    purpose: document.getElementById('purpose').value,
+    purpose: safeGet('purpose')?.value || '게임',
     cpu: parts[0].name,
     gpu: parts[1].name,
     ram: parts[2].name,
@@ -86,7 +95,26 @@ function getEstimateInput() {
   };
 }
 
-// 백엔드가 없을 때 화면 확인용. 실제 구현 시 fetchOpenMarketPrices()에서 백엔드 응답을 사용하면 됨.
+function loadEstimateInput() {
+  const estimate = loadData('estimateInput');
+  if (!estimate) return;
+
+  safeSetValue('purpose', estimate.purpose);
+  safeSetValue('cpu', estimate.cpu);
+  safeSetValue('cpuPrice', estimate.parts[0]?.userPrice);
+  safeSetValue('gpu', estimate.gpu);
+  safeSetValue('gpuPrice', estimate.parts[1]?.userPrice);
+  safeSetValue('ram', estimate.ram);
+  safeSetValue('ramPrice', estimate.parts[2]?.userPrice);
+  safeSetValue('storage', estimate.storage);
+  safeSetValue('storagePrice', estimate.parts[3]?.userPrice);
+  safeSetValue('motherboard', estimate.motherboard);
+  safeSetValue('motherboardPrice', estimate.parts[4]?.userPrice);
+  safeSetValue('power', estimate.power);
+  safeSetValue('powerPrice', estimate.parts[5]?.userPrice);
+  safeSetValue('totalPrice', estimate.totalPrice);
+}
+
 function getMockMarketPrices(parts) {
   const mockPriceMap = {
     cpu: { lowestPrice: 168000, averagePrice: 182000, mall: '오픈마켓 A' },
@@ -118,9 +146,6 @@ async function fetchOpenMarketPrices(parts) {
     }
 
     const data = await response.json();
-
-    // 기대 응답 형태:
-    // { prices: [{ key, category, name, userPrice, lowestPrice, averagePrice, mall }] }
     return data.prices;
   } catch (error) {
     console.warn('오픈마켓 API가 연결되지 않아 임시 가격 데이터를 사용합니다.', error);
@@ -187,16 +212,14 @@ function mockAnalyze(estimate, marketPrices) {
     priceStatus = '약간 비쌈';
   }
 
-  const mostExpensivePart = [...comparedParts].sort((a, b) => b.diffRate - a.diffRate)[0];
+  const mostExpensivePart = [...comparedParts].sort((a, b) => b.diffRate - a.diffRate)[0] || {};
 
   return {
     purchaseStatus,
     riskScore,
     totalPrice: inputTotal,
     purposeFit: estimate.purpose + '용 적합',
-    summary:
-      `입력 견적 합계는 ${formatWon(inputTotal)}이고, 오픈마켓 최저가 합계는 ${formatWon(lowestTotal)}입니다. ` +
-      `${mostExpensivePart.category}(${mostExpensivePart.name}) 가격 차이가 가장 크므로 먼저 확인하는 것이 좋습니다.`,
+    summary: `입력 견적 합계는 ${formatWon(inputTotal)}이고, 오픈마켓 최저가 합계는 ${formatWon(lowestTotal)}입니다. ${mostExpensivePart.category || '부품'}(${mostExpensivePart.name || 'N/A'}) 가격 차이가 가장 크므로 먼저 확인하는 것이 좋습니다.`,
     priceCompare: {
       parts: comparedParts,
       inputTotal,
@@ -229,17 +252,17 @@ function mockAnalyze(estimate, marketPrices) {
     },
     recommendations: [
       {
-        category: mostExpensivePart.category,
-        currentPart: mostExpensivePart.name,
-        recommendedPart: `${mostExpensivePart.name} 오픈마켓 최저가 상품`,
-        currentPrice: mostExpensivePart.userPrice,
-        recommendedPrice: mostExpensivePart.lowestPrice,
-        reason: `${mostExpensivePart.category}는 입력 가격과 오픈마켓 최저가 차이가 큽니다. 같은 부품이라면 더 저렴한 판매처를 우선 확인하고, 차이가 계속 크면 대체 부품 추천을 적용하는 것이 좋습니다.`,
+        category: mostExpensivePart.category || '부품',
+        currentPart: mostExpensivePart.name || '-',
+        recommendedPart: `${mostExpensivePart.name || '추천 부품'} 오픈마켓 최저가 상품`,
+        currentPrice: mostExpensivePart.userPrice || 0,
+        recommendedPrice: mostExpensivePart.lowestPrice || 0,
+        reason: `${mostExpensivePart.category || '부품'}는 입력 가격과 오픈마켓 최저가 차이가 큽니다. 같은 부품이라면 더 저렴한 판매처를 우선 확인하고, 차이가 계속 크면 대체 부품 추천을 적용하는 것이 좋습니다.`,
         currentPerformance: '78점',
         recommendedPerformance: '동일 또는 유사',
         currentValue: '보통',
         recommendedValue: '개선',
-        valueImprovement: Math.max(0, Math.round(mostExpensivePart.diffRate)) + '점',
+        valueImprovement: Math.max(0, Math.round(mostExpensivePart.diffRate || 0)) + '점',
         performanceImprovement: '가격 개선 중심',
         beforeScore: riskScore,
         afterScore: Math.max(0, riskScore - 10)
@@ -248,18 +271,11 @@ function mockAnalyze(estimate, marketPrices) {
   };
 }
 
-function setBadgeClass(element, status) {
-  element.classList.remove('badge-good', 'badge-warning', 'badge-danger');
-
-  if (status.includes('비쌈') || status.includes('보류') || status.includes('위험')) {
-    element.classList.add(status.includes('많이') || status.includes('보류') ? 'badge-danger' : 'badge-warning');
-  } else {
-    element.classList.add('badge-good');
-  }
-}
-
 function renderPriceCompare(priceCompare) {
-  const tbody = document.getElementById('priceCompareBody');
+  if (!priceCompare) return;
+  const tbody = safeGet('priceCompareBody');
+  if (!tbody) return;
+
   tbody.innerHTML = '';
 
   priceCompare.parts.forEach((part) => {
@@ -279,65 +295,73 @@ function renderPriceCompare(priceCompare) {
     tbody.appendChild(row);
   });
 
-  document.getElementById('inputTotalPrice').textContent = formatWon(priceCompare.inputTotal);
-  document.getElementById('marketLowestTotal').textContent = formatWon(priceCompare.lowestTotal);
-  document.getElementById('marketAverageTotal').textContent = formatWon(priceCompare.averageTotal);
+  safeSetText('inputTotalPrice', formatWon(priceCompare.inputTotal));
+  safeSetText('marketLowestTotal', formatWon(priceCompare.lowestTotal));
+  safeSetText('marketAverageTotal', formatWon(priceCompare.averageTotal));
 
-  const statusEl = document.getElementById('priceDiffStatus');
-  statusEl.textContent = priceCompare.status;
-  setBadgeClass(statusEl, priceCompare.status);
+  const statusEl = safeGet('priceDiffStatus');
+  if (statusEl) {
+    statusEl.textContent = priceCompare.status;
+    setBadgeClass(statusEl, priceCompare.status);
+  }
 }
 
 function renderResult(result) {
-  const purchaseStatus = document.getElementById('purchaseStatus');
-  purchaseStatus.textContent = result.purchaseStatus;
-  setBadgeClass(purchaseStatus, result.purchaseStatus);
+  if (!result) return;
 
-  document.getElementById('riskScore').textContent = result.riskScore + '점';
-  document.getElementById('resultPrice').textContent = formatWon(result.totalPrice);
-  document.getElementById('purposeFit').textContent = result.purposeFit;
-  document.getElementById('summaryText').textContent = result.summary;
+  const purchaseStatus = safeGet('purchaseStatus');
+  if (purchaseStatus) {
+    purchaseStatus.textContent = result.purchaseStatus;
+    setBadgeClass(purchaseStatus, result.purchaseStatus);
+  }
+
+  safeSetText('riskScore', result.riskScore + '점');
+  safeSetText('resultPrice', formatWon(result.totalPrice));
+  safeSetText('purposeFit', result.purposeFit);
+  safeSetText('summaryText', result.summary);
 
   renderPriceCompare(result.priceCompare);
 
-  document.getElementById('priceDetail').textContent = result.detail.price.message;
-  document.getElementById('balanceDetail').textContent = result.detail.balance.message;
-  document.getElementById('compatibilityDetail').textContent = result.detail.compatibility.message;
-  document.getElementById('recencyDetail').textContent = result.detail.recency.message;
+  safeSetText('priceDetail', result.detail?.price?.message || '');
+  safeSetText('balanceDetail', result.detail?.balance?.message || '');
+  safeSetText('compatibilityDetail', result.detail?.compatibility?.message || '');
+  safeSetText('recencyDetail', result.detail?.recency?.message || '');
 
-  document.getElementById('priceScoreBar').style.width = result.detail.price.score + '%';
-  document.getElementById('balanceScoreBar').style.width = result.detail.balance.score + '%';
-  document.getElementById('compatibilityScoreBar').style.width = result.detail.compatibility.score + '%';
-  document.getElementById('recencyScoreBar').style.width = result.detail.recency.score + '%';
+  const priceBar = safeGet('priceScoreBar');
+  if (priceBar) priceBar.style.width = (result.detail?.price?.score || 0) + '%';
+  const balanceBar = safeGet('balanceScoreBar');
+  if (balanceBar) balanceBar.style.width = (result.detail?.balance?.score || 0) + '%';
+  const compatibilityBar = safeGet('compatibilityScoreBar');
+  if (compatibilityBar) compatibilityBar.style.width = (result.detail?.compatibility?.score || 0) + '%';
+  const recencyBar = safeGet('recencyScoreBar');
+  if (recencyBar) recencyBar.style.width = (result.detail?.recency?.score || 0) + '%';
 
-  document.getElementById('priceStatus').textContent = result.detail.price.status;
-  document.getElementById('balanceStatus').textContent = result.detail.balance.status;
-  document.getElementById('compatibilityStatus').textContent = result.detail.compatibility.status;
-  document.getElementById('recencyStatus').textContent = result.detail.recency.status;
+  safeSetText('priceStatus', result.detail?.price?.status || '-');
+  safeSetText('balanceStatus', result.detail?.balance?.status || '-');
+  safeSetText('compatibilityStatus', result.detail?.compatibility?.status || '-');
+  safeSetText('recencyStatus', result.detail?.recency?.status || '-');
 
-  const rec = result.recommendations[0];
-  document.getElementById('currentPart').textContent = rec.currentPart;
-  document.getElementById('currentPrice').textContent = formatWon(rec.currentPrice);
-  document.getElementById('currentPerformance').textContent = rec.currentPerformance;
-  document.getElementById('currentValue').textContent = rec.currentValue;
-  document.getElementById('recommendedPart').textContent = rec.recommendedPart;
-  document.getElementById('recommendedPrice').textContent = formatWon(rec.recommendedPrice);
-  document.getElementById('recommendedPerformance').textContent = rec.recommendedPerformance;
-  document.getElementById('recommendedValue').textContent = rec.recommendedValue;
-  document.getElementById('recommendReason').textContent = rec.reason;
-  document.getElementById('valueImprovement').textContent = rec.valueImprovement;
-  document.getElementById('performanceImprovement').textContent = rec.performanceImprovement;
-  document.getElementById('beforeAfterScore').textContent = rec.beforeScore + ' → ' + rec.afterScore;
+  const rec = result.recommendations?.[0];
+  if (rec) {
+    safeSetText('currentPart', rec.currentPart);
+    safeSetText('currentPrice', formatWon(rec.currentPrice));
+    safeSetText('currentPerformance', rec.currentPerformance);
+    safeSetText('currentValue', rec.currentValue);
+    safeSetText('recommendedPart', rec.recommendedPart);
+    safeSetText('recommendedPrice', formatWon(rec.recommendedPrice));
+    safeSetText('recommendedPerformance', rec.recommendedPerformance);
+    safeSetText('recommendedValue', rec.recommendedValue);
+    safeSetText('recommendReason', rec.reason);
+    safeSetText('valueImprovement', rec.valueImprovement);
+    safeSetText('performanceImprovement', rec.performanceImprovement);
+    safeSetText('beforeAfterScore', `${rec.beforeScore} → ${rec.afterScore}`);
+  }
 }
 
-async function startAnalysis() {
-  const estimate = getEstimateInput();
-  showPage('analyzing');
-
-  const progressBar = document.getElementById('progressBar');
-  const currentStep = document.getElementById('currentStep');
+function startAnalysisWorkflow(estimate) {
+  const progressBar = safeGet('progressBar');
+  const currentStep = safeGet('currentStep');
   const stepItems = document.querySelectorAll('.step-item');
-
   const steps = [
     '견적 정보 확인 중...',
     '오픈마켓 가격 API 조회 중...',
@@ -348,7 +372,7 @@ async function startAnalysis() {
   ];
 
   let index = 0;
-  progressBar.style.width = '0%';
+  if (progressBar) progressBar.style.width = '0%';
 
   stepItems.forEach((item, i) => {
     item.className = 'step-item';
@@ -358,8 +382,8 @@ async function startAnalysis() {
   const timer = setInterval(() => {
     const safeIndex = Math.min(index, steps.length - 1);
     const percent = Math.round(((safeIndex + 1) / steps.length) * 100);
-    progressBar.style.width = percent + '%';
-    currentStep.textContent = steps[safeIndex];
+    if (progressBar) progressBar.style.width = percent + '%';
+    if (currentStep) currentStep.textContent = steps[safeIndex];
 
     stepItems.forEach((item, i) => {
       item.className = 'step-item';
@@ -367,22 +391,89 @@ async function startAnalysis() {
       if (i === safeIndex) item.classList.add('current');
     });
 
-    index++;
+    index += 1;
   }, 450);
 
-  const marketPrices = await fetchOpenMarketPrices(estimate.parts);
-  const result = mockAnalyze(estimate, marketPrices);
-
-  setTimeout(() => {
-    clearInterval(timer);
-    progressBar.style.width = '100%';
-    renderResult(result);
-    showPage('result');
-  }, 1600);
+  fetchOpenMarketPrices(estimate.parts).then((marketPrices) => {
+    const result = mockAnalyze(estimate, marketPrices);
+    saveData('analysisResult', result);
+    setTimeout(() => {
+      clearInterval(timer);
+      if (progressBar) progressBar.style.width = '100%';
+      navigateTo('result');
+    }, 1600);
+  });
 }
 
-['cpuPrice', 'gpuPrice', 'ramPrice', 'storagePrice', 'motherboardPrice', 'powerPrice'].forEach((id) => {
-  document.getElementById(id).addEventListener('input', updateTotalPrice);
-});
+function initInputPage() {
+  loadEstimateInput();
 
-updateTotalPrice();
+  ['cpuPrice', 'gpuPrice', 'ramPrice', 'storagePrice', 'motherboardPrice', 'powerPrice'].forEach((id) => {
+    const el = safeGet(id);
+    if (el) el.addEventListener('input', updateTotalPrice);
+  });
+
+  const startButton = safeGet('startAnalysisButton');
+  if (startButton) {
+    startButton.addEventListener('click', () => {
+      const estimate = getEstimateInput();
+      saveData('estimateInput', estimate);
+      navigateTo('analyzing');
+    });
+  }
+
+  updateTotalPrice();
+}
+
+function initAnalyzingPage() {
+  const estimate = loadData('estimateInput');
+  if (!estimate) {
+    navigateTo('input');
+    return;
+  }
+  startAnalysisWorkflow(estimate);
+}
+
+function initResultPage() {
+  const result = loadData('analysisResult');
+  if (!result) {
+    navigateTo('input');
+    return;
+  }
+  renderResult(result);
+}
+
+function initDetailPage() {
+  const result = loadData('analysisResult');
+  if (!result) {
+    navigateTo('input');
+    return;
+  }
+  renderResult(result);
+}
+
+function initRecommendPage() {
+  const result = loadData('analysisResult');
+  if (!result) {
+    navigateTo('input');
+    return;
+  }
+  renderResult(result);
+}
+
+function initPage() {
+  const currentPage = getCurrentPageName();
+  if (currentPage === 'input') {
+    initInputPage();
+  } else if (currentPage === 'analyzing') {
+    initAnalyzingPage();
+  } else if (currentPage === 'result') {
+    initResultPage();
+  } else if (currentPage === 'detail') {
+    initDetailPage();
+  } else if (currentPage === 'recommend') {
+    initRecommendPage();
+  }
+}
+
+window.addEventListener('DOMContentLoaded', initPage);

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>분석 결과 - AI PC 견적 평가 시스템</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header>
+    <div class="logo">AI PC 견적 평가</div>
+    <nav>
+      <button onclick="navigateTo('main')">메인</button>
+      <button onclick="navigateTo('input')">견적 입력</button>
+      <button onclick="navigateTo('result')">분석 결과</button>
+      <button onclick="navigateTo('detail')">상세 분석</button>
+      <button onclick="navigateTo('recommend')">교체 추천</button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="page active">
+      <div class="section-title">
+        <h2>분석 결과</h2>
+        <p>입력된 PC 견적에 대한 종합 평가입니다.</p>
+      </div>
+
+      <div class="summary-grid">
+        <div class="summary-card">
+          <span>구매 가능 여부</span>
+          <strong><span id="purchaseStatus" class="badge badge-warning">-</span></strong>
+        </div>
+        <div class="summary-card">
+          <span>위험도 점수</span>
+          <strong id="riskScore">-</strong>
+        </div>
+        <div class="summary-card">
+          <span>총 가격</span>
+          <strong id="resultPrice">-</strong>
+        </div>
+        <div class="summary-card">
+          <span>용도 적합성</span>
+          <strong><span id="purposeFit" class="badge badge-good">-</span></strong>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>AI 요약 의견</h3>
+        <div id="summaryText" class="result-comment">
+          분석 결과가 여기에 표시됩니다.
+        </div>
+
+        <div class="price-compare-section">
+          <div class="section-subtitle">
+            <h3>부품별 가격 비교</h3>
+            <p>사용자가 입력한 부품 가격과 오픈마켓 API에서 가져온 최저가/평균가를 비교합니다.</p>
+          </div>
+
+          <div class="table-wrap">
+            <table class="price-table">
+              <thead>
+                <tr>
+                  <th>부품</th>
+                  <th>모델명</th>
+                  <th>입력 가격</th>
+                  <th>오픈마켓 최저가</th>
+                  <th>오픈마켓 평균가</th>
+                  <th>차이</th>
+                  <th>평가</th>
+                </tr>
+              </thead>
+              <tbody id="priceCompareBody">
+                <tr>
+                  <td colspan="7">분석 후 가격 비교 결과가 표시됩니다.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="price-total-grid">
+            <div class="summary-card">
+              <span>입력 가격 합계</span>
+              <strong id="inputTotalPrice">-</strong>
+            </div>
+            <div class="summary-card">
+              <span>오픈마켓 최저가 합계</span>
+              <strong id="marketLowestTotal">-</strong>
+            </div>
+            <div class="summary-card">
+              <span>오픈마켓 평균가 합계</span>
+              <strong id="marketAverageTotal">-</strong>
+            </div>
+            <div class="summary-card">
+              <span>가격 차이 평가</span>
+              <strong><span id="priceDiffStatus" class="badge badge-warning">-</span></strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="button-row">
+          <button class="btn btn-primary" onclick="navigateTo('detail')">상세 분석 보기</button>
+          <button class="btn btn-secondary" onclick="navigateTo('recommend')">교체 추천 보기</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/script.js"></script>
+</body>
+</html>

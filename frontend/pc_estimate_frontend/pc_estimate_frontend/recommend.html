@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>교체 추천 - AI PC 견적 평가 시스템</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header>
+    <div class="logo">AI PC 견적 평가</div>
+    <nav>
+      <button onclick="navigateTo('main')">메인</button>
+      <button onclick="navigateTo('input')">견적 입력</button>
+      <button onclick="navigateTo('result')">분석 결과</button>
+      <button onclick="navigateTo('detail')">상세 분석</button>
+      <button onclick="navigateTo('recommend')">교체 추천</button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="page active">
+      <div class="section-title">
+        <h2>교체 추천</h2>
+        <p>가성비 향상을 위한 추천 부품과 예상 개선 효과입니다.</p>
+      </div>
+
+      <div class="card">
+        <h3>현재 부품</h3>
+        <p><strong id="currentPart">-</strong></p>
+        <p>가격: <span id="currentPrice">-</span></p>
+        <p>성능: <span id="currentPerformance">-</span></p>
+        <p>가치: <span id="currentValue">-</span></p>
+      </div>
+
+      <div class="card">
+        <h3>추천 부품</h3>
+        <p><strong id="recommendedPart">-</strong></p>
+        <p>가격: <span id="recommendedPrice">-</span></p>
+        <p>성능: <span id="recommendedPerformance">-</span></p>
+        <p>가치: <span id="recommendedValue">-</span></p>
+      </div>
+
+      <div class="card">
+        <h3>추천 사유</h3>
+        <p id="recommendReason">추천 내용이 여기에 표시됩니다.</p>
+      </div>
+
+      <div class="card">
+        <h3>개선 효과</h3>
+        <p>가치 개선: <span id="valueImprovement">-</span></p>
+        <p>성능 개선: <span id="performanceImprovement">-</span></p>
+        <p>예상 점수 변화: <span id="beforeAfterScore">-</span></p>
+      </div>
+
+      <div class="button-row">
+        <button class="btn btn-secondary" onclick="navigateTo('result')">분석 결과로</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/script.js"></script>
+</body>
+</html>

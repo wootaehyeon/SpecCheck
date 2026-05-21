@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>분석 중 - AI PC 견적 평가 시스템</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header>
+    <div class="logo">AI PC 견적 평가</div>
+    <nav>
+      <button onclick="navigateTo('main')">메인</button>
+      <button onclick="navigateTo('input')">견적 입력</button>
+      <button onclick="navigateTo('result')">분석 결과</button>
+      <button onclick="navigateTo('detail')">상세 분석</button>
+      <button onclick="navigateTo('recommend')">교체 추천</button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="page active">
+      <div class="card analyzing-box">
+        <div class="loader"></div>
+        <h2>견적을 분석하고 있습니다</h2>
+        <p id="currentStep">견적 정보 확인 중...</p>
+
+        <div class="progress-wrap">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+
+        <div class="step-list" id="stepList">
+          <div class="step-item current">1단계: 견적 정보 확인</div>
+          <div class="step-item">2단계: 부품 시세 비교</div>
+          <div class="step-item">3단계: CPU-GPU 성능 밸런스 분석</div>
+          <div class="step-item">4단계: 호환성 검사</div>
+          <div class="step-item">5단계: 용도 적합성 평가</div>
+          <div class="step-item">6단계: 교체 추천 생성</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/script.js"></script>
+</body>
+</html>
