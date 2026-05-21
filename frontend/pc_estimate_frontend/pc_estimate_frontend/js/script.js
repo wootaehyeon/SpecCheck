@@ -117,17 +117,17 @@ function loadEstimateInput() {
 
 function getMockMarketPrices(parts) {
   const mockPriceMap = {
-    cpu: { lowestPrice: 168000, averagePrice: 182000, mall: '오픈마켓 A' },
-    gpu: { lowestPrice: 382000, averagePrice: 405000, mall: '오픈마켓 B' },
-    ram: { lowestPrice: 98000, averagePrice: 113000, mall: '오픈마켓 C' },
-    storage: { lowestPrice: 85000, averagePrice: 97000, mall: '오픈마켓 A' },
-    motherboard: { lowestPrice: 149000, averagePrice: 165000, mall: '오픈마켓 D' },
-    power: { lowestPrice: 59000, averagePrice: 69000, mall: '오픈마켓 B' }
+    cpu: { lowestPrice: 168000, averagePrice: 182000, mall: '오픈마켓 A', purchaseLink: '' },
+    gpu: { lowestPrice: 382000, averagePrice: 405000, mall: '오픈마켓 B', purchaseLink: '' },
+    ram: { lowestPrice: 98000, averagePrice: 113000, mall: '오픈마켓 C', purchaseLink: '' },
+    storage: { lowestPrice: 85000, averagePrice: 97000, mall: '오픈마켓 A', purchaseLink: '' },
+    motherboard: { lowestPrice: 149000, averagePrice: 165000, mall: '오픈마켓 D', purchaseLink: '' },
+    power: { lowestPrice: 59000, averagePrice: 69000, mall: '오픈마켓 B', purchaseLink: '' }
   };
 
   return parts.map((part) => ({
     ...part,
-    ...(mockPriceMap[part.key] || { lowestPrice: 0, averagePrice: 0, mall: '-' })
+    ...(mockPriceMap[part.key] || { lowestPrice: 0, averagePrice: 0, mall: '-', purchaseLink: '' })
   }));
 }
 
@@ -146,7 +146,7 @@ async function fetchOpenMarketPrices(parts) {
     }
 
     const data = await response.json();
-    return data.prices;
+    return data.prices || [];
   } catch (error) {
     console.warn('오픈마켓 API가 연결되지 않아 임시 가격 데이터를 사용합니다.', error);
     return getMockMarketPrices(parts);
@@ -282,12 +282,16 @@ function renderPriceCompare(priceCompare) {
     const diffClass = part.diff > 0 ? 'price-up' : part.diff < 0 ? 'price-down' : 'price-neutral';
     const diffText = `${part.diff > 0 ? '+' : ''}${formatWon(part.diff)} (${part.diffRate.toFixed(1)}%)`;
 
+    const purchaseInfo = part.purchaseLink
+      ? `<a href="${part.purchaseLink}" target="_blank" rel="noreferrer">구매 링크</a>`
+      : `${part.mall || ''}`;
+
     const row = document.createElement('tr');
     row.innerHTML = `
       <td>${part.category}</td>
       <td>${part.name}</td>
       <td>${formatWon(part.userPrice)}</td>
-      <td>${formatWon(part.lowestPrice)}<br><small>${part.mall || ''}</small></td>
+      <td>${formatWon(part.lowestPrice)}<br><small>${purchaseInfo}</small></td>
       <td>${formatWon(part.averagePrice)}</td>
       <td class="${diffClass}">${diffText}</td>
       <td><span class="badge ${part.badgeClass}">${part.status}</span></td>

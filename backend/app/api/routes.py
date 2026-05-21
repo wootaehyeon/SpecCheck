@@ -1,6 +1,14 @@
 from fastapi import APIRouter, HTTPException
-from app.schemas.price import PriceCheckRequest, PriceEvaluationResult
+from typing import List
+from app.schemas.price import (
+    PriceCheckRequest,
+    PriceEvaluationResult,
+    MarketPricesRequest,
+    MarketPricesResponse,
+    PartPriceInfo,
+)
 from app.services.price_evaluation import evaluate_price
+from app.services.naver_api import search_market_prices
 
 router = APIRouter()
 
@@ -11,8 +19,52 @@ def check_price(request: PriceCheckRequest):
     """
     result = evaluate_price(request)
     
-    # 만약 시세 조회를 실패한 경우 (error 메시지가 반환됨)
     if result.market_info.average_price == 0:
         raise HTTPException(status_code=404, detail=result.evaluation_message)
         
     return result
+
+@router.post("/market-prices", response_model=MarketPricesResponse)
+def market_prices(request: MarketPricesRequest):
+    """
+    여러 부품의 네이버 쇼핑 시세를 조회하여 프론트엔드에서 가공할 수 있는 데이터를 제공합니다.
+    """
+    response_items: List[PartPriceInfo] = []
+
+    for part in request.parts:
+        market_data = search_market_prices(part.name)
+        if "error" in market_data:
+            response_items.append(
+                PartPriceInfo(
+                    key=part.key,
+                    category=part.category,
+                    name=part.name,
+                    userPrice=part.userPrice,
+                    lowestPrice=0,
+                    highestPrice=0,
+                    averagePrice=0,
+                    purchaseLink=None,
+                    mall=None,
+                    source="error",
+                    error=market_data.get("error")
+                )
+            )
+            continue
+
+        response_items.append(
+            PartPriceInfo(
+                key=part.key,
+                category=part.category,
+                name=part.name,
+                userPrice=part.userPrice,
+                lowestPrice=market_data["lowest_price"],
+                highestPrice=market_data["highest_price"],
+                averagePrice=market_data["average_price"],
+                purchaseLink=market_data.get("purchase_link"),
+                mall="Naver 쇼핑",
+                source="naver",
+                error=None
+            )
+        )
+
+    return MarketPricesResponse(prices=response_items)
