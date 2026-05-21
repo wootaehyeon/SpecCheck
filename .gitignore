@@ -60,3 +60,7 @@ Thumbs.db
 # ===========================
 *.zip
 *.tar.gz
+
+# Backend secrets and caches
+backend/.env
+backend/data/price_cache.json
