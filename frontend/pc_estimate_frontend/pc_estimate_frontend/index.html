@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI PC 견적 평가 시스템</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header>
+    <div class="logo">AI PC 견적 평가</div>
+    <nav>
+      <button onclick="showPage('main')">메인</button>
+      <button onclick="showPage('input')">견적 입력</button>
+      <button onclick="showPage('result')">분석 결과</button>
+      <button onclick="showPage('detail')">상세 분석</button>
+      <button onclick="showPage('recommend')">교체 추천</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="main" class="page active">
+      <div class="hero">
+        <div class="hero-text">
+          <h1>AI 기반<br />PC 견적 평가 시스템</h1>
+          <p>
+            견적서를 업로드하거나 직접 입력하면 가격, 성능 밸런스, 호환성,
+            최신성, 용도 적합성을 종합적으로 분석합니다.
+          </p>
+          <button class="btn btn-primary" onclick="showPage('input')">견적 분석 시작하기</button>
+        </div>
+
+        <div class="hero-card">
+          <h3>주요 분석 기능</h3>
+          <div class="feature-grid">
+            <div class="feature-item">
+              <strong>가격 평가</strong>
+              <span>부품별 시세와 비교</span>
+            </div>
+            <div class="feature-item">
+              <strong>성능 밸런스</strong>
+              <span>CPU·GPU 조합 분석</span>
+            </div>
+            <div class="feature-item">
+              <strong>호환성 검사</strong>
+              <span>소켓, RAM, 파워 확인</span>
+            </div>
+            <div class="feature-item">
+              <strong>교체 추천</strong>
+              <span>가성비 대체 부품 제안</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="input" class="page">
+      <div class="section-title">
+        <h2>견적 입력</h2>
+        <p>파일을 업로드하거나 부품 정보를 직접 입력하세요.</p>
+      </div>
+
+      <div class="input-layout">
+        <div class="card">
+          <h3>파일 업로드</h3>
+          <div class="upload-box">
+            <div class="upload-icon">📁</div>
+            <strong>견적서 파일을 업로드하세요</strong>
+            <p>이미지, PDF, 엑셀, 텍스트 파일 지원</p>
+            <input type="file" />
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>직접 입력</h3>
+          <div class="form-grid">
+            <div class="form-group full">
+              <label>사용 목적</label>
+              <select id="purpose">
+                <option value="게임">게임</option>
+                <option value="사무">사무</option>
+                <option value="개발">개발</option>
+                <option value="영상편집">영상편집</option>
+                <option value="AI 작업">AI 작업</option>
+                <option value="기타">기타</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>CPU</label>
+              <input id="cpu" type="text" placeholder="예: Ryzen 5 7500F" value="Ryzen 5 7500F" />
+            </div>
+
+            <div class="form-group">
+              <label>CPU 가격</label>
+              <input id="cpuPrice" type="number" placeholder="예: 180000" value="180000" />
+            </div>
+
+            <div class="form-group">
+              <label>GPU</label>
+              <input id="gpu" type="text" placeholder="예: RTX 4060" value="RTX 4060" />
+            </div>
+
+            <div class="form-group">
+              <label>GPU 가격</label>
+              <input id="gpuPrice" type="number" placeholder="예: 430000" value="430000" />
+            </div>
+
+            <div class="form-group">
+              <label>RAM</label>
+              <input id="ram" type="text" placeholder="예: 32GB DDR5" value="32GB DDR5" />
+            </div>
+
+            <div class="form-group">
+              <label>RAM 가격</label>
+              <input id="ramPrice" type="number" placeholder="예: 110000" value="110000" />
+            </div>
+
+            <div class="form-group">
+              <label>SSD / HDD</label>
+              <input id="storage" type="text" placeholder="예: 1TB NVMe SSD" value="1TB NVMe SSD" />
+            </div>
+
+            <div class="form-group">
+              <label>저장장치 가격</label>
+              <input id="storagePrice" type="number" placeholder="예: 95000" value="95000" />
+            </div>
+
+            <div class="form-group">
+              <label>메인보드</label>
+              <input id="motherboard" type="text" placeholder="예: B650M" value="B650M" />
+            </div>
+
+            <div class="form-group">
+              <label>메인보드 가격</label>
+              <input id="motherboardPrice" type="number" placeholder="예: 160000" value="160000" />
+            </div>
+
+            <div class="form-group">
+              <label>파워</label>
+              <input id="power" type="text" placeholder="예: 600W" value="600W" />
+            </div>
+
+            <div class="form-group">
+              <label>파워 가격</label>
+              <input id="powerPrice" type="number" placeholder="예: 65000" value="65000" />
+            </div>
+
+            <div class="form-group full">
+              <label>총 가격</label>
+              <input id="totalPrice" type="number" placeholder="부품별 가격 합계가 자동 계산됩니다" readonly />
+            </div>
+          </div>
+
+          <div class="button-row">
+            <button class="btn btn-primary" onclick="startAnalysis()">분석 시작</button>
+            <button class="btn btn-secondary" onclick="showPage('main')">이전</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="analyzing" class="page">
+      <div class="card analyzing-box">
+        <div class="loader"></div>
+        <h2>견적을 분석하고 있습니다</h2>
+        <p id="currentStep">견적 정보 확인 중...</p>
+
+        <div class="progress-wrap">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+
+        <div class="step-list" id="stepList">
+          <div class="step-item current">1단계: 견적 정보 확인</div>
+          <div class="step-item">2단계: 부품 시세 비교</div>
+          <div class="step-item">3단계: CPU-GPU 성능 밸런스 분석</div>
+          <div class="step-item">4단계: 호환성 검사</div>
+          <div class="step-item">5단계: 용도 적합성 평가</div>
+          <div class="step-item">6단계: 교체 추천 생성</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="result" class="page">
+      <div class="section-title">
+        <h2>분석 결과</h2>
+        <p>입력된 PC 견적에 대한 종합 평가입니다.</p>
+      </div>
+
+      <div class="summary-grid">
+        <div class="summary-card">
+          <span>구매 가능 여부</span>
+          <strong><span id="purchaseStatus" class="badge badge-warning">-</span></strong>
+        </div>
+        <div class="summary-card">
+          <span>위험도 점수</span>
+          <strong id="riskScore">-</strong>
+        </div>
+        <div class="summary-card">
+          <span>총 가격</span>
+          <strong id="resultPrice">-</strong>
+        </div>
+        <div class="summary-card">
+          <span>용도 적합성</span>
+          <strong><span id="purposeFit" class="badge badge-good">-</span></strong>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>AI 요약 의견</h3>
+        <div id="summaryText" class="result-comment">
+          분석 결과가 여기에 표시됩니다.
+        </div>
+
+        <div class="price-compare-section">
+          <div class="section-subtitle">
+            <h3>부품별 가격 비교</h3>
+            <p>사용자가 입력한 부품 가격과 오픈마켓 API에서 가져온 최저가/평균가를 비교합니다.</p>
+          </div>
+
+          <div class="table-wrap">
+            <table class="price-table">
+              <thead>
+                <tr>
+                  <th>부품</th>
+                  <th>모델명</th>
+                  <th>입력 가격</th>
+                  <th>오픈마켓 최저가</th>
+                  <th>오픈마켓 평균가</th>
+                  <th>차이</th>
+                  <th>평가</th>
+                </tr>
+              </thead>
+              <tbody id="priceCompareBody">
+                <tr>
+                  <td colspan="7">분석 후 가격 비교 결과가 표시됩니다.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="price-total-grid">
+            <div class="summary-card">
+              <span>입력 가격 합계</span>
+              <strong id="inputTotalPrice">-</strong>
+            </div>
+            <div class="summary-card">
+              <span>오픈마켓 최저가 합계</span>
+              <strong id="marketLowestTotal">-</strong>
+            </div>
+            <div class="summary-card">
+              <span>오픈마켓 평균가 합계</span>
+              <strong id="marketAverageTotal">-</strong>
+            </div>
+            <div class="summary-card">
+              <span>가격 차이 평가</span>
+              <strong><span id="priceDiffStatus" class="badge badge-warning">-</span></strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="button-row">
+          <button class="btn btn-primary" onclick="showPage('detail')">상세히 보기</button>
+          <button class="btn btn-primary" onclick="showPage('recommend')">부품 교체 추천</button>
+          <button class="btn btn-secondary" onclick="showPage('community')">커뮤니티 의견</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="community" class="page">
+      <div class="section-title">
+        <h2>커뮤니티 의견</h2>
+        <p>사용자 의견과 자주 언급되는 평가를 요약합니다.</p>
+      </div>
+
+      <div class="card space-bottom">
+        <h3>전체 의견 요약</h3>
+        <p class="result-comment">
+          게임용으로는 무난하지만 RTX 4060 가격이 높다는 의견이 많습니다.
+          파워 용량은 사용 가능하지만 향후 업그레이드를 고려하면 더 높은 용량을 추천한다는 의견이 있습니다.
+        </p>
+        <div class="keyword-row">
+          <span class="keyword">오버페이</span>
+          <span class="keyword">GPU 가격</span>
+          <span class="keyword">파워 여유</span>
+          <span class="keyword">FHD 게임</span>
+          <span class="keyword">가성비</span>
+        </div>
+      </div>
+
+      <div class="community-layout">
+        <div class="card">
+          <h3>긍정 의견</h3>
+          <ul>
+            <li>CPU와 GPU 조합은 FHD 게임 기준 무난함</li>
+            <li>DDR5 플랫폼이라 최신성이 괜찮음</li>
+            <li>RAM 32GB 구성은 여유 있음</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>부정 의견</h3>
+          <ul>
+            <li>RTX 4060 가격이 다소 높음</li>
+            <li>600W 파워는 업그레이드 시 부족할 수 있음</li>
+            <li>비슷한 가격대에서 대체 GPU 고려 가능</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="button-row">
+        <button class="btn btn-secondary" onclick="showPage('result')">결과로 돌아가기</button>
+      </div>
+    </section>
+
+    <section id="detail" class="page">
+      <div class="section-title">
+        <h2>상세 분석</h2>
+        <p>가격, 성능 밸런스, 호환성, 최신성을 세부적으로 확인합니다.</p>
+      </div>
+
+      <div class="detail-grid">
+        <div class="card detail-card">
+          <h3>가격 평가</h3>
+          <p id="priceDetail">-</p>
+          <div class="score-line"><div id="priceScoreBar" class="score-fill"></div></div>
+          <span id="priceStatus" class="badge badge-warning">-</span>
+        </div>
+
+        <div class="card detail-card">
+          <h3>성능 밸런스</h3>
+          <p id="balanceDetail">-</p>
+          <div class="score-line"><div id="balanceScoreBar" class="score-fill"></div></div>
+          <span id="balanceStatus" class="badge badge-good">-</span>
+        </div>
+
+        <div class="card detail-card">
+          <h3>호환성</h3>
+          <p id="compatibilityDetail">-</p>
+          <div class="score-line"><div id="compatibilityScoreBar" class="score-fill"></div></div>
+          <span id="compatibilityStatus" class="badge badge-warning">-</span>
+        </div>
+
+        <div class="card detail-card">
+          <h3>최신성</h3>
+          <p id="recencyDetail">-</p>
+          <div class="score-line"><div id="recencyScoreBar" class="score-fill"></div></div>
+          <span id="recencyStatus" class="badge badge-good">-</span>
+        </div>
+      </div>
+
+      <div class="button-row">
+        <button class="btn btn-secondary" onclick="showPage('result')">결과로 돌아가기</button>
+        <button class="btn btn-primary" onclick="showPage('recommend')">교체 추천 보기</button>
+      </div>
+    </section>
+
+    <section id="recommend" class="page">
+      <div class="section-title">
+        <h2>부품 교체 추천</h2>
+        <p>현재 부품과 추천 부품을 비교하여 더 나은 선택지를 제안합니다.</p>
+      </div>
+
+      <div class="compare-layout">
+        <div class="part-card">
+          <h3>현재 부품</h3>
+          <div class="part-info">
+            <p><strong>부품:</strong> <span id="currentPart">-</span></p>
+            <p><strong>가격:</strong> <span id="currentPrice">-</span></p>
+            <p><strong>성능 점수:</strong> <span id="currentPerformance">-</span></p>
+            <p><strong>가격 효율:</strong> <span id="currentValue">-</span></p>
+          </div>
+        </div>
+
+        <div class="part-card recommend">
+          <h3>추천 부품</h3>
+          <div class="part-info">
+            <p><strong>부품:</strong> <span id="recommendedPart">-</span></p>
+            <p><strong>가격:</strong> <span id="recommendedPrice">-</span></p>
+            <p><strong>성능 점수:</strong> <span id="recommendedPerformance">-</span></p>
+            <p><strong>가격 효율:</strong> <span id="recommendedValue">-</span></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>교체 이유</h3>
+        <p id="recommendReason" class="result-comment">-</p>
+
+        <div class="improve-grid">
+          <div class="summary-card">
+            <span>가격 효율</span>
+            <strong id="valueImprovement">-</strong>
+          </div>
+          <div class="summary-card">
+            <span>성능 점수</span>
+            <strong id="performanceImprovement">-</strong>
+          </div>
+          <div class="summary-card">
+            <span>전체 점수</span>
+            <strong id="beforeAfterScore">-</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="button-row">
+        <button class="btn btn-secondary" onclick="showPage('result')">결과로 돌아가기</button>
+        <button class="btn btn-primary" onclick="showPage('detail')">상세 분석 보기</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/script.js"></script>
+</body>
+</html>
