@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from app.services.price_manager import get_price
+from app.logic.compatibility import check_compatibility
 
 DATA_DIR = Path(__file__).parent.parent.parent / "data"
 
@@ -94,7 +95,7 @@ def evaluate_build(build: dict) -> dict:
         "bottleneck_percentage": bottleneck_pct,
         "bottleneck_component": bottleneck_component,
         "tier": _tier(overall),
-        "compatibility": _check_compatibility(build),
+        "compatibility": check_compatibility(build),
     }
 
 
@@ -106,34 +107,4 @@ def _tier(score: int) -> str:
     return "D"
 
 
-def _check_compatibility(build: dict) -> list:
-    issues = []
-    cpu = build.get("cpu", "").lower()
-    mobo = build.get("motherboard", "").lower()
-    ram = build.get("ram", "").lower()
-
-    # RAM 세대 불일치
-    if "ddr5" in ram and "ddr4" in mobo:
-        issues.append({"type": "error", "component": "RAM / 메인보드",
-                        "message": "DDR5 RAM과 DDR4 지원 메인보드는 호환되지 않습니다."})
-    elif "ddr4" in ram and "ddr5" in mobo:
-        issues.append({"type": "error", "component": "RAM / 메인보드",
-                        "message": "DDR4 RAM과 DDR5 지원 메인보드는 호환되지 않습니다."})
-
-    # CPU-소켓 불일치
-    is_intel = any(k in cpu for k in ["i3", "i5", "i7", "i9", "intel"])
-    is_amd = any(k in cpu for k in ["ryzen", "r5", "r7", "r9", "amd"])
-    amd_socket = any(k in mobo for k in ["am4", "am5", "b550", "x570", "b650", "x670"])
-    intel_socket = any(k in mobo for k in ["z790", "z690", "b760", "h770", "lga1700", "lga1200"])
-
-    if is_intel and amd_socket:
-        issues.append({"type": "error", "component": "CPU / 메인보드",
-                        "message": "Intel CPU는 AMD 소켓(AM4/AM5) 메인보드와 호환되지 않습니다."})
-    if is_amd and intel_socket:
-        issues.append({"type": "error", "component": "CPU / 메인보드",
-                        "message": "AMD CPU는 Intel 소켓(LGA1700) 메인보드와 호환되지 않습니다."})
-
-    if not issues:
-        issues.append({"type": "ok", "component": "전체 호환성",
-                        "message": "주요 호환성 이슈가 발견되지 않았습니다. ✅"})
-    return issues
+# compatibility checks are handled in app.logic.compatibility.check_compatibility

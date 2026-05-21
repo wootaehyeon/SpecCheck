@@ -13,6 +13,8 @@ from app.schemas.price import (
 from app.services.price_evaluation import evaluate_price
 from app.services.crawl_service import crawl_related_parts
 from app.services.naver_api import search_market_prices
+from app.schemas.evaluation import BuildRequest, EvaluationResult
+from app.logic.risk_score import compute_risk
 
 router = APIRouter()
 
@@ -72,6 +74,34 @@ def market_prices(request: MarketPricesRequest):
         )
 
     return MarketPricesResponse(prices=response_items)
+
+
+@router.post("/evaluate-build", response_model=EvaluationResult)
+def evaluate_build(request: BuildRequest):
+    """CPU/GPU 성능 평가, 호환성 검사, 구매 위험도 점수 계산 후 반환합니다."""
+    build = request.dict()
+    risk = compute_risk(build)
+
+    eval_data = risk.get("evaluation", {})
+    comp = risk.get("compatibility", {})
+    breakdown = risk.get("breakdown", {})
+
+    # map to response model
+    return EvaluationResult(
+        cpu_matched=eval_data.get("cpu_matched"),
+        cpu_score=eval_data.get("cpu_score", 0),
+        gpu_matched=eval_data.get("gpu_matched"),
+        gpu_score=eval_data.get("gpu_score", 0),
+        overall_score=eval_data.get("overall_score", 0),
+        tier=eval_data.get("tier", ""),
+        compatibility={
+            "issues": comp.get("issues", []),
+            "estimated_required_watt": comp.get("estimated_required_watt", 0),
+            "recommended_psu_watt": comp.get("recommended_psu_watt", 0),
+        },
+        risk_score=risk.get("risk_score", 0),
+        risk_breakdown=breakdown,
+    )
 
 @router.post("/crawl", response_model=CrawlResponse)
 def crawl(request: CrawlRequest):
