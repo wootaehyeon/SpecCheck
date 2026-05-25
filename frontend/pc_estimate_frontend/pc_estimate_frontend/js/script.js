@@ -1,11 +1,13 @@
 ﻿const OPEN_MARKET_API_URL = 'http://localhost:8000/api/market-prices';
+const CRAWL_API_URL = 'http://localhost:8000/api/crawl';
 const PAGE_URLS = {
   main: 'index.html',
   input: 'input.html',
   analyzing: 'analyzing.html',
   result: 'result.html',
   detail: 'detail.html',
-  recommend: 'recommend.html'
+  recommend: 'recommend.html',
+  crawl: 'crawl.html'
 };
 
 function navigateTo(page) {
@@ -129,6 +131,100 @@ function getMockMarketPrices(parts) {
     ...part,
     ...(mockPriceMap[part.key] || { lowestPrice: 0, averagePrice: 0, mall: '-', purchaseLink: '' })
   }));
+}
+
+const sampleCrawlResults = [
+  {
+    source: 'DC인사이드 CPU갤',
+    keyword: 'i9-13900K',
+    title: '[구매문의] i9-13900K 최저가 어디인가요?',
+    date: '2026-05-25',
+    url: 'https://gall.dcinside.com/mgallery/board/view/?id=cpu&no=12345'
+  },
+  {
+    source: 'DC인사이드 VGA갤',
+    keyword: 'RTX 4070',
+    title: '[판매] RTX 4070 중고 팝니다',
+    date: '2026-05-24',
+    url: 'https://gall.dcinside.com/mgallery/board/view/?id=vga&no=54321'
+  },
+  {
+    source: 'DC인사이드 CPU갤',
+    keyword: '라이젠 7600X',
+    title: '[정보] 라이젠 7600X 할인 정보',
+    date: '2026-05-23',
+    url: 'https://gall.dcinside.com/mgallery/board/view/?id=cpu&no=67890'
+  },
+  {
+    source: 'DC인사이드 VGA갤',
+    keyword: 'RX 7900 XT',
+    title: '[구매] 중고 RX 7900 XT 찾습니다',
+    date: '2026-05-22',
+    url: 'https://gall.dcinside.com/mgallery/board/view/?id=vga&no=98765'
+  }
+];
+
+async function fetchCrawlResults(estimate) {
+  try {
+    const response = await fetch(CRAWL_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ parts: estimate.parts.map((part) => ({ key: part.key, category: part.category, name: part.name })) })
+    });
+
+    if (!response.ok) {
+      throw new Error('크롤링 API 호출 실패');
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.warn('크롤링 API 호출에 실패하여 샘플 데이터를 표시합니다.', error);
+    return { keywords: estimate.parts.map((part) => part.name).filter(Boolean), results: sampleCrawlResults };
+  }
+}
+
+function renderCrawlData(results, queryText = '입력 견적을 먼저 등록해 주세요.') {
+  const tbody = safeGet('crawlTableBody');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+
+  results.forEach((item) => {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${item.source}</td>
+      <td><a href="${item.url}" target="_blank" rel="noreferrer">${item.title}</a></td>
+      <td>${item.keyword || '-'}</td>
+      <td>${item.date}</td>
+      <td>${item.collected_at || '-'}</td>
+      <td><a href="${item.url}" target="_blank" rel="noreferrer">열기</a></td>
+    `;
+    tbody.appendChild(row);
+  });
+
+  safeSetText('crawlCount', results.length);
+  safeSetText('crawlLatestDate', results[0]?.date || '-');
+  safeSetText('crawlSources', 'DC인사이드');
+  safeSetText('crawlQuery', queryText);
+}
+
+function initCrawlPage() {
+  const estimate = loadData('estimateInput');
+  const queryText = estimate?.parts?.map((part) => part.name).filter(Boolean).join(' / ') || '입력 견적을 먼저 등록해 주세요.';
+
+  if (!estimate) {
+    renderCrawlData(sampleCrawlResults, queryText);
+    return;
+  }
+
+  fetchCrawlResults(estimate).then((data) => {
+    renderCrawlData(data.results || sampleCrawlResults, data.keywords?.join(' / ') || queryText);
+  }).catch(() => {
+    renderCrawlData(sampleCrawlResults, queryText);
+  });
 }
 
 async function fetchOpenMarketPrices(parts) {
@@ -477,6 +573,8 @@ function initPage() {
     initDetailPage();
   } else if (currentPage === 'recommend') {
     initRecommendPage();
+  } else if (currentPage === 'crawl') {
+    initCrawlPage();
   }
 }
 

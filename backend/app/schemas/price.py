@@ -45,3 +45,19 @@ class MarketPricesRequest(BaseModel):
 
 class MarketPricesResponse(BaseModel):
     prices: List[PartPriceInfo]
+
+class CrawlRequest(BaseModel):
+    parts: List[PartRequest]
+
+class CrawlItem(BaseModel):
+    source: str
+    keyword: str
+    title: str
+    date: str
+    url: str
+    post_id: str
+    collected_at: str
+
+class CrawlResponse(BaseModel):
+    keywords: List[str]
+    results: List[CrawlItem]

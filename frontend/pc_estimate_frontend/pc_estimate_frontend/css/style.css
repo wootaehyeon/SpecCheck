@@ -561,6 +561,46 @@ ul {
   margin-top: 18px;
 }
 
+.crawl-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.crawl-query {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding: 18px 20px;
+  border-radius: 18px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+}
+
+.crawl-query span {
+  color: #6b7280;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.crawl-query strong {
+  font-size: 15px;
+  color: #111827;
+}
+
+.crawl-table th,
+.crawl-table td {
+  vertical-align: top;
+}
+
+.crawl-table td:first-child,
+.crawl-table td:nth-child(4),
+.crawl-table td:nth-child(5) {
+  white-space: nowrap;
+}
+
 .price-up {
   color: #dc2626;
   font-weight: 800;

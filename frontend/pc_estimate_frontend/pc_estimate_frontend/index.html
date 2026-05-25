@@ -1,60 +1,63 @@
-﻿<!DOCTYPE html>
+﻿<!doctype html>
 <html lang="ko">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI PC 견적 평가 시스템</title>
-  <link rel="stylesheet" href="css/style.css" />
-</head>
-<body>
-  <header>
-    <div class="logo">AI PC 견적 평가</div>
-    <nav>
-      <button onclick="navigateTo('main')">메인</button>
-      <button onclick="navigateTo('input')">견적 입력</button>
-      <button onclick="navigateTo('result')">분석 결과</button>
-      <button onclick="navigateTo('detail')">상세 분석</button>
-      <button onclick="navigateTo('recommend')">교체 추천</button>
-    </nav>
-  </header>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI PC 견적 평가 시스템</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <header>
+      <div class="logo">AI PC 견적 평가</div>
+      <nav>
+        <button onclick="navigateTo('main')">메인</button>
+        <button onclick="navigateTo('input')">견적 입력</button>
+        <button onclick="navigateTo('result')">분석 결과</button>
+        <button onclick="navigateTo('detail')">상세 분석</button>
+        <button onclick="navigateTo('recommend')">교체 추천</button>
+        <button onclick="navigateTo('crawl')">크롤링 보기</button>
+      </nav>
+    </header>
 
-  <main>
-    <section class="page active">
-      <div class="hero">
-        <div class="hero-text">
-          <h1>AI 기반<br />PC 견적 평가 시스템</h1>
-          <p>
-            견적서를 업로드하거나 직접 입력하면 가격, 성능 밸런스, 호환성,
-            최신성, 용도 적합성을 종합적으로 분석합니다.
-          </p>
-          <button class="btn btn-primary" onclick="navigateTo('input')">견적 분석 시작하기</button>
-        </div>
+    <main>
+      <section class="page active">
+        <div class="hero">
+          <div class="hero-text">
+            <h1>AI 기반<br />PC 견적 평가 시스템</h1>
+            <p>
+              견적서를 업로드하거나 직접 입력하면 가격, 성능 밸런스, 호환성,
+              최신성, 용도 적합성을 종합적으로 분석합니다.
+            </p>
+            <button class="btn btn-primary" onclick="navigateTo('input')">
+              견적 분석 시작하기
+            </button>
+          </div>
 
-        <div class="hero-card">
-          <h3>주요 분석 기능</h3>
-          <div class="feature-grid">
-            <div class="feature-item">
-              <strong>가격 평가</strong>
-              <span>부품별 시세와 비교</span>
-            </div>
-            <div class="feature-item">
-              <strong>성능 밸런스</strong>
-              <span>CPU·GPU 조합 분석</span>
-            </div>
-            <div class="feature-item">
-              <strong>호환성 검사</strong>
-              <span>소켓, RAM, 파워 확인</span>
-            </div>
-            <div class="feature-item">
-              <strong>교체 추천</strong>
-              <span>가성비 대체 부품 제안</span>
+          <div class="hero-card">
+            <h3>주요 분석 기능</h3>
+            <div class="feature-grid">
+              <div class="feature-item">
+                <strong>가격 평가</strong>
+                <span>부품별 시세와 비교</span>
+              </div>
+              <div class="feature-item">
+                <strong>성능 밸런스</strong>
+                <span>CPU·GPU 조합 분석</span>
+              </div>
+              <div class="feature-item">
+                <strong>호환성 검사</strong>
+                <span>소켓, RAM, 파워 확인</span>
+              </div>
+              <div class="feature-item">
+                <strong>교체 추천</strong>
+                <span>가성비 대체 부품 제안</span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </section>
-  </main>
+      </section>
+    </main>
 
-  <script src="js/script.js"></script>
-</body>
+    <script src="js/script.js"></script>
+  </body>
 </html>

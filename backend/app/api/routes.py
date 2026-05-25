@@ -5,9 +5,13 @@ from app.schemas.price import (
     PriceEvaluationResult,
     MarketPricesRequest,
     MarketPricesResponse,
+    PartRequest,
     PartPriceInfo,
+    CrawlRequest,
+    CrawlResponse,
 )
 from app.services.price_evaluation import evaluate_price
+from app.services.crawl_service import crawl_related_parts
 from app.services.naver_api import search_market_prices
 
 router = APIRouter()
@@ -68,3 +72,11 @@ def market_prices(request: MarketPricesRequest):
         )
 
     return MarketPricesResponse(prices=response_items)
+
+@router.post("/crawl", response_model=CrawlResponse)
+def crawl(request: CrawlRequest):
+    search_results = crawl_related_parts(request.parts)
+    return CrawlResponse(
+        keywords=[part.name for part in request.parts if part.name],
+        results=search_results,
+    )

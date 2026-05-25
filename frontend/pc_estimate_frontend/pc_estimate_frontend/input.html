@@ -1,131 +1,201 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>견적 입력 - AI PC 견적 평가 시스템</title>
-  <link rel="stylesheet" href="css/style.css" />
-</head>
-<body>
-  <header>
-    <div class="logo">AI PC 견적 평가</div>
-    <nav>
-      <button onclick="navigateTo('main')">메인</button>
-      <button onclick="navigateTo('input')">견적 입력</button>
-      <button onclick="navigateTo('result')">분석 결과</button>
-      <button onclick="navigateTo('detail')">상세 분석</button>
-      <button onclick="navigateTo('recommend')">교체 추천</button>
-    </nav>
-  </header>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>견적 입력 - AI PC 견적 평가 시스템</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <header>
+      <div class="logo">AI PC 견적 평가</div>
+      <nav>
+        <button onclick="navigateTo('main')">메인</button>
+        <button onclick="navigateTo('input')">견적 입력</button>
+        <button onclick="navigateTo('result')">분석 결과</button>
+        <button onclick="navigateTo('detail')">상세 분석</button>
+        <button onclick="navigateTo('recommend')">교체 추천</button>
+        <button onclick="navigateTo('crawl')">크롤링 보기</button>
+      </nav>
+    </header>
 
-  <main>
-    <section class="page active">
-      <div class="section-title">
-        <h2>견적 입력</h2>
-        <p>파일을 업로드하거나 부품 정보를 직접 입력하세요.</p>
-      </div>
-
-      <div class="input-layout">
-        <div class="card">
-          <h3>파일 업로드</h3>
-          <div class="upload-box">
-            <div class="upload-icon">📁</div>
-            <strong>견적서 파일을 업로드하세요</strong>
-            <p>이미지, PDF, 엑셀, 텍스트 파일 지원</p>
-            <input type="file" />
-          </div>
+    <main>
+      <section class="page active">
+        <div class="section-title">
+          <h2>견적 입력</h2>
+          <p>파일을 업로드하거나 부품 정보를 직접 입력하세요.</p>
         </div>
 
-        <div class="card">
-          <h3>직접 입력</h3>
-          <div class="form-grid">
-            <div class="form-group full">
-              <label>사용 목적</label>
-              <select id="purpose">
-                <option value="게임">게임</option>
-                <option value="사무">사무</option>
-                <option value="개발">개발</option>
-                <option value="영상편집">영상편집</option>
-                <option value="AI 작업">AI 작업</option>
-                <option value="기타">기타</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label>CPU</label>
-              <input id="cpu" type="text" placeholder="예: Ryzen 5 7500F" value="Ryzen 5 7500F" />
-            </div>
-
-            <div class="form-group">
-              <label>CPU 가격</label>
-              <input id="cpuPrice" type="number" placeholder="예: 180000" value="180000" />
-            </div>
-
-            <div class="form-group">
-              <label>GPU</label>
-              <input id="gpu" type="text" placeholder="예: RTX 4060" value="RTX 4060" />
-            </div>
-
-            <div class="form-group">
-              <label>GPU 가격</label>
-              <input id="gpuPrice" type="number" placeholder="예: 430000" value="430000" />
-            </div>
-
-            <div class="form-group">
-              <label>RAM</label>
-              <input id="ram" type="text" placeholder="예: 32GB DDR5" value="32GB DDR5" />
-            </div>
-
-            <div class="form-group">
-              <label>RAM 가격</label>
-              <input id="ramPrice" type="number" placeholder="예: 110000" value="110000" />
-            </div>
-
-            <div class="form-group">
-              <label>SSD / HDD</label>
-              <input id="storage" type="text" placeholder="예: 1TB NVMe SSD" value="1TB NVMe SSD" />
-            </div>
-
-            <div class="form-group">
-              <label>저장장치 가격</label>
-              <input id="storagePrice" type="number" placeholder="예: 95000" value="95000" />
-            </div>
-
-            <div class="form-group">
-              <label>메인보드</label>
-              <input id="motherboard" type="text" placeholder="예: B650M" value="B650M" />
-            </div>
-
-            <div class="form-group">
-              <label>메인보드 가격</label>
-              <input id="motherboardPrice" type="number" placeholder="예: 160000" value="160000" />
-            </div>
-
-            <div class="form-group">
-              <label>파워</label>
-              <input id="power" type="text" placeholder="예: 600W" value="600W" />
-            </div>
-
-            <div class="form-group">
-              <label>파워 가격</label>
-              <input id="powerPrice" type="number" placeholder="예: 65000" value="65000" />
-            </div>
-
-            <div class="form-group full">
-              <label>총 가격</label>
-              <input id="totalPrice" type="number" placeholder="부품별 가격 합계가 자동 계산됩니다" readonly />
+        <div class="input-layout">
+          <div class="card">
+            <h3>파일 업로드</h3>
+            <div class="upload-box">
+              <div class="upload-icon">📁</div>
+              <strong>견적서 파일을 업로드하세요</strong>
+              <p>이미지, PDF, 엑셀, 텍스트 파일 지원</p>
+              <input type="file" />
             </div>
           </div>
 
-          <div class="button-row">
-            <button id="startAnalysisButton" class="btn btn-primary">분석 시작</button>
-            <button class="btn btn-secondary" onclick="navigateTo('main')">메인으로</button>
+          <div class="card">
+            <h3>직접 입력</h3>
+            <div class="form-grid">
+              <div class="form-group full">
+                <label>사용 목적</label>
+                <select id="purpose">
+                  <option value="게임">게임</option>
+                  <option value="사무">사무</option>
+                  <option value="개발">개발</option>
+                  <option value="영상편집">영상편집</option>
+                  <option value="AI 작업">AI 작업</option>
+                  <option value="기타">기타</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label>CPU</label>
+                <input
+                  id="cpu"
+                  type="text"
+                  placeholder="예: Ryzen 5 7500F"
+                  value="Ryzen 5 7500F"
+                />
+              </div>
+
+              <div class="form-group">
+                <label>CPU 가격</label>
+                <input
+                  id="cpuPrice"
+                  type="number"
+                  placeholder="예: 180000"
+                  value="180000"
+                />
+              </div>
+
+              <div class="form-group">
+                <label>GPU</label>
+                <input
+                  id="gpu"
+                  type="text"
+                  placeholder="예: RTX 4060"
+                  value="RTX 4060"
+                />
+              </div>
+
+              <div class="form-group">
+                <label>GPU 가격</label>
+                <input
+                  id="gpuPrice"
+                  type="number"
+                  placeholder="예: 430000"
+                  value="430000"
+                />
+              </div>
+
+              <div class="form-group">
+                <label>RAM</label>
+                <input
+                  id="ram"
+                  type="text"
+                  placeholder="예: 32GB DDR5"
+                  value="32GB DDR5"
+                />
+              </div>
+
+              <div class="form-group">
+                <label>RAM 가격</label>
+                <input
+                  id="ramPrice"
+                  type="number"
+                  placeholder="예: 110000"
+                  value="110000"
+                />
+              </div>
+
+              <div class="form-group">
+                <label>SSD / HDD</label>
+                <input
+                  id="storage"
+                  type="text"
+                  placeholder="예: 1TB NVMe SSD"
+                  value="1TB NVMe SSD"
+                />
+              </div>
+
+              <div class="form-group">
+                <label>저장장치 가격</label>
+                <input
+                  id="storagePrice"
+                  type="number"
+                  placeholder="예: 95000"
+                  value="95000"
+                />
+              </div>
+
+              <div class="form-group">
+                <label>메인보드</label>
+                <input
+                  id="motherboard"
+                  type="text"
+                  placeholder="예: B650M"
+                  value="B650M"
+                />
+              </div>
+
+              <div class="form-group">
+                <label>메인보드 가격</label>
+                <input
+                  id="motherboardPrice"
+                  type="number"
+                  placeholder="예: 160000"
+                  value="160000"
+                />
+              </div>
+
+              <div class="form-group">
+                <label>파워</label>
+                <input
+                  id="power"
+                  type="text"
+                  placeholder="예: 600W"
+                  value="600W"
+                />
+              </div>
+
+              <div class="form-group">
+                <label>파워 가격</label>
+                <input
+                  id="powerPrice"
+                  type="number"
+                  placeholder="예: 65000"
+                  value="65000"
+                />
+              </div>
+
+              <div class="form-group full">
+                <label>총 가격</label>
+                <input
+                  id="totalPrice"
+                  type="number"
+                  placeholder="부품별 가격 합계가 자동 계산됩니다"
+                  readonly
+                />
+              </div>
+            </div>
+
+            <div class="button-row">
+              <button id="startAnalysisButton" class="btn btn-primary">
+                분석 시작
+              </button>
+              <button class="btn btn-secondary" onclick="navigateTo('main')">
+                메인으로
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    </section>
-  </main>
+      </section>
+    </main>
 
-  <script src="js/script.js"></script>
-</body>
+    <script src="js/script.js"></script>
+  </body>
 </html>

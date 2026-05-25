@@ -1,76 +1,89 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>상세 분석 - AI PC 견적 평가 시스템</title>
-  <link rel="stylesheet" href="css/style.css" />
-</head>
-<body>
-  <header>
-    <div class="logo">AI PC 견적 평가</div>
-    <nav>
-      <button onclick="navigateTo('main')">메인</button>
-      <button onclick="navigateTo('input')">견적 입력</button>
-      <button onclick="navigateTo('result')">분석 결과</button>
-      <button onclick="navigateTo('detail')">상세 분석</button>
-      <button onclick="navigateTo('recommend')">교체 추천</button>
-    </nav>
-  </header>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>상세 분석 - AI PC 견적 평가 시스템</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <header>
+      <div class="logo">AI PC 견적 평가</div>
+      <nav>
+        <button onclick="navigateTo('main')">메인</button>
+        <button onclick="navigateTo('input')">견적 입력</button>
+        <button onclick="navigateTo('result')">분석 결과</button>
+        <button onclick="navigateTo('detail')">상세 분석</button>
+        <button onclick="navigateTo('recommend')">교체 추천</button>
+        <button onclick="navigateTo('crawl')">크롤링 보기</button>
+      </nav>
+    </header>
 
-  <main>
-    <section class="page active">
-      <div class="section-title">
-        <h2>상세 분석</h2>
-        <p>가격, 성능, 호환성, 최신성 항목별 분석 결과입니다.</p>
-      </div>
-
-      <div class="card">
-        <h3>가격 분석</h3>
-        <p id="priceDetail">상세 분석 결과가 여기에 표시됩니다.</p>
-        <div class="score-bar-wrap">
-          <div class="score-label">점수</div>
-          <div class="score-bar-bg"><div id="priceScoreBar" class="score-bar"></div></div>
-          <div class="score-status">(<span id="priceStatus">-</span>)</div>
+    <main>
+      <section class="page active">
+        <div class="section-title">
+          <h2>상세 분석</h2>
+          <p>가격, 성능, 호환성, 최신성 항목별 분석 결과입니다.</p>
         </div>
-      </div>
 
-      <div class="card">
-        <h3>성능 밸런스</h3>
-        <p id="balanceDetail">상세 분석 결과가 여기에 표시됩니다.</p>
-        <div class="score-bar-wrap">
-          <div class="score-label">점수</div>
-          <div class="score-bar-bg"><div id="balanceScoreBar" class="score-bar"></div></div>
-          <div class="score-status">(<span id="balanceStatus">-</span>)</div>
+        <div class="card">
+          <h3>가격 분석</h3>
+          <p id="priceDetail">상세 분석 결과가 여기에 표시됩니다.</p>
+          <div class="score-bar-wrap">
+            <div class="score-label">점수</div>
+            <div class="score-bar-bg">
+              <div id="priceScoreBar" class="score-bar"></div>
+            </div>
+            <div class="score-status">(<span id="priceStatus">-</span>)</div>
+          </div>
         </div>
-      </div>
 
-      <div class="card">
-        <h3>호환성</h3>
-        <p id="compatibilityDetail">상세 분석 결과가 여기에 표시됩니다.</p>
-        <div class="score-bar-wrap">
-          <div class="score-label">점수</div>
-          <div class="score-bar-bg"><div id="compatibilityScoreBar" class="score-bar"></div></div>
-          <div class="score-status">(<span id="compatibilityStatus">-</span>)</div>
+        <div class="card">
+          <h3>성능 밸런스</h3>
+          <p id="balanceDetail">상세 분석 결과가 여기에 표시됩니다.</p>
+          <div class="score-bar-wrap">
+            <div class="score-label">점수</div>
+            <div class="score-bar-bg">
+              <div id="balanceScoreBar" class="score-bar"></div>
+            </div>
+            <div class="score-status">(<span id="balanceStatus">-</span>)</div>
+          </div>
         </div>
-      </div>
 
-      <div class="card">
-        <h3>최신성</h3>
-        <p id="recencyDetail">상세 분석 결과가 여기에 표시됩니다.</p>
-        <div class="score-bar-wrap">
-          <div class="score-label">점수</div>
-          <div class="score-bar-bg"><div id="recencyScoreBar" class="score-bar"></div></div>
-          <div class="score-status">(<span id="recencyStatus">-</span>)</div>
+        <div class="card">
+          <h3>호환성</h3>
+          <p id="compatibilityDetail">상세 분석 결과가 여기에 표시됩니다.</p>
+          <div class="score-bar-wrap">
+            <div class="score-label">점수</div>
+            <div class="score-bar-bg">
+              <div id="compatibilityScoreBar" class="score-bar"></div>
+            </div>
+            <div class="score-status">
+              (<span id="compatibilityStatus">-</span>)
+            </div>
+          </div>
         </div>
-      </div>
 
-      <div class="button-row">
-        <button class="btn btn-secondary" onclick="navigateTo('result')">분석 결과로</button>
-      </div>
-    </section>
-  </main>
+        <div class="card">
+          <h3>최신성</h3>
+          <p id="recencyDetail">상세 분석 결과가 여기에 표시됩니다.</p>
+          <div class="score-bar-wrap">
+            <div class="score-label">점수</div>
+            <div class="score-bar-bg">
+              <div id="recencyScoreBar" class="score-bar"></div>
+            </div>
+            <div class="score-status">(<span id="recencyStatus">-</span>)</div>
+          </div>
+        </div>
 
-  <script src="js/script.js"></script>
-</body>
+        <div class="button-row">
+          <button class="btn btn-secondary" onclick="navigateTo('result')">
+            분석 결과로
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <script src="js/script.js"></script>
+  </body>
 </html>
