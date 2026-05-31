@@ -102,11 +102,3 @@ def evaluate_build(request: BuildRequest):
         risk_score=risk.get("risk_score", 0),
         risk_breakdown=breakdown,
     )
-
-@router.post("/crawl", response_model=CrawlResponse)
-def crawl(request: CrawlRequest):
-    search_results = crawl_related_parts(request.parts)
-    return CrawlResponse(
-        keywords=[part.name for part in request.parts if part.name],
-        results=search_results,
-    )
