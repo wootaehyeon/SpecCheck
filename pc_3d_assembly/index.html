@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PC 부품 3D 조립 시뮬레이터 - No WebGL</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <div>
+      <h1>PC 부품 3D 조립 시뮬레이터</h1>
+      <p>WebGL 없이 실행되는 소프트웨어 3D 버전입니다. 부품을 선택한 뒤 빛나는 슬롯을 클릭하면 장착됩니다.</p>
+    </div>
+    <div class="top-actions">
+      <button id="resetViewBtn">시점 초기화</button>
+      <button id="resetAssemblyBtn">조립 초기화</button>
+    </div>
+  </header>
+
+  <main>
+    <aside class="panel left-panel">
+      <h2>부품 목록</h2>
+      <div id="partsList" class="parts-list"></div>
+      <button id="unmountBtn" class="wide">선택 부품 장착 해제</button>
+      <section class="json-section">
+        <h3>견적 부품 JSON</h3>
+        <textarea id="jsonInput"></textarea>
+        <button id="applyJsonBtn" class="wide">시뮬레이터 적용</button>
+      </section>
+    </aside>
+
+    <section class="canvas-wrap">
+      <canvas id="scene" width="1100" height="720"></canvas>
+      <div id="toast" class="toast">부품을 선택하세요.</div>
+    </section>
+
+    <aside class="panel right-panel">
+      <h2>조립 상태</h2>
+      <div class="progress-box">
+        <div class="progress-title"><span id="progressText">0 / 0</span></div>
+        <div class="progress"><div id="progressBar"></div></div>
+      </div>
+      <div id="statusList" class="status-list"></div>
+      <button id="completeBtn" class="wide primary">조립 완료 확인</button>
+      <h3>조작법</h3>
+      <ul class="help">
+        <li>마우스 드래그: 시점 회전</li>
+        <li>휠: 확대 / 축소</li>
+        <li>부품 클릭: 선택</li>
+        <li>빛나는 슬롯 클릭: 자동 장착</li>
+        <li>장착된 부품 클릭: 선택 후 해제 가능</li>
+      </ul>
+      <p class="note">이 버전은 WebGL을 사용하지 않습니다. 브라우저에서 WebGL 사용 불가 메시지가 떠도 실행됩니다.</p>
+    </aside>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
