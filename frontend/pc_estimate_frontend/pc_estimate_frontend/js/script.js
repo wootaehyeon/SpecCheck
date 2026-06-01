@@ -133,37 +133,6 @@ function getMockMarketPrices(parts) {
   }));
 }
 
-const sampleCrawlResults = [
-  {
-    source: 'DC인사이드 CPU갤',
-    keyword: 'i9-13900K',
-    title: '[구매문의] i9-13900K 최저가 어디인가요?',
-    date: '2026-05-25',
-    url: 'https://gall.dcinside.com/mgallery/board/view/?id=cpu&no=12345'
-  },
-  {
-    source: 'DC인사이드 VGA갤',
-    keyword: 'RTX 4070',
-    title: '[판매] RTX 4070 중고 팝니다',
-    date: '2026-05-24',
-    url: 'https://gall.dcinside.com/mgallery/board/view/?id=vga&no=54321'
-  },
-  {
-    source: 'DC인사이드 CPU갤',
-    keyword: '라이젠 7600X',
-    title: '[정보] 라이젠 7600X 할인 정보',
-    date: '2026-05-23',
-    url: 'https://gall.dcinside.com/mgallery/board/view/?id=cpu&no=67890'
-  },
-  {
-    source: 'DC인사이드 VGA갤',
-    keyword: 'RX 7900 XT',
-    title: '[구매] 중고 RX 7900 XT 찾습니다',
-    date: '2026-05-22',
-    url: 'https://gall.dcinside.com/mgallery/board/view/?id=vga&no=98765'
-  }
-];
-
 async function fetchCrawlResults(estimate) {
   try {
     const response = await fetch(CRAWL_API_URL, {
@@ -175,14 +144,14 @@ async function fetchCrawlResults(estimate) {
     });
 
     if (!response.ok) {
-      throw new Error('크롤링 API 호출 실패');
+      throw new Error('여론 조사 API 호출 실패');
     }
 
     const data = await response.json();
     return data;
   } catch (error) {
-    console.warn('크롤링 API 호출에 실패하여 샘플 데이터를 표시합니다.', error);
-    return { keywords: estimate.parts.map((part) => part.name).filter(Boolean), results: sampleCrawlResults };
+    console.warn('여론 조사 API 호출에 실패했습니다.', error);
+    return { keywords: estimate.parts.map((part) => part.name).filter(Boolean), results: [] };
   }
 }
 
@@ -192,22 +161,43 @@ function renderCrawlData(results, queryText = '입력 견적을 먼저 등록해
 
   tbody.innerHTML = '';
 
-  results.forEach((item) => {
+  if (!results || results.length === 0) {
     const row = document.createElement('tr');
     row.innerHTML = `
-      <td>${item.source}</td>
-      <td><a href="${item.url}" target="_blank" rel="noreferrer">${item.title}</a></td>
-      <td>${item.keyword || '-'}</td>
-      <td>${item.date}</td>
-      <td>${item.collected_at || '-'}</td>
-      <td><a href="${item.url}" target="_blank" rel="noreferrer">열기</a></td>
+      <td colspan="6">검색 결과가 없습니다. 다른 키워드로 다시 시도해 주세요.</td>
     `;
     tbody.appendChild(row);
-  });
+  } else {
+    results.forEach((item) => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${item.source}</td>
+        <td><a href="${item.url}" target="_blank" rel="noreferrer">${item.title}</a></td>
+        <td>${item.keyword || '-'}</td>
+        <td>${item.date}</td>
+        <td>${item.collected_at || '-'}</td>
+        <td>${item.perplexity != null ? item.perplexity : '-'}</td>
+        <td>${item.quality_score != null ? item.quality_score : '-'}</td>
+        <td><a href="${item.url}" target="_blank" rel="noreferrer">열기</a></td>
+      `;
+      tbody.appendChild(row);
+    });
+  }
 
-  safeSetText('crawlCount', results.length);
-  safeSetText('crawlLatestDate', results[0]?.date || '-');
+  safeSetText('crawlCount', results?.length || 0);
+  safeSetText('crawlLatestDate', results?.[0]?.date || '-');
   safeSetText('crawlSources', 'DC인사이드');
+
+  const evaluatedResults = (results || []).filter((item) => item.perplexity != null && item.quality_score != null);
+  const averagePerplexity = evaluatedResults.length
+    ? (evaluatedResults.reduce((sum, item) => sum + item.perplexity, 0) / evaluatedResults.length).toFixed(2)
+    : '-';
+  const averageQuality = evaluatedResults.length
+    ? (evaluatedResults.reduce((sum, item) => sum + item.quality_score, 0) / evaluatedResults.length).toFixed(2)
+    : '-';
+
+  safeSetText('avgPerplexity', averagePerplexity);
+  safeSetText('avgQuality', averageQuality);
   safeSetText('crawlQuery', queryText);
 }
 
@@ -216,14 +206,14 @@ function initCrawlPage() {
   const queryText = estimate?.parts?.map((part) => part.name).filter(Boolean).join(' / ') || '입력 견적을 먼저 등록해 주세요.';
 
   if (!estimate) {
-    renderCrawlData(sampleCrawlResults, queryText);
+    renderCrawlData([], queryText);
     return;
   }
 
   fetchCrawlResults(estimate).then((data) => {
-    renderCrawlData(data.results || sampleCrawlResults, data.keywords?.join(' / ') || queryText);
+    renderCrawlData(data.results || [], data.keywords?.join(' / ') || queryText);
   }).catch(() => {
-    renderCrawlData(sampleCrawlResults, queryText);
+    renderCrawlData([], queryText);
   });
 }
 

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>크롤링 결과 확인 - AI PC 견적 평가 시스템</title>
+    <title>여론 조사 결과 - AI PC 견적 평가 시스템</title>
     <link rel="stylesheet" href="css/style.css" />
   </head>
   <body>
@@ -15,14 +15,14 @@
         <button onclick="navigateTo('result')">분석 결과</button>
         <button onclick="navigateTo('detail')">상세 분석</button>
         <button onclick="navigateTo('recommend')">교체 추천</button>
-        <button onclick="navigateTo('crawl')">크롤링 보기</button>
+        <button onclick="navigateTo('crawl')">여론 조사</button>
       </nav>
     </header>
 
     <main>
       <section class="page active">
         <div class="section-title">
-          <h2>입력 견적 기반 크롤링 결과</h2>
+          <h2>여론 조사 결과</h2>
           <p>
             입력한 PC 부품 이름을 바탕으로 DC인사이드에서 연관 게시글을 검색하여
             관련 정보를 제공합니다.
@@ -43,6 +43,14 @@
               <span>수집 출처</span>
               <strong id="crawlSources">-</strong>
             </div>
+            <div class="summary-card">
+              <span>평균 Perplexity</span>
+              <strong id="avgPerplexity">-</strong>
+            </div>
+            <div class="summary-card">
+              <span>평균 품질 점수</span>
+              <strong id="avgQuality">-</strong>
+            </div>
           </div>
 
           <div class="crawl-query">
@@ -51,7 +59,7 @@
           </div>
 
           <div class="section-subtitle">
-            <h3>크롤링 게시글</h3>
+            <h3>가져온 게시글</h3>
             <p>
               입력 견적과 관련된 DC인사이드 게시글을 검색 결과로 확인할 수
               있습니다.
@@ -67,12 +75,14 @@
                   <th>검색 키워드</th>
                   <th>게시일</th>
                   <th>수집 시각</th>
+                  <th>Perplexity</th>
+                  <th>품질 점수</th>
                   <th>링크</th>
                 </tr>
               </thead>
               <tbody id="crawlTableBody">
                 <tr>
-                  <td colspan="6">크롤링 예시 데이터를 불러오는 중입니다.</td>
+                  <td colspan="6">예시 데이터를 불러오는 중입니다.</td>
                 </tr>
               </tbody>
             </table>

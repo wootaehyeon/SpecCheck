@@ -1,26 +1,57 @@
 import time
 import random
+import re
 import sqlite3
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import quote
 from datetime import datetime
 
-GALLERY_ID = "pridepc_new4"  # ÄÄÇ»ÅÍ º»Ã¼ °¶·¯¸®
+GALLERY_ID = "pridepc_new4"  # ì¼ë°˜ PC ê°¤ëŸ¬ë¦¬
 #https://gall.dcinside.com/board/lists/?id=pridepc_new4
 HEADERS = {
     "User-Agent": "Mozilla/5.0"
 }
 
+WORD_REGEX = re.compile(r"[A-Za-z0-9]+|[ê°€-íž£]+")
+
+
+def tokenize_part_name(part_name: str) -> list[str]:
+    tokens: list[str] = []
+    for token in WORD_REGEX.findall(part_name or ""):
+        normalized = token.strip()
+        if normalized and normalized not in tokens:
+            tokens.append(normalized)
+    return tokens
+
+
 def normalize_keyword(part_name: str) -> list[str]:
-    return [
-        part_name,
-        f"{part_name} ÈÄ±â",
-        f"{part_name} ´ÜÁ¡",
-        f"{part_name} °¡¼ººñ",
-        f"{part_name} ¹ß¿­",
-        f"{part_name} ¼ÒÀ½",
-    ]
+    part_name = (part_name or "").strip()
+    keywords: list[str] = [part_name] if part_name else []
+
+    if part_name:
+        keywords.extend([
+            f"{part_name} ê°€ê²©",
+            f"{part_name} ì¤‘ê³ ",
+            f"{part_name} ì‹œì„¸"
+        ])
+
+        tokens = tokenize_part_name(part_name)
+        for token in tokens:
+            if token not in keywords:
+                keywords.append(token)
+            if len(token) > 1:
+                price_token = f"{token} ê°€ê²©"
+                if price_token not in keywords:
+                    keywords.append(price_token)
+
+        for n in range(2, min(3, len(tokens) + 1)):
+            for i in range(len(tokens) - n + 1):
+                phrase = " ".join(tokens[i:i + n])
+                if phrase not in keywords:
+                    keywords.append(phrase)
+
+    return keywords
 
 def crawl_dcinside_search(keyword, gallery_id=GALLERY_ID, max_pages=2):
     results = []
@@ -37,7 +68,7 @@ def crawl_dcinside_search(keyword, gallery_id=GALLERY_ID, max_pages=2):
 
         for post in posts:
             title = post.select_one(".tit_txt")
-            date = post.select_one(".date")
+            date = post.select_one(".date_time")
             link = post.select_one("a")
 
             if not (title and date and link):
