@@ -6,3 +6,6 @@ beautifulsoup4==4.12.2
 python-dotenv==1.0.1
 pydantic==2.7.1
 pydantic-settings==2.2.1
+torch>=2.0.0
+transformers>=4.40.0
+numpy

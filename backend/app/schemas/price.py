@@ -57,6 +57,8 @@ class CrawlItem(BaseModel):
     url: str
     post_id: str
     collected_at: str
+    perplexity: Optional[float] = None
+    quality_score: Optional[float] = None
 
 class CrawlResponse(BaseModel):
     keywords: List[str]

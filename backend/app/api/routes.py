@@ -12,6 +12,7 @@ from app.schemas.price import (
 )
 from app.services.price_evaluation import evaluate_price
 from app.services.crawl_service import crawl_related_parts
+from app.services.dc_evaluation import evaluate_posts as evaluate_crawl_posts
 from app.services.naver_api import search_market_prices
 from app.schemas.evaluation import BuildRequest, EvaluationResult
 from app.logic.risk_score import compute_risk
@@ -74,6 +75,15 @@ def market_prices(request: MarketPricesRequest):
         )
 
     return MarketPricesResponse(prices=response_items)
+
+
+@router.post("/crawl", response_model=CrawlResponse)
+def crawl_parts(request: CrawlRequest):
+    """입력한 부품명을 기반으로 DC인사이드 게시물을 크롤링하고 모델로 평가합니다."""
+    keywords = [part.name for part in request.parts if part.name]
+    results = crawl_related_parts(request.parts, max_results=15)
+    evaluated_results = evaluate_crawl_posts(results, device="cpu")
+    return CrawlResponse(keywords=keywords, results=evaluated_results)
 
 
 @router.post("/evaluate-build", response_model=EvaluationResult)

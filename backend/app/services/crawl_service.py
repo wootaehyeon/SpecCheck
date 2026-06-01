@@ -1,5 +1,6 @@
 import time
 import random
+import re
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import quote
@@ -11,21 +12,63 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0"
 }
 
+WORD_REGEX = re.compile(r"[A-Za-z0-9]+|[ê°€-í£]+")
+
+
+def tokenize_part_name(part_name: str) -> List[str]:
+    tokens = []
+    for token in WORD_REGEX.findall(part_name or ""):
+        normalized = token.strip()
+        if normalized and normalized not in tokens:
+            tokens.append(normalized)
+    return tokens
+
 
 def normalize_keywords(part_name: str) -> List[str]:
-    return [
-        part_name,
-        f"{part_name} ÈÄ±â",
-        f"{part_name} ´ÜÁ¡",
-        f"{part_name} °¡¼ººñ"
-    ]
+    part_name = (part_name or "").strip()
+    keywords = [part_name] if part_name else []
+
+    if part_name:
+        keywords.extend([
+            f"{part_name} ê°€ê²©",
+            f"{part_name} ì¤‘ê³ ",
+            f"{part_name} ì‹œì„¸",
+            f"{part_name} êµ¬ë§¤",
+            f"{part_name} íŒë§¤",
+            f"{part_name} ì •ë³´"
+        ])
+
+        no_space = part_name.replace(' ', '')
+        if no_space and no_space not in keywords:
+            keywords.append(no_space)
+
+        tokens = tokenize_part_name(part_name)
+        for token in tokens:
+            if token not in keywords:
+                keywords.append(token)
+            if len(token) > 1:
+                price_token = f"{token} ê°€ê²©"
+                if price_token not in keywords:
+                    keywords.append(price_token)
+
+        for n in range(2, min(3, len(tokens) + 1)):
+            for i in range(len(tokens) - n + 1):
+                phrase = " ".join(tokens[i:i + n])
+                if phrase not in keywords:
+                    keywords.append(phrase)
+
+    return keywords
 
 
-def crawl_dcinside_search(keyword: str, gallery_id: str = GALLERY_ID, max_pages: int = 1) -> List[dict]:
+def crawl_dcinside_search(keyword: str, gallery_id: str | None = GALLERY_ID, max_pages: int = 1) -> List[dict]:
     results = []
 
     for page in range(1, max_pages + 1):
-        url = f"https://search.dcinside.com/post/p/{page}/q/{quote(keyword)}/gallery/{gallery_id}"
+        if gallery_id:
+            url = f"https://search.dcinside.com/post/p/{page}/q/{quote(keyword)}/gallery/{gallery_id}"
+        else:
+            url = f"https://search.dcinside.com/post/p/{page}/q/{quote(keyword)}"
+
         try:
             resp = requests.get(url, headers=HEADERS, timeout=10)
             resp.raise_for_status()
@@ -37,7 +80,7 @@ def crawl_dcinside_search(keyword: str, gallery_id: str = GALLERY_ID, max_pages:
 
         for post in posts:
             title = post.select_one(".tit_txt")
-            date = post.select_one(".date")
+            date = post.select_one(".date_time")
             link = post.select_one("a")
 
             if not (title and date and link):
@@ -60,38 +103,6 @@ def crawl_dcinside_search(keyword: str, gallery_id: str = GALLERY_ID, max_pages:
     return results
 
 
-def sample_crawl_results() -> List[dict]:
-    return [
-        {
-            "source": "DCÀÎ»çÀÌµå CPU°¶",
-            "keyword": "i9-13900K",
-            "title": "[±¸¸Å¹®ÀÇ] i9-13900K ÃÖÀú°¡ ¾îµğÀÎ°¡¿ä?",
-            "date": "2026-05-25",
-            "url": "https://gall.dcinside.com/mgallery/board/view/?id=cpu&no=12345",
-            "post_id": "12345",
-            "collected_at": datetime.now().isoformat(timespec="seconds")
-        },
-        {
-            "source": "DCÀÎ»çÀÌµå VGA°¶",
-            "keyword": "RTX 4070",
-            "title": "[ÆÇ¸Å] RTX 4070 Áß°í ÆË´Ï´Ù",
-            "date": "2026-05-24",
-            "url": "https://gall.dcinside.com/mgallery/board/view/?id=vga&no=54321",
-            "post_id": "54321",
-            "collected_at": datetime.now().isoformat(timespec="seconds")
-        },
-        {
-            "source": "DCÀÎ»çÀÌµå CPU°¶",
-            "keyword": "¶óÀÌÁ¨ 7600X",
-            "title": "[Á¤º¸] ¶óÀÌÁ¨ 7600X ÇÒÀÎ Á¤º¸",
-            "date": "2026-05-23",
-            "url": "https://gall.dcinside.com/mgallery/board/view/?id=cpu&no=67890",
-            "post_id": "67890",
-            "collected_at": datetime.now().isoformat(timespec="seconds")
-        }
-    ]
-
-
 def crawl_related_parts(parts: List[dict], max_results: int = 15) -> List[dict]:
     search_terms = []
     for part in parts:
@@ -103,18 +114,21 @@ def crawl_related_parts(parts: List[dict], max_results: int = 15) -> List[dict]:
     seen = set()
 
     for part_name in search_terms:
-        for keyword in normalize_keywords(part_name)[:3]:
+        for keyword in normalize_keywords(part_name):
             if len(results) >= max_results:
                 break
 
-            items = crawl_dcinside_search(keyword, max_pages=1)
+            items = crawl_dcinside_search(keyword, max_pages=2)
+            if not items:
+                items = crawl_dcinside_search(keyword, gallery_id=None, max_pages=1)
+
             for item in items:
                 if item["post_id"] in seen:
                     continue
 
                 seen.add(item["post_id"])
                 results.append({
-                    "source": "DCÀÎ»çÀÌµå",
+                    "source": "DCì¸ì‚¬ì´ë“œ",
                     "keyword": keyword,
                     "title": item["title"],
                     "date": item["date"],
@@ -129,4 +143,4 @@ def crawl_related_parts(parts: List[dict], max_results: int = 15) -> List[dict]:
             if len(results) >= max_results:
                 break
 
-    return results if results else sample_crawl_results()
+    return results
