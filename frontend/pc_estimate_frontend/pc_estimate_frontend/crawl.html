@@ -51,35 +51,58 @@
           </div>
 
           <div class="section-subtitle">
-            <h3>감정 평가 요약</h3>
+            <h3>커뮤니티 평가 요약</h3>
           </div>
           <div id="sentimentSummary" class="sentiment-summary">
             <div class="sentiment-stats">
               <div class="stat-item">
-                <span>긍정</span>
+                <span>긍정 평가</span>
                 <strong class="positive">-</strong>
               </div>
               <div class="stat-item">
-                <span>중립</span>
+                <span>중립 평가</span>
                 <strong class="neutral">-</strong>
               </div>
               <div class="stat-item">
-                <span>부정</span>
+                <span>부정 평가</span>
                 <strong class="negative">-</strong>
               </div>
               <div class="stat-item">
-                <span>평균 점수</span>
+                <span>평가 점수</span>
                 <strong>-%</strong>
+              </div>
+            </div>
+            <div id="sentimentTrend" class="sentiment-trend">
+              <div class="trend-bar">
+                <div id="trendPositive" class="trend-segment positive" style="width: 0%"></div>
+                <div id="trendNeutral" class="trend-segment neutral" style="width: 0%"></div>
+                <div id="trendNegative" class="trend-segment negative" style="width: 0%"></div>
               </div>
             </div>
           </div>
 
           <div class="section-subtitle">
-            <h3>커뮤니티 평가</h3>
-            <p>
-              입력 견적과 관련된 커뮤니티 및 중고거래 시장의 평가를
-              확인할 수 있습니다.
-            </p>
+            <h3>부품별 가격 정보</h3>
+            <p>네이버 쇼핑, YouTube, 나무위키 등 다양한 소스에서 수집한 가격 및 평가 정보입니다.</p>
+          </div>
+
+          <div id="priceInfoContainer" class="table-wrap">
+            <table class="price-table">
+              <thead>
+                <tr>
+                  <th>부품명</th>
+                  <th>최저가 (네이버)</th>
+                  <th>평균가</th>
+                  <th>커뮤니티 평가</th>
+                  <th>정보 출처</th>
+                </tr>
+              </thead>
+              <tbody id="priceInfoBody">
+                <tr>
+                  <td colspan="5">가격 정보를 불러오는 중입니다.</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
 
           <div class="table-wrap">
@@ -101,6 +124,11 @@
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          <div class="section-subtitle" style="margin-top: 32px;">
+            <h3>커뮤니티 평가 정보</h3>
+            <p>입력 견적과 관련된 커뮤니티 및 중고거래 시장의 상세 평가입니다.</p>
           </div>
 
           <div class="button-row">

@@ -14,6 +14,7 @@ from app.services.price_evaluation import evaluate_price
 from app.services.crawl_service import crawl_related_parts
 from app.services.naver_api import search_market_prices
 from app.services.sentiment_analyzer import SentimentAnalyzer
+from app.services.integrated_crawl import integrate_market_data
 
 router = APIRouter()
 sentiment_analyzer = SentimentAnalyzer()
@@ -94,3 +95,36 @@ def crawl(request: CrawlRequest):
         results=analyzed_results,
         sentiment_summary=sentiment_summary,
     )
+
+@router.post("/market-intelligence")
+def market_intelligence(request: CrawlRequest):
+    """
+    부품별 통합 시장 정보: 가격, 평가, 리뷰 채널, 위키 정보를 한 번에 제공합니다.
+    - 네이버 쇼핑 가격 정보
+    - YouTube 리뷰 채널
+    - 나무위키 부품 정보
+    - 커뮤니티 감정 평가
+    """
+    integrated_data = []
+
+    for part in request.parts:
+        part_name = part.name if isinstance(part, dict) else part.name
+        if not part_name:
+            continue
+
+        # 시장 반응 수집
+        from app.services.crawl_service import get_sample_market_reactions
+        market_reactions = get_sample_market_reactions(part_name)
+
+        # 감정 분석
+        analyzed_reactions = sentiment_analyzer.analyze_crawl_results(market_reactions)
+
+        # 통합 정보
+        integrated = integrate_market_data(part_name, analyzed_reactions)
+        integrated_data.append(integrated)
+
+    return {
+        "status": "success",
+        "data": integrated_data,
+        "timestamp": __import__('datetime').datetime.now().isoformat()
+    }

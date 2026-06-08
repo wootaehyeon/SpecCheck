@@ -15,12 +15,44 @@ function navigateTo(page) {
   window.location.href = target;
 }
 
-function getCurrentPageName() {
-  const fileName = window.location.pathname.split('/').pop();
-  if (!fileName || fileName === 'index.html') {
-    return 'main';
-  }
-  return fileName.replace('.html', '');
+function formatPrice(price) {
+  if (!price || price === 0) return '-';
+  return price.toLocaleString('ko-KR') + '원';
+}
+
+function renderPriceInfo(marketData) {
+  const tbody = safeGet('priceInfoBody');
+  if (!tbody || !marketData || !Array.isArray(marketData)) return;
+
+  tbody.innerHTML = '';
+
+  marketData.forEach((item) => {
+    const { part_name, price_info, market_sentiment } = item;
+    const lowestPrice = price_info?.lowest_price || 0;
+    const avgPrice = price_info?.average_price || 0;
+    const sentiment = market_sentiment ? `${market_sentiment.positive}/${market_sentiment.neutral}/${market_sentiment.negative}` : '-';
+    const scorePercent = market_sentiment ? (market_sentiment.average_score * 100).toFixed(0) : '-';
+
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${part_name}</td>
+      <td>${formatPrice(lowestPrice)}</td>
+      <td>${formatPrice(avgPrice)}</td>
+      <td>
+        <span class="sentiment-badge" style="background: #e8f5e9; color: #1b5e20; padding: 4px 8px; border-radius: 4px;">
+          ${scorePercent}%
+        </span>
+      </td>
+      <td>
+        <small style="color: #666;">
+          네이버 쇼핑<br>
+          YouTube<br>
+          나무위키
+        </small>
+      </td>
+    `;
+    tbody.appendChild(row);
+  });
 }
 
 function saveData(key, value) {
@@ -224,28 +256,75 @@ function renderCrawlData(results, queryText = '입력 견적을 먼저 등록해
   if (sentimentSummary) {
     const summaryEl = safeGet('sentimentSummary');
     if (summaryEl) {
+      const total = sentimentSummary.total || 1;
+      const positivePercent = Math.round((sentimentSummary.positive / total) * 100);
+      const neutralPercent = Math.round((sentimentSummary.neutral / total) * 100);
+      const negativePercent = Math.round((sentimentSummary.negative / total) * 100);
+
       const sentimentHTML = `
         <div class="sentiment-stats">
           <div class="stat-item">
-            <span>긍정</span>
-            <strong class="positive">${sentimentSummary.positive}</strong>
+            <span>긍정 평가</span>
+            <strong class="positive">${sentimentSummary.positive}건</strong>
           </div>
           <div class="stat-item">
-            <span>중립</span>
-            <strong class="neutral">${sentimentSummary.neutral}</strong>
+            <span>중립 평가</span>
+            <strong class="neutral">${sentimentSummary.neutral}건</strong>
           </div>
           <div class="stat-item">
-            <span>부정</span>
-            <strong class="negative">${sentimentSummary.negative}</strong>
+            <span>부정 평가</span>
+            <strong class="negative">${sentimentSummary.negative}건</strong>
           </div>
           <div class="stat-item">
-            <span>평균 점수</span>
+            <span>평가 점수</span>
             <strong>${(sentimentSummary.average_score * 100).toFixed(0)}%</strong>
+          </div>
+        </div>
+        <div id="sentimentTrend" class="sentiment-trend">
+          <div class="trend-bar">
+            <div class="trend-segment positive" style="width: ${positivePercent}%"></div>
+            <div class="trend-segment neutral" style="width: ${neutralPercent}%"></div>
+            <div class="trend-segment negative" style="width: ${negativePercent}%"></div>
+          </div>
+          <div class="sentiment-legend">
+            <div class="legend-item">
+              <div class="legend-color positive"></div>
+              <span>긍정: ${positivePercent}%</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color neutral"></div>
+              <span>중립: ${neutralPercent}%</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color negative"></div>
+              <span>부정: ${negativePercent}%</span>
+            </div>
           </div>
         </div>
       `;
       summaryEl.innerHTML = sentimentHTML;
     }
+  }
+}
+
+async function fetchMarketIntelligence(estimate) {
+  try {
+    const response = await fetch('http://localhost:8000/api/market-intelligence', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ parts: estimate.parts.map((part) => ({ key: part.key, category: part.category, name: part.name })) })
+    });
+
+    if (!response.ok) {
+      throw new Error('시장 정보 API 호출 실패');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.warn('통합 시장 정보 API 호출 실패:', error);
+    return null;
   }
 }
 
@@ -258,6 +337,16 @@ function initCrawlPage() {
     return;
   }
 
+  // 통합 시장 정보 조회 시도
+  fetchMarketIntelligence(estimate).then((marketData) => {
+    if (marketData && marketData.data) {
+      renderPriceInfo(marketData.data);
+    }
+  }).catch(() => {
+    // 실패 시 무시 (가격 정보는 선택사항)
+  });
+
+  // 기존 크롤링 데이터 조회
   fetchCrawlResults(estimate).then((data) => {
     renderCrawlData(data.results || sampleCrawlResults, data.keywords?.join(' / ') || queryText, data.sentiment_summary || null);
   }).catch(() => {
