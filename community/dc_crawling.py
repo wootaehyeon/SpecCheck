@@ -1,25 +1,24 @@
 import time
 import random
-import sqlite3
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import quote
 from datetime import datetime
+from typing import List
 
-GALLERY_ID = "pridepc_new4"  # ÄÄÇ»ÅÍ º»Ã¼ °¶·¯¸®
-#https://gall.dcinside.com/board/lists/?id=pridepc_new4
+GALLERY_ID = "pridepc_new4"
 HEADERS = {
     "User-Agent": "Mozilla/5.0"
 }
 
-def normalize_keyword(part_name: str) -> list[str]:
+def normalize_keyword(part_name: str) -> List[str]:
     return [
         part_name,
-        f"{part_name} ÈÄ±â",
-        f"{part_name} ´ÜÁ¡",
-        f"{part_name} °¡¼ººñ",
-        f"{part_name} ¹ß¿­",
-        f"{part_name} ¼ÒÀ½",
+        f"{part_name} ë¦¬ë·°",
+        f"{part_name} ê°€ê²©",
+        f"{part_name} ì„±ëŠ¥í‰ê°€",
+        f"{part_name} ì¤‘ê³ ",
+        f"{part_name} ì¶”ì²œ",
     ]
 
 def crawl_dcinside_search(keyword, gallery_id=GALLERY_ID, max_pages=2):

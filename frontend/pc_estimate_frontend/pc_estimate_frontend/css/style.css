@@ -621,3 +621,71 @@ ul {
     grid-template-columns: 1fr;
   }
 }
+
+.sentiment-summary {
+  margin: 20px 0;
+  padding: 0;
+}
+
+.sentiment-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 15px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 15px;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+}
+
+.stat-item span {
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 8px;
+}
+
+.stat-item strong {
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.stat-item strong.positive {
+  color: #10b981;
+}
+
+.stat-item strong.negative {
+  color: #ef4444;
+}
+
+.stat-item strong.neutral {
+  color: #f59e0b;
+}
+
+.sentiment-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.sentiment-badge.sentiment-positive {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.sentiment-badge.sentiment-negative {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.sentiment-badge.sentiment-neutral {
+  background: #fef3c7;
+  color: #b45309;
+}

@@ -139,28 +139,36 @@ const sampleCrawlResults = [
     keyword: 'i9-13900K',
     title: '[구매문의] i9-13900K 최저가 어디인가요?',
     date: '2026-05-25',
-    url: 'https://gall.dcinside.com/mgallery/board/view/?id=cpu&no=12345'
+    url: 'https://gall.dcinside.com/mgallery/board/view/?id=cpu&no=12345',
+    sentiment: 'positive',
+    sentiment_score: 0.85
   },
   {
     source: 'DC인사이드 VGA갤',
     keyword: 'RTX 4070',
     title: '[판매] RTX 4070 중고 팝니다',
     date: '2026-05-24',
-    url: 'https://gall.dcinside.com/mgallery/board/view/?id=vga&no=54321'
+    url: 'https://gall.dcinside.com/mgallery/board/view/?id=vga&no=54321',
+    sentiment: 'positive',
+    sentiment_score: 0.78
   },
   {
     source: 'DC인사이드 CPU갤',
     keyword: '라이젠 7600X',
     title: '[정보] 라이젠 7600X 할인 정보',
     date: '2026-05-23',
-    url: 'https://gall.dcinside.com/mgallery/board/view/?id=cpu&no=67890'
+    url: 'https://gall.dcinside.com/mgallery/board/view/?id=cpu&no=67890',
+    sentiment: 'neutral',
+    sentiment_score: 0.52
   },
   {
     source: 'DC인사이드 VGA갤',
     keyword: 'RX 7900 XT',
     title: '[구매] 중고 RX 7900 XT 찾습니다',
     date: '2026-05-22',
-    url: 'https://gall.dcinside.com/mgallery/board/view/?id=vga&no=98765'
+    url: 'https://gall.dcinside.com/mgallery/board/view/?id=vga&no=98765',
+    sentiment: 'positive',
+    sentiment_score: 0.72
   }
 ];
 
@@ -186,13 +194,14 @@ async function fetchCrawlResults(estimate) {
   }
 }
 
-function renderCrawlData(results, queryText = '입력 견적을 먼저 등록해 주세요.') {
+function renderCrawlData(results, queryText = '입력 견적을 먼저 등록해 주세요.', sentimentSummary = null) {
   const tbody = safeGet('crawlTableBody');
   if (!tbody) return;
 
   tbody.innerHTML = '';
 
   results.forEach((item) => {
+    const sentimentBadge = item.sentiment ? `<span class="sentiment-badge sentiment-${item.sentiment}" title="감정 점수: ${(item.sentiment_score * 100).toFixed(0)}%">${item.sentiment}</span>` : '';
     const row = document.createElement('tr');
     row.innerHTML = `
       <td>${item.source}</td>
@@ -201,6 +210,7 @@ function renderCrawlData(results, queryText = '입력 견적을 먼저 등록해
       <td>${item.date}</td>
       <td>${item.collected_at || '-'}</td>
       <td><a href="${item.url}" target="_blank" rel="noreferrer">열기</a></td>
+      <td>${sentimentBadge}</td>
     `;
     tbody.appendChild(row);
   });
@@ -209,6 +219,34 @@ function renderCrawlData(results, queryText = '입력 견적을 먼저 등록해
   safeSetText('crawlLatestDate', results[0]?.date || '-');
   safeSetText('crawlSources', 'DC인사이드');
   safeSetText('crawlQuery', queryText);
+
+  // Display sentiment summary
+  if (sentimentSummary) {
+    const summaryEl = safeGet('sentimentSummary');
+    if (summaryEl) {
+      const sentimentHTML = `
+        <div class="sentiment-stats">
+          <div class="stat-item">
+            <span>긍정</span>
+            <strong class="positive">${sentimentSummary.positive}</strong>
+          </div>
+          <div class="stat-item">
+            <span>중립</span>
+            <strong class="neutral">${sentimentSummary.neutral}</strong>
+          </div>
+          <div class="stat-item">
+            <span>부정</span>
+            <strong class="negative">${sentimentSummary.negative}</strong>
+          </div>
+          <div class="stat-item">
+            <span>평균 점수</span>
+            <strong>${(sentimentSummary.average_score * 100).toFixed(0)}%</strong>
+          </div>
+        </div>
+      `;
+      summaryEl.innerHTML = sentimentHTML;
+    }
+  }
 }
 
 function initCrawlPage() {
@@ -216,14 +254,14 @@ function initCrawlPage() {
   const queryText = estimate?.parts?.map((part) => part.name).filter(Boolean).join(' / ') || '입력 견적을 먼저 등록해 주세요.';
 
   if (!estimate) {
-    renderCrawlData(sampleCrawlResults, queryText);
+    renderCrawlData(sampleCrawlResults, queryText, null);
     return;
   }
 
   fetchCrawlResults(estimate).then((data) => {
-    renderCrawlData(data.results || sampleCrawlResults, data.keywords?.join(' / ') || queryText);
+    renderCrawlData(data.results || sampleCrawlResults, data.keywords?.join(' / ') || queryText, data.sentiment_summary || null);
   }).catch(() => {
-    renderCrawlData(sampleCrawlResults, queryText);
+    renderCrawlData(sampleCrawlResults, queryText, null);
   });
 }
 

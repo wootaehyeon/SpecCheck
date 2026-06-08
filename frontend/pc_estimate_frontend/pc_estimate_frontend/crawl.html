@@ -51,6 +51,30 @@
           </div>
 
           <div class="section-subtitle">
+            <h3>감정 평가 요약</h3>
+          </div>
+          <div id="sentimentSummary" class="sentiment-summary">
+            <div class="sentiment-stats">
+              <div class="stat-item">
+                <span>긍정</span>
+                <strong class="positive">-</strong>
+              </div>
+              <div class="stat-item">
+                <span>중립</span>
+                <strong class="neutral">-</strong>
+              </div>
+              <div class="stat-item">
+                <span>부정</span>
+                <strong class="negative">-</strong>
+              </div>
+              <div class="stat-item">
+                <span>평균 점수</span>
+                <strong>-%</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-subtitle">
             <h3>크롤링 게시글</h3>
             <p>
               입력 견적과 관련된 DC인사이드 게시글을 검색 결과로 확인할 수
@@ -68,11 +92,12 @@
                   <th>게시일</th>
                   <th>수집 시각</th>
                   <th>링크</th>
+                  <th>감정평가</th>
                 </tr>
               </thead>
               <tbody id="crawlTableBody">
                 <tr>
-                  <td colspan="6">크롤링 예시 데이터를 불러오는 중입니다.</td>
+                  <td colspan="7">크롤링 예시 데이터를 불러오는 중입니다.</td>
                 </tr>
               </tbody>
             </table>
