@@ -1,4 +1,4 @@
-﻿const OPEN_MARKET_API_URL = 'http://localhost:8000/api/market-prices';
+const OPEN_MARKET_API_URL = 'http://localhost:8000/api/market-prices';
 const CRAWL_API_URL = 'http://localhost:8000/api/crawl';
 const PAGE_URLS = {
   main: 'index.html',
@@ -9,6 +9,11 @@ const PAGE_URLS = {
   recommend: 'recommend.html',
   crawl: 'crawl.html'
 };
+
+function getCurrentPageName() {
+  const fileName = window.location.pathname.split('/').pop() || 'index.html';
+  return fileName.replace('.html', '') || 'main';
+}
 
 function navigateTo(page) {
   const target = PAGE_URLS[page] || page;
@@ -61,7 +66,15 @@ function saveData(key, value) {
 
 function loadData(key) {
   const raw = localStorage.getItem(key);
-  return raw ? JSON.parse(raw) : null;
+  if (!raw) return null;
+
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    console.warn(`${key} 저장 데이터가 깨져서 초기화합니다.`, error);
+    localStorage.removeItem(key);
+    return null;
+  }
 }
 
 function safeGet(id) {
@@ -354,6 +367,25 @@ function initCrawlPage() {
   });
 }
 
+function normalizeMarketPrices(parts, prices) {
+  if (!Array.isArray(prices) || prices.length === 0) {
+    return getMockMarketPrices(parts);
+  }
+
+  return parts.map((part, index) => {
+    const raw = prices.find((item) => item.key === part.key || item.category === part.category || item.name === part.name) || prices[index] || {};
+    const priceInfo = raw.price_info || {};
+
+    return {
+      ...part,
+      lowestPrice: toNumber(raw.lowestPrice ?? raw.lowest_price ?? priceInfo.lowest_price ?? priceInfo.lowestPrice),
+      averagePrice: toNumber(raw.averagePrice ?? raw.average_price ?? priceInfo.average_price ?? priceInfo.averagePrice),
+      mall: raw.mall || raw.source || raw.market || priceInfo.mall || '-',
+      purchaseLink: raw.purchaseLink || raw.purchase_link || raw.url || priceInfo.url || ''
+    };
+  });
+}
+
 async function fetchOpenMarketPrices(parts) {
   try {
     const response = await fetch(OPEN_MARKET_API_URL, {
@@ -369,7 +401,7 @@ async function fetchOpenMarketPrices(parts) {
     }
 
     const data = await response.json();
-    return data.prices || [];
+    return normalizeMarketPrices(parts, data.prices || data.data || data);
   } catch (error) {
     console.warn('시장 정보 API가 연결되지 않아 임시 가격 데이터를 사용합니다.', error);
     return getMockMarketPrices(parts);
@@ -621,15 +653,23 @@ function startAnalysisWorkflow(estimate) {
     index += 1;
   }, 450);
 
-  fetchOpenMarketPrices(estimate.parts).then((marketPrices) => {
-    const result = mockAnalyze(estimate, marketPrices);
-    saveData('analysisResult', result);
-    setTimeout(() => {
-      clearInterval(timer);
-      if (progressBar) progressBar.style.width = '100%';
-      navigateTo('result');
-    }, 1600);
-  });
+  fetchOpenMarketPrices(estimate.parts)
+    .then((marketPrices) => {
+      const result = mockAnalyze(estimate, marketPrices);
+      saveData('analysisResult', result);
+    })
+    .catch((error) => {
+      console.warn('분석 중 오류가 발생하여 임시 데이터로 분석합니다.', error);
+      const result = mockAnalyze(estimate, getMockMarketPrices(estimate.parts));
+      saveData('analysisResult', result);
+    })
+    .finally(() => {
+      setTimeout(() => {
+        clearInterval(timer);
+        if (progressBar) progressBar.style.width = '100%';
+        navigateTo('result');
+      }, 1600);
+    });
 }
 
 function initInputPage() {
