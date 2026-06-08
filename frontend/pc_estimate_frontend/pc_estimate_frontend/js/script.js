@@ -219,13 +219,19 @@ const sampleCrawlResults = [
 
 async function fetchCrawlResults(estimate) {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5초 타임아웃
+
     const response = await fetch(CRAWL_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ parts: estimate.parts.map((part) => ({ key: part.key, category: part.category, name: part.name })) })
+      body: JSON.stringify({ parts: estimate.parts.map((part) => ({ key: part.key, category: part.category, name: part.name })) }),
+      signal: controller.signal
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       throw new Error('시장 반응 API 호출 실패');
@@ -322,13 +328,19 @@ function renderCrawlData(results, queryText = '입력 견적을 먼저 등록해
 
 async function fetchMarketIntelligence(estimate) {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5초 타임아웃
+
     const response = await fetch('http://localhost:8000/api/market-intelligence', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ parts: estimate.parts.map((part) => ({ key: part.key, category: part.category, name: part.name })) })
+      body: JSON.stringify({ parts: estimate.parts.map((part) => ({ key: part.key, category: part.category, name: part.name })) }),
+      signal: controller.signal
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       throw new Error('시장 정보 API 호출 실패');
@@ -388,13 +400,19 @@ function normalizeMarketPrices(parts, prices) {
 
 async function fetchOpenMarketPrices(parts) {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5초 타임아웃
+
     const response = await fetch(OPEN_MARKET_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ parts })
+      body: JSON.stringify({ parts }),
+      signal: controller.signal
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       throw new Error('API 호출 실패');
