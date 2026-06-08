@@ -77,6 +77,10 @@ def market_prices(request: MarketPricesRequest):
 
 @router.post("/crawl", response_model=CrawlResponse)
 def crawl(request: CrawlRequest):
+    """
+    입력된 부품들에 대한 커뮤니티 및 중고거래 시장의 시장 반응을 수집합니다.
+    DC인사이드, 네이버 카페, 당근마켓 등 다양한 소스에서 정보를 수집하고 감정분석을 수행합니다.
+    """
     search_results = crawl_related_parts(request.parts)
 
     # Apply sentiment analysis

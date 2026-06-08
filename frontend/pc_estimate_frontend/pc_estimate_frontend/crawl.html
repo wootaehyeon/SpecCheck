@@ -15,32 +15,32 @@
         <button onclick="navigateTo('result')">분석 결과</button>
         <button onclick="navigateTo('detail')">상세 분석</button>
         <button onclick="navigateTo('recommend')">교체 추천</button>
-        <button onclick="navigateTo('crawl')">크롤링 보기</button>
+        <button onclick="navigateTo('crawl')">시장 반응</button>
       </nav>
     </header>
 
     <main>
       <section class="page active">
         <div class="section-title">
-          <h2>입력 견적 기반 크롤링 결과</h2>
+          <h2>입력 견적 기반 시장 반응</h2>
           <p>
-            입력한 PC 부품 이름을 바탕으로 DC인사이드에서 연관 게시글을 검색하여
-            관련 정보를 제공합니다.
+            입력한 PC 부품 이름을 바탕으로 커뮤니티와 중고거래 시장의
+            관심도 및 평가 정보를 수집하여 제공합니다.
           </p>
         </div>
 
         <div class="card">
           <div class="crawl-summary-grid">
             <div class="summary-card">
-              <span>총 게시글</span>
+              <span>수집된 정보</span>
               <strong id="crawlCount">-</strong>
             </div>
             <div class="summary-card">
-              <span>최신 수집일</span>
+              <span>최신 수집</span>
               <strong id="crawlLatestDate">-</strong>
             </div>
             <div class="summary-card">
-              <span>수집 출처</span>
+              <span>정보 출처</span>
               <strong id="crawlSources">-</strong>
             </div>
           </div>
@@ -75,10 +75,10 @@
           </div>
 
           <div class="section-subtitle">
-            <h3>크롤링 게시글</h3>
+            <h3>커뮤니티 평가</h3>
             <p>
-              입력 견적과 관련된 DC인사이드 게시글을 검색 결과로 확인할 수
-              있습니다.
+              입력 견적과 관련된 커뮤니티 및 중고거래 시장의 평가를
+              확인할 수 있습니다.
             </p>
           </div>
 
@@ -88,16 +88,16 @@
                 <tr>
                   <th>출처</th>
                   <th>제목</th>
-                  <th>검색 키워드</th>
-                  <th>게시일</th>
-                  <th>수집 시각</th>
+                  <th>키워드</th>
+                  <th>작성일</th>
+                  <th>수집일</th>
                   <th>링크</th>
-                  <th>감정평가</th>
+                  <th>평가</th>
                 </tr>
               </thead>
               <tbody id="crawlTableBody">
                 <tr>
-                  <td colspan="7">크롤링 예시 데이터를 불러오는 중입니다.</td>
+                  <td colspan="7">시장 정보를 수집 중입니다.</td>
                 </tr>
               </tbody>
             </table>

@@ -135,37 +135,37 @@ function getMockMarketPrices(parts) {
 
 const sampleCrawlResults = [
   {
-    source: 'DC인사이드 CPU갤',
+    source: 'DC인사이드',
     keyword: 'i9-13900K',
-    title: '[구매문의] i9-13900K 최저가 어디인가요?',
-    date: '2026-05-25',
+    title: '최신 고성능 CPU 구입 후기',
+    date: '2026-06-07',
     url: 'https://gall.dcinside.com/mgallery/board/view/?id=cpu&no=12345',
     sentiment: 'positive',
     sentiment_score: 0.85
   },
   {
-    source: 'DC인사이드 VGA갤',
+    source: '당근마켓',
     keyword: 'RTX 4070',
-    title: '[판매] RTX 4070 중고 팝니다',
-    date: '2026-05-24',
-    url: 'https://gall.dcinside.com/mgallery/board/view/?id=vga&no=54321',
+    title: '고급 그래픽카드 중고 거래',
+    date: '2026-06-06',
+    url: 'https://example.com/item/54321',
     sentiment: 'positive',
     sentiment_score: 0.78
   },
   {
-    source: 'DC인사이드 CPU갤',
-    keyword: '라이젠 7600X',
-    title: '[정보] 라이젠 7600X 할인 정보',
-    date: '2026-05-23',
-    url: 'https://gall.dcinside.com/mgallery/board/view/?id=cpu&no=67890',
+    source: '네이버 카페',
+    keyword: '라이젠 7 5700X',
+    title: 'CPU 선택에 대한 조언',
+    date: '2026-06-05',
+    url: 'https://cafe.naver.com/article/12345',
     sentiment: 'neutral',
     sentiment_score: 0.52
   },
   {
-    source: 'DC인사이드 VGA갤',
-    keyword: 'RX 7900 XT',
-    title: '[구매] 중고 RX 7900 XT 찾습니다',
-    date: '2026-05-22',
+    source: 'DC인사이드',
+    keyword: 'RTX 4090',
+    title: '최고급 그래픽카드 성능 평가',
+    date: '2026-06-04',
     url: 'https://gall.dcinside.com/mgallery/board/view/?id=vga&no=98765',
     sentiment: 'positive',
     sentiment_score: 0.72
@@ -183,13 +183,13 @@ async function fetchCrawlResults(estimate) {
     });
 
     if (!response.ok) {
-      throw new Error('크롤링 API 호출 실패');
+      throw new Error('시장 반응 API 호출 실패');
     }
 
     const data = await response.json();
     return data;
   } catch (error) {
-    console.warn('크롤링 API 호출에 실패하여 샘플 데이터를 표시합니다.', error);
+    console.warn('시장 반응 API 호출에 실패하여 샘플 데이터를 표시합니다.', error);
     return { keywords: estimate.parts.map((part) => part.name).filter(Boolean), results: sampleCrawlResults };
   }
 }
@@ -201,7 +201,7 @@ function renderCrawlData(results, queryText = '입력 견적을 먼저 등록해
   tbody.innerHTML = '';
 
   results.forEach((item) => {
-    const sentimentBadge = item.sentiment ? `<span class="sentiment-badge sentiment-${item.sentiment}" title="감정 점수: ${(item.sentiment_score * 100).toFixed(0)}%">${item.sentiment}</span>` : '';
+    const sentimentBadge = item.sentiment ? `<span class="sentiment-badge sentiment-${item.sentiment}" title="평가 점수: ${(item.sentiment_score * 100).toFixed(0)}%">${item.sentiment}</span>` : '';
     const row = document.createElement('tr');
     row.innerHTML = `
       <td>${item.source}</td>
@@ -251,7 +251,7 @@ function renderCrawlData(results, queryText = '입력 견적을 먼저 등록해
 
 function initCrawlPage() {
   const estimate = loadData('estimateInput');
-  const queryText = estimate?.parts?.map((part) => part.name).filter(Boolean).join(' / ') || '입력 견적을 먼저 등록해 주세요.';
+  const queryText = estimate?.parts?.map((part) => part.name).filter(Boolean).join(' / ') || '견적을 먼저 등록해 주세요.';
 
   if (!estimate) {
     renderCrawlData(sampleCrawlResults, queryText, null);
@@ -282,7 +282,7 @@ async function fetchOpenMarketPrices(parts) {
     const data = await response.json();
     return data.prices || [];
   } catch (error) {
-    console.warn('오픈마켓 API가 연결되지 않아 임시 가격 데이터를 사용합니다.', error);
+    console.warn('시장 정보 API가 연결되지 않아 임시 가격 데이터를 사용합니다.', error);
     return getMockMarketPrices(parts);
   }
 }
