@@ -15,12 +15,44 @@ function navigateTo(page) {
   window.location.href = target;
 }
 
-function getCurrentPageName() {
-  const fileName = window.location.pathname.split('/').pop();
-  if (!fileName || fileName === 'index.html') {
-    return 'main';
-  }
-  return fileName.replace('.html', '');
+function formatPrice(price) {
+  if (!price || price === 0) return '-';
+  return price.toLocaleString('ko-KR') + '원';
+}
+
+function renderPriceInfo(marketData) {
+  const tbody = safeGet('priceInfoBody');
+  if (!tbody || !marketData || !Array.isArray(marketData)) return;
+
+  tbody.innerHTML = '';
+
+  marketData.forEach((item) => {
+    const { part_name, price_info, market_sentiment } = item;
+    const lowestPrice = price_info?.lowest_price || 0;
+    const avgPrice = price_info?.average_price || 0;
+    const sentiment = market_sentiment ? `${market_sentiment.positive}/${market_sentiment.neutral}/${market_sentiment.negative}` : '-';
+    const scorePercent = market_sentiment ? (market_sentiment.average_score * 100).toFixed(0) : '-';
+
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${part_name}</td>
+      <td>${formatPrice(lowestPrice)}</td>
+      <td>${formatPrice(avgPrice)}</td>
+      <td>
+        <span class="sentiment-badge" style="background: #e8f5e9; color: #1b5e20; padding: 4px 8px; border-radius: 4px;">
+          ${scorePercent}%
+        </span>
+      </td>
+      <td>
+        <small style="color: #666;">
+          네이버 쇼핑<br>
+          YouTube<br>
+          나무위키
+        </small>
+      </td>
+    `;
+    tbody.appendChild(row);
+  });
 }
 
 function saveData(key, value) {
@@ -135,32 +167,40 @@ function getMockMarketPrices(parts) {
 
 const sampleCrawlResults = [
   {
-    source: 'DC인사이드 CPU갤',
+    source: 'DC인사이드',
     keyword: 'i9-13900K',
-    title: '[구매문의] i9-13900K 최저가 어디인가요?',
-    date: '2026-05-25',
-    url: 'https://gall.dcinside.com/mgallery/board/view/?id=cpu&no=12345'
+    title: '최신 고성능 CPU 구입 후기',
+    date: '2026-06-07',
+    url: 'https://gall.dcinside.com/mgallery/board/view/?id=cpu&no=12345',
+    sentiment: 'positive',
+    sentiment_score: 0.85
   },
   {
-    source: 'DC인사이드 VGA갤',
+    source: '당근마켓',
     keyword: 'RTX 4070',
-    title: '[판매] RTX 4070 중고 팝니다',
-    date: '2026-05-24',
-    url: 'https://gall.dcinside.com/mgallery/board/view/?id=vga&no=54321'
+    title: '고급 그래픽카드 중고 거래',
+    date: '2026-06-06',
+    url: 'https://example.com/item/54321',
+    sentiment: 'positive',
+    sentiment_score: 0.78
   },
   {
-    source: 'DC인사이드 CPU갤',
-    keyword: '라이젠 7600X',
-    title: '[정보] 라이젠 7600X 할인 정보',
-    date: '2026-05-23',
-    url: 'https://gall.dcinside.com/mgallery/board/view/?id=cpu&no=67890'
+    source: '네이버 카페',
+    keyword: '라이젠 7 5700X',
+    title: 'CPU 선택에 대한 조언',
+    date: '2026-06-05',
+    url: 'https://cafe.naver.com/article/12345',
+    sentiment: 'neutral',
+    sentiment_score: 0.52
   },
   {
-    source: 'DC인사이드 VGA갤',
-    keyword: 'RX 7900 XT',
-    title: '[구매] 중고 RX 7900 XT 찾습니다',
-    date: '2026-05-22',
-    url: 'https://gall.dcinside.com/mgallery/board/view/?id=vga&no=98765'
+    source: 'DC인사이드',
+    keyword: 'RTX 4090',
+    title: '최고급 그래픽카드 성능 평가',
+    date: '2026-06-04',
+    url: 'https://gall.dcinside.com/mgallery/board/view/?id=vga&no=98765',
+    sentiment: 'positive',
+    sentiment_score: 0.72
   }
 ];
 
@@ -175,24 +215,25 @@ async function fetchCrawlResults(estimate) {
     });
 
     if (!response.ok) {
-      throw new Error('크롤링 API 호출 실패');
+      throw new Error('시장 반응 API 호출 실패');
     }
 
     const data = await response.json();
     return data;
   } catch (error) {
-    console.warn('크롤링 API 호출에 실패하여 샘플 데이터를 표시합니다.', error);
+    console.warn('시장 반응 API 호출에 실패하여 샘플 데이터를 표시합니다.', error);
     return { keywords: estimate.parts.map((part) => part.name).filter(Boolean), results: sampleCrawlResults };
   }
 }
 
-function renderCrawlData(results, queryText = '입력 견적을 먼저 등록해 주세요.') {
+function renderCrawlData(results, queryText = '입력 견적을 먼저 등록해 주세요.', sentimentSummary = null) {
   const tbody = safeGet('crawlTableBody');
   if (!tbody) return;
 
   tbody.innerHTML = '';
 
   results.forEach((item) => {
+    const sentimentBadge = item.sentiment ? `<span class="sentiment-badge sentiment-${item.sentiment}" title="평가 점수: ${(item.sentiment_score * 100).toFixed(0)}%">${item.sentiment}</span>` : '';
     const row = document.createElement('tr');
     row.innerHTML = `
       <td>${item.source}</td>
@@ -201,6 +242,7 @@ function renderCrawlData(results, queryText = '입력 견적을 먼저 등록해
       <td>${item.date}</td>
       <td>${item.collected_at || '-'}</td>
       <td><a href="${item.url}" target="_blank" rel="noreferrer">열기</a></td>
+      <td>${sentimentBadge}</td>
     `;
     tbody.appendChild(row);
   });
@@ -209,21 +251,106 @@ function renderCrawlData(results, queryText = '입력 견적을 먼저 등록해
   safeSetText('crawlLatestDate', results[0]?.date || '-');
   safeSetText('crawlSources', 'DC인사이드');
   safeSetText('crawlQuery', queryText);
+
+  // Display sentiment summary
+  if (sentimentSummary) {
+    const summaryEl = safeGet('sentimentSummary');
+    if (summaryEl) {
+      const total = sentimentSummary.total || 1;
+      const positivePercent = Math.round((sentimentSummary.positive / total) * 100);
+      const neutralPercent = Math.round((sentimentSummary.neutral / total) * 100);
+      const negativePercent = Math.round((sentimentSummary.negative / total) * 100);
+
+      const sentimentHTML = `
+        <div class="sentiment-stats">
+          <div class="stat-item">
+            <span>긍정 평가</span>
+            <strong class="positive">${sentimentSummary.positive}건</strong>
+          </div>
+          <div class="stat-item">
+            <span>중립 평가</span>
+            <strong class="neutral">${sentimentSummary.neutral}건</strong>
+          </div>
+          <div class="stat-item">
+            <span>부정 평가</span>
+            <strong class="negative">${sentimentSummary.negative}건</strong>
+          </div>
+          <div class="stat-item">
+            <span>평가 점수</span>
+            <strong>${(sentimentSummary.average_score * 100).toFixed(0)}%</strong>
+          </div>
+        </div>
+        <div id="sentimentTrend" class="sentiment-trend">
+          <div class="trend-bar">
+            <div class="trend-segment positive" style="width: ${positivePercent}%"></div>
+            <div class="trend-segment neutral" style="width: ${neutralPercent}%"></div>
+            <div class="trend-segment negative" style="width: ${negativePercent}%"></div>
+          </div>
+          <div class="sentiment-legend">
+            <div class="legend-item">
+              <div class="legend-color positive"></div>
+              <span>긍정: ${positivePercent}%</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color neutral"></div>
+              <span>중립: ${neutralPercent}%</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color negative"></div>
+              <span>부정: ${negativePercent}%</span>
+            </div>
+          </div>
+        </div>
+      `;
+      summaryEl.innerHTML = sentimentHTML;
+    }
+  }
+}
+
+async function fetchMarketIntelligence(estimate) {
+  try {
+    const response = await fetch('http://localhost:8000/api/market-intelligence', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ parts: estimate.parts.map((part) => ({ key: part.key, category: part.category, name: part.name })) })
+    });
+
+    if (!response.ok) {
+      throw new Error('시장 정보 API 호출 실패');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.warn('통합 시장 정보 API 호출 실패:', error);
+    return null;
+  }
 }
 
 function initCrawlPage() {
   const estimate = loadData('estimateInput');
-  const queryText = estimate?.parts?.map((part) => part.name).filter(Boolean).join(' / ') || '입력 견적을 먼저 등록해 주세요.';
+  const queryText = estimate?.parts?.map((part) => part.name).filter(Boolean).join(' / ') || '견적을 먼저 등록해 주세요.';
 
   if (!estimate) {
-    renderCrawlData(sampleCrawlResults, queryText);
+    renderCrawlData(sampleCrawlResults, queryText, null);
     return;
   }
 
-  fetchCrawlResults(estimate).then((data) => {
-    renderCrawlData(data.results || sampleCrawlResults, data.keywords?.join(' / ') || queryText);
+  // 통합 시장 정보 조회 시도
+  fetchMarketIntelligence(estimate).then((marketData) => {
+    if (marketData && marketData.data) {
+      renderPriceInfo(marketData.data);
+    }
   }).catch(() => {
-    renderCrawlData(sampleCrawlResults, queryText);
+    // 실패 시 무시 (가격 정보는 선택사항)
+  });
+
+  // 기존 크롤링 데이터 조회
+  fetchCrawlResults(estimate).then((data) => {
+    renderCrawlData(data.results || sampleCrawlResults, data.keywords?.join(' / ') || queryText, data.sentiment_summary || null);
+  }).catch(() => {
+    renderCrawlData(sampleCrawlResults, queryText, null);
   });
 }
 
@@ -244,7 +371,7 @@ async function fetchOpenMarketPrices(parts) {
     const data = await response.json();
     return data.prices || [];
   } catch (error) {
-    console.warn('오픈마켓 API가 연결되지 않아 임시 가격 데이터를 사용합니다.', error);
+    console.warn('시장 정보 API가 연결되지 않아 임시 가격 데이터를 사용합니다.', error);
     return getMockMarketPrices(parts);
   }
 }

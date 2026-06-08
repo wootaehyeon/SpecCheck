@@ -57,7 +57,20 @@ class CrawlItem(BaseModel):
     url: str
     post_id: str
     collected_at: str
+    content: Optional[str] = None
+    sentiment: Optional[str] = None
+    sentiment_score: Optional[float] = None
+
+class SentimentSummary(BaseModel):
+    total: int
+    positive: int
+    negative: int
+    neutral: int
+    average_score: float
+    positive_ratio: float
+    negative_ratio: float
 
 class CrawlResponse(BaseModel):
     keywords: List[str]
     results: List[CrawlItem]
+    sentiment_summary: Optional[SentimentSummary] = None
