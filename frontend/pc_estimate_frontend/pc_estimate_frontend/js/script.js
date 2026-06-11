@@ -1064,8 +1064,18 @@ function initRecommendPage() {
   initOptimizeSection();
 }
 
+function highlightNav(currentPage) {
+  document.querySelectorAll('nav button').forEach((btn) => {
+    const onclick = btn.getAttribute('onclick') || '';
+    if (onclick.includes(`navigateTo('${currentPage}')`)) {
+      btn.classList.add('active');
+    }
+  });
+}
+
 function initPage() {
   const currentPage = getCurrentPageName();
+  highlightNav(currentPage);
   if (currentPage === 'input') {
     initInputPage();
   } else if (currentPage === 'analyzing') {

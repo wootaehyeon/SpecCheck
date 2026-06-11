@@ -43,6 +43,16 @@
   --shadow_standard: rgba(0, 0, 0, 0.32) 0px 0px 1px,
     rgba(0, 0, 0, 0.08) 0px 0px 2px, rgba(45, 127, 249, 0.28) 0px 1px 3px,
     rgba(0, 0, 0, 0.06) 0px 0px 0px 0.5px inset;
+  --shadow_hover: rgba(0, 0, 0, 0.32) 0px 0px 1px,
+    rgba(0, 0, 0, 0.1) 0px 2px 6px, rgba(45, 127, 249, 0.32) 0px 4px 12px,
+    rgba(0, 0, 0, 0.06) 0px 0px 0px 0.5px inset;
+
+  /* Motion (Airtable §15) */
+  --motion_fast: 150ms;
+  --motion_standard: 250ms;
+  --motion_slow: 400ms;
+  --ease_enter: cubic-bezier(0.2, 0.6, 0.25, 1);
+  --ease_exit: cubic-bezier(0.4, 0, 1, 1);
 
   /* Typography */
   --font_sans: "Haas", -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI",
@@ -94,11 +104,16 @@ nav button {
   font-size: 14px;
   font-weight: 500;
   letter-spacing: 0.08px;
-  transition: color 0.15s ease;
+  transition: color var(--motion_fast) var(--ease_enter);
 }
 
 nav button:hover {
   color: var(--theme_primary);
+}
+
+nav button.active {
+  color: var(--theme_primary);
+  font-weight: 600;
 }
 
 main {
@@ -148,11 +163,11 @@ main {
 
 .hero-text h1 {
   font-size: 48px;
-  font-weight: 400;
+  font-weight: 700;
   line-height: 1.15;
   margin-bottom: 20px;
   color: var(--theme_foreground);
-  letter-spacing: normal;
+  letter-spacing: -0.4px;
 }
 
 .hero-text p {
@@ -209,6 +224,10 @@ main {
 
 /* ---- Buttons ---- */
 .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   border: none;
   border-radius: var(--radius_md);
   padding: 16px 24px;
@@ -216,7 +235,15 @@ main {
   font-weight: 500;
   letter-spacing: 0.08px;
   cursor: pointer;
-  transition: background 0.15s ease, box-shadow 0.15s ease;
+  transition: background var(--motion_fast) var(--ease_enter),
+    box-shadow var(--motion_fast) var(--ease_enter),
+    transform var(--motion_fast) var(--ease_enter);
+}
+
+.btn svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 
 .btn-primary {
@@ -227,6 +254,11 @@ main {
 
 .btn-primary:hover {
   background: var(--theme_primary-hover);
+  box-shadow: var(--shadow_hover);
+}
+
+.btn:active {
+  transform: translateY(1px);
 }
 
 .btn-secondary {
@@ -265,6 +297,47 @@ main {
   padding: 28px;
   box-shadow: var(--shadow_standard);
   border: 1px solid var(--theme_hairline);
+}
+
+.summary-card,
+.feature-item,
+.stat-item {
+  transition: box-shadow var(--motion_standard) var(--ease_enter),
+    transform var(--motion_standard) var(--ease_enter);
+}
+
+.summary-card:hover,
+.feature-item:hover,
+.stat-item:hover {
+  box-shadow: var(--shadow_soft);
+  transform: translateY(-2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .summary-card,
+  .feature-item,
+  .stat-item,
+  .btn {
+    transition: none;
+  }
+
+  .summary-card:hover,
+  .feature-item:hover,
+  .stat-item:hover {
+    transform: none;
+  }
+}
+
+/* ---- Focus accessibility ---- */
+:focus-visible {
+  outline: 2px solid var(--theme_primary);
+  outline-offset: 2px;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
 }
 
 .input-layout {
