@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from typing import List
+from datetime import datetime
 from app.schemas.price import (
     PriceCheckRequest,
     PriceEvaluationResult,
@@ -11,7 +12,7 @@ from app.schemas.price import (
     CrawlResponse,
 )
 from app.services.price_evaluation import evaluate_price
-from app.services.crawl_service import crawl_related_parts
+from app.services.crawl_service import crawl_related_parts, get_sample_market_reactions, crawl_dcinside_search
 from app.services.naver_api import search_market_prices
 from app.services.sentiment_analyzer import SentimentAnalyzer
 from app.services.integrated_crawl import integrate_market_data
@@ -108,13 +109,17 @@ def market_intelligence(request: CrawlRequest):
     integrated_data = []
 
     for part in request.parts:
-        part_name = part.name if isinstance(part, dict) else part.name
+        part_name = part.name
         if not part_name:
             continue
 
-        # 시장 반응 수집
-        from app.services.crawl_service import get_sample_market_reactions
-        market_reactions = get_sample_market_reactions(part_name)
+        # 시장 반응 수집 (실제 크롤링 → 실패 시 샘플)
+        try:
+            market_reactions = crawl_dcinside_search(part_name, max_pages=1)
+        except Exception:
+            market_reactions = []
+        if not market_reactions:
+            market_reactions = get_sample_market_reactions(part_name)
 
         # 감정 분석
         analyzed_reactions = sentiment_analyzer.analyze_crawl_results(market_reactions)
@@ -126,5 +131,5 @@ def market_intelligence(request: CrawlRequest):
     return {
         "status": "success",
         "data": integrated_data,
-        "timestamp": __import__('datetime').datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat()
     }

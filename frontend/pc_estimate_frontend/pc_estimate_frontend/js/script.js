@@ -11,13 +11,23 @@ const PAGE_URLS = {
 };
 
 function getCurrentPageName() {
-  const fileName = window.location.pathname.split('/').pop() || 'index.html';
-  return fileName.replace('.html', '') || 'main';
+  const file = (window.location.pathname.split('/').pop() || 'index.html').toLowerCase();
+  const name = file.replace('.html', '') || 'index';
+  return name === 'index' ? 'main' : name;
 }
 
 function navigateTo(page) {
   const target = PAGE_URLS[page] || page;
   window.location.href = target;
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
 }
 
 function formatPrice(price) {
@@ -40,7 +50,7 @@ function renderPriceInfo(marketData) {
 
     const row = document.createElement('tr');
     row.innerHTML = `
-      <td>${part_name}</td>
+      <td>${escapeHtml(part_name)}</td>
       <td>${formatPrice(lowestPrice)}</td>
       <td>${formatPrice(avgPrice)}</td>
       <td>
@@ -65,13 +75,11 @@ function saveData(key, value) {
 }
 
 function loadData(key) {
-  const raw = localStorage.getItem(key);
-  if (!raw) return null;
-
   try {
-    return JSON.parse(raw);
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
   } catch (error) {
-    console.warn(`${key} 저장 데이터가 깨져서 초기화합니다.`, error);
+    console.warn(`저장된 데이터(${key})가 손상되어 초기화합니다.`, error);
     localStorage.removeItem(key);
     return null;
   }
@@ -146,19 +154,20 @@ function loadEstimateInput() {
   const estimate = loadData('estimateInput');
   if (!estimate) return;
 
+  const parts = Array.isArray(estimate.parts) ? estimate.parts : [];
   safeSetValue('purpose', estimate.purpose);
   safeSetValue('cpu', estimate.cpu);
-  safeSetValue('cpuPrice', estimate.parts[0]?.userPrice);
+  safeSetValue('cpuPrice', parts[0]?.userPrice);
   safeSetValue('gpu', estimate.gpu);
-  safeSetValue('gpuPrice', estimate.parts[1]?.userPrice);
+  safeSetValue('gpuPrice', parts[1]?.userPrice);
   safeSetValue('ram', estimate.ram);
-  safeSetValue('ramPrice', estimate.parts[2]?.userPrice);
+  safeSetValue('ramPrice', parts[2]?.userPrice);
   safeSetValue('storage', estimate.storage);
-  safeSetValue('storagePrice', estimate.parts[3]?.userPrice);
+  safeSetValue('storagePrice', parts[3]?.userPrice);
   safeSetValue('motherboard', estimate.motherboard);
-  safeSetValue('motherboardPrice', estimate.parts[4]?.userPrice);
+  safeSetValue('motherboardPrice', parts[4]?.userPrice);
   safeSetValue('power', estimate.power);
-  safeSetValue('powerPrice', estimate.parts[5]?.userPrice);
+  safeSetValue('powerPrice', parts[5]?.userPrice);
   safeSetValue('totalPrice', estimate.totalPrice);
 }
 
@@ -220,7 +229,7 @@ const sampleCrawlResults = [
 async function fetchCrawlResults(estimate) {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5초 타임아웃
+    const timeoutId = setTimeout(() => controller.abort(), 25000); // 실제 크롤링은 부품당 1~2초 소요되어 여유 있게 설정
 
     const response = await fetch(CRAWL_API_URL, {
       method: 'POST',
@@ -252,15 +261,17 @@ function renderCrawlData(results, queryText = '입력 견적을 먼저 등록해
   tbody.innerHTML = '';
 
   results.forEach((item) => {
-    const sentimentBadge = item.sentiment ? `<span class="sentiment-badge sentiment-${item.sentiment}" title="평가 점수: ${(item.sentiment_score * 100).toFixed(0)}%">${item.sentiment}</span>` : '';
+    const score = Number.isFinite(item.sentiment_score) ? (item.sentiment_score * 100).toFixed(0) : '-';
+    const sentimentBadge = item.sentiment ? `<span class="sentiment-badge sentiment-${escapeHtml(item.sentiment)}" title="평가 점수: ${score}%">${escapeHtml(item.sentiment)}</span>` : '';
+    const safeUrl = escapeHtml(item.url);
     const row = document.createElement('tr');
     row.innerHTML = `
-      <td>${item.source}</td>
-      <td><a href="${item.url}" target="_blank" rel="noreferrer">${item.title}</a></td>
-      <td>${item.keyword || '-'}</td>
-      <td>${item.date}</td>
-      <td>${item.collected_at || '-'}</td>
-      <td><a href="${item.url}" target="_blank" rel="noreferrer">열기</a></td>
+      <td>${escapeHtml(item.source)}</td>
+      <td><a href="${safeUrl}" target="_blank" rel="noreferrer">${escapeHtml(item.title)}</a></td>
+      <td>${escapeHtml(item.keyword || '-')}</td>
+      <td>${escapeHtml(item.date)}</td>
+      <td>${escapeHtml(item.collected_at || '-')}</td>
+      <td><a href="${safeUrl}" target="_blank" rel="noreferrer">열기</a></td>
       <td>${sentimentBadge}</td>
     `;
     tbody.appendChild(row);
@@ -268,7 +279,8 @@ function renderCrawlData(results, queryText = '입력 견적을 먼저 등록해
 
   safeSetText('crawlCount', results.length);
   safeSetText('crawlLatestDate', results[0]?.date || '-');
-  safeSetText('crawlSources', 'DC인사이드');
+  const sources = [...new Set(results.map((item) => item.source).filter(Boolean))];
+  safeSetText('crawlSources', sources.length ? sources.join(', ') : 'DC인사이드');
   safeSetText('crawlQuery', queryText);
 
   // Display sentiment summary
@@ -329,7 +341,7 @@ function renderCrawlData(results, queryText = '입력 견적을 먼저 등록해
 async function fetchMarketIntelligence(estimate) {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5초 타임아웃
+    const timeoutId = setTimeout(() => controller.abort(), 25000); // 실제 크롤링은 부품당 1~2초 소요되어 여유 있게 설정
 
     const response = await fetch('http://localhost:8000/api/market-intelligence', {
       method: 'POST',

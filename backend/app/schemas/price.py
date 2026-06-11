@@ -25,7 +25,8 @@ class PartRequest(BaseModel):
     key: str
     category: str
     name: str
-    userPrice: int
+    # /crawl, /market-intelligence 요청은 가격 없이 부품명만 보내므로 기본값 허용
+    userPrice: int = 0
 
 class PartPriceInfo(BaseModel):
     key: str
