@@ -75,3 +75,42 @@ class CrawlResponse(BaseModel):
     keywords: List[str]
     results: List[CrawlItem]
     sentiment_summary: Optional[SentimentSummary] = None
+
+
+# ---------------------------------------------------------------------------
+# 해외(eBay) 중고가 / 견적 최적화
+# ---------------------------------------------------------------------------
+class UsedPriceRequest(BaseModel):
+    parts: List[PartRequest]
+
+
+class UsedPartPrice(BaseModel):
+    key: str
+    category: str
+    name: str
+    userPrice: int = 0
+    found: bool = False
+    source: Optional[str] = None
+    lowestPriceUSD: Optional[float] = None
+    averagePriceUSD: Optional[float] = None
+    lowestPriceKRW: Optional[int] = None
+    averagePriceKRW: Optional[int] = None
+    usdKrwRate: Optional[float] = None
+    listingCount: Optional[int] = None
+    sampleLink: Optional[str] = None
+    error: Optional[str] = None
+
+
+class UsedPricesResponse(BaseModel):
+    usdKrwRate: float
+    prices: List[UsedPartPrice]
+
+
+class OptimizeRequest(BaseModel):
+    parts: List[PartRequest]
+    # "save" | "upgrade" | "both"
+    mode: str = "both"
+    purpose: str = "게임"
+
+
+# 최적화 응답은 동적 구조가 커서 dict로 그대로 반환합니다.

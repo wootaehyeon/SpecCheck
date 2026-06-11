@@ -1,5 +1,6 @@
 const OPEN_MARKET_API_URL = 'http://localhost:8000/api/market-prices';
 const CRAWL_API_URL = 'http://localhost:8000/api/crawl';
+const OPTIMIZE_API_URL = 'http://localhost:8000/api/optimize-estimate';
 const PAGE_URLS = {
   main: 'index.html',
   input: 'input.html',
@@ -749,6 +750,186 @@ function initDetailPage() {
   renderResult(result);
 }
 
+async function fetchOptimize(parts, mode) {
+  const controller = new AbortController();
+  // 최초 조회는 부품/후보당 eBay 호출이 누적되어 오래 걸릴 수 있음
+  const timeoutId = setTimeout(() => controller.abort(), 90000);
+
+  try {
+    const response = await fetch(OPTIMIZE_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        parts: parts.map((part) => ({
+          key: part.key,
+          category: part.category,
+          name: part.name,
+          userPrice: toNumber(part.userPrice)
+        })),
+        mode,
+        purpose: loadData('estimateInput')?.purpose || '게임'
+      }),
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    if (!response.ok) throw new Error('최적화 API 호출 실패');
+    const json = await response.json();
+    return json.data;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    console.warn('견적 최적화 API 호출 실패:', error);
+    return null;
+  }
+}
+
+function renderOptimizeSave(save, rate) {
+  safeSetText('optimizeMetricLabel1', '입력 가격 합계');
+  safeSetText('optimizeMetricLabel2', '중고 최적화 합계');
+  safeSetText('optimizeMetricLabel3', `총 절감액 (${save.savingsRate || 0}%)`);
+  safeSetText('optimizeMetric1', formatWon(save.inputTotal));
+  safeSetText('optimizeMetric2', formatWon(save.optimizedTotal));
+  safeSetText('optimizeMetric3', formatWon(save.totalSavings));
+  safeSetText('optimizeRate', rate ? rate.toLocaleString('ko-KR') + '원' : '-');
+
+  const head = safeGet('optimizeTableHead');
+  if (head) {
+    head.innerHTML = `
+      <tr>
+        <th>부품</th><th>모델명</th><th>입력 가격</th>
+        <th>해외 중고 최저가</th><th>절감액</th><th>추천</th>
+      </tr>`;
+  }
+
+  const body = safeGet('optimizeTableBody');
+  if (!body) return;
+  body.innerHTML = '';
+
+  save.items.forEach((item) => {
+    const usedKRW = item.usedLowestKRW;
+    const savings = item.savings || 0;
+    const recommend = item.recommend;
+    const link = item.sampleLink
+      ? `<br><small><a href="${escapeHtml(item.sampleLink)}" target="_blank" rel="noreferrer">eBay 매물</a></small>`
+      : '';
+    const badge = recommend
+      ? `<span class="badge badge-good">교체 권장</span>`
+      : `<span class="badge badge-warning">${item.usedFound ? '유지' : '시세 없음'}</span>`;
+
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${escapeHtml(item.category)}</td>
+      <td>${escapeHtml(item.name)}</td>
+      <td>${formatWon(item.userPrice)}</td>
+      <td>${usedKRW ? formatWon(usedKRW) : '-'}${link}</td>
+      <td class="${savings > 0 ? 'price-down' : 'price-neutral'}">${savings > 0 ? '-' + formatWon(savings) : '-'}</td>
+      <td>${badge}</td>`;
+    body.appendChild(row);
+  });
+
+  safeSetText('optimizeStatus',
+    save.totalSavings > 0
+      ? `해외 중고가로 교체 시 최대 약 ${formatWon(save.totalSavings)}를 아낄 수 있습니다.`
+      : '입력 가격이 이미 해외 중고 시세와 비슷하거나 더 저렴합니다.');
+}
+
+function renderOptimizeUpgrade(upgrade, rate) {
+  safeSetText('optimizeMetricLabel1', '업그레이드 가능 부품');
+  safeSetText('optimizeMetricLabel2', '총 성능점수 향상');
+  safeSetText('optimizeMetricLabel3', '대상');
+  safeSetText('optimizeMetric1', `${upgrade.upgradeableCount}개`);
+  safeSetText('optimizeMetric2', `+${(upgrade.totalScoreGain || 0).toLocaleString('ko-KR')}점`);
+  safeSetText('optimizeMetric3', 'CPU / GPU');
+  safeSetText('optimizeRate', rate ? rate.toLocaleString('ko-KR') + '원' : '-');
+
+  const head = safeGet('optimizeTableHead');
+  if (head) {
+    head.innerHTML = `
+      <tr>
+        <th>부품</th><th>현재 모델</th><th>현재 점수</th>
+        <th>추천 모델(중고)</th><th>추천 점수</th><th>성능 향상</th>
+      </tr>`;
+  }
+
+  const body = safeGet('optimizeTableBody');
+  if (!body) return;
+  body.innerHTML = '';
+
+  upgrade.items.forEach((item) => {
+    let recCell = `<span class="badge badge-warning">교체안 없음</span>`;
+    let recScore = '-';
+    let gain = '-';
+    if (item.upgradeable) {
+      const link = item.sampleLink
+        ? `<br><small><a href="${escapeHtml(item.sampleLink)}" target="_blank" rel="noreferrer">eBay 매물</a></small>`
+        : '';
+      recCell = `${escapeHtml(item.recommendedPart)}<br><small>${formatWon(item.recommendedUsedKRW)}</small>${link}`;
+      recScore = (item.recommendedScore || 0).toLocaleString('ko-KR');
+      gain = `<span class="price-up">+${item.scoreGainPct}%</span>`;
+    }
+
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${escapeHtml(item.category)}</td>
+      <td>${escapeHtml(item.currentBenchmark || item.name)}</td>
+      <td>${item.currentScore ? item.currentScore.toLocaleString('ko-KR') : '-'}</td>
+      <td>${recCell}</td>
+      <td>${recScore}</td>
+      <td>${gain}</td>`;
+    body.appendChild(row);
+  });
+
+  safeSetText('optimizeStatus',
+    upgrade.upgradeableCount > 0
+      ? `동일 예산에서 ${upgrade.upgradeableCount}개 부품의 성능을 높일 수 있는 해외 중고 교체안을 찾았습니다.`
+      : '동일 예산 내에서 더 나은 성능의 해외 중고 부품을 찾지 못했습니다.');
+}
+
+function runOptimize(parts, mode) {
+  const saveBtn = safeGet('optimizeSaveBtn');
+  const upgradeBtn = safeGet('optimizeUpgradeBtn');
+  [saveBtn, upgradeBtn].forEach((b) => b && (b.disabled = true));
+
+  if (saveBtn && upgradeBtn) {
+    saveBtn.className = mode === 'save' ? 'btn btn-primary' : 'btn btn-secondary';
+    upgradeBtn.className = mode === 'upgrade' ? 'btn btn-primary' : 'btn btn-secondary';
+  }
+
+  safeSetText('optimizeStatus', '해외 중고가를 조회하는 중입니다...');
+  const summary = safeGet('optimizeSummary');
+
+  fetchOptimize(parts, mode).then((data) => {
+    if (!data) {
+      safeSetText('optimizeStatus', '중고가 조회에 실패했습니다. 백엔드 서버와 네트워크를 확인해 주세요.');
+      return;
+    }
+    if (summary) summary.style.display = 'grid';
+    if (mode === 'save' && data.save) {
+      renderOptimizeSave(data.save, data.usdKrwRate);
+    } else if (mode === 'upgrade' && data.upgrade) {
+      renderOptimizeUpgrade(data.upgrade, data.usdKrwRate);
+    }
+  }).finally(() => {
+    [saveBtn, upgradeBtn].forEach((b) => b && (b.disabled = false));
+  });
+}
+
+function initOptimizeSection() {
+  const estimate = loadData('estimateInput');
+  const parts = Array.isArray(estimate?.parts) ? estimate.parts.filter((p) => p.name) : [];
+
+  const saveBtn = safeGet('optimizeSaveBtn');
+  const upgradeBtn = safeGet('optimizeUpgradeBtn');
+
+  if (!parts.length) {
+    safeSetText('optimizeStatus', '견적을 먼저 입력해 주세요.');
+    [saveBtn, upgradeBtn].forEach((b) => b && (b.disabled = true));
+    return;
+  }
+
+  if (saveBtn) saveBtn.addEventListener('click', () => runOptimize(parts, 'save'));
+  if (upgradeBtn) upgradeBtn.addEventListener('click', () => runOptimize(parts, 'upgrade'));
+}
+
 function initRecommendPage() {
   const result = loadData('analysisResult');
   if (!result) {
@@ -756,6 +937,7 @@ function initRecommendPage() {
     return;
   }
   renderResult(result);
+  initOptimizeSection();
 }
 
 function initPage() {

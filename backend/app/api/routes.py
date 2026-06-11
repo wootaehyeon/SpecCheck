@@ -10,12 +10,18 @@ from app.schemas.price import (
     PartPriceInfo,
     CrawlRequest,
     CrawlResponse,
+    UsedPriceRequest,
+    UsedPartPrice,
+    UsedPricesResponse,
+    OptimizeRequest,
 )
 from app.services.price_evaluation import evaluate_price
 from app.services.crawl_service import crawl_related_parts, get_sample_market_reactions, crawl_dcinside_search
 from app.services.naver_api import search_market_prices
 from app.services.sentiment_analyzer import SentimentAnalyzer
 from app.services.integrated_crawl import integrate_market_data
+from app.services.ebay_api import search_used_price, get_usd_krw_rate
+from app.services.used_price_optimizer import optimize_estimate
 
 router = APIRouter()
 sentiment_analyzer = SentimentAnalyzer()
@@ -132,4 +138,63 @@ def market_intelligence(request: CrawlRequest):
         "status": "success",
         "data": integrated_data,
         "timestamp": datetime.now().isoformat()
+    }
+
+
+@router.post("/used-prices", response_model=UsedPricesResponse)
+def used_prices(request: UsedPriceRequest):
+    """
+    여러 부품의 해외(eBay) 중고 시세를 조회합니다.
+    EBAY_OAUTH_TOKEN이 있으면 Browse API, 없으면 eBay 검색 페이지 스크래핑으로 폴백합니다.
+    """
+    rate = get_usd_krw_rate()
+    items: List[UsedPartPrice] = []
+
+    for part in request.parts:
+        used = search_used_price(part.name)
+        if not used.get("found"):
+            items.append(UsedPartPrice(
+                key=part.key,
+                category=part.category,
+                name=part.name,
+                userPrice=part.userPrice,
+                found=False,
+                source=used.get("source"),
+                error=used.get("error", "no used listings"),
+            ))
+            continue
+
+        items.append(UsedPartPrice(
+            key=part.key,
+            category=part.category,
+            name=part.name,
+            userPrice=part.userPrice,
+            found=True,
+            source=used.get("source"),
+            lowestPriceUSD=used.get("lowest_price_usd"),
+            averagePriceUSD=used.get("average_price_usd"),
+            lowestPriceKRW=used.get("lowest_price_krw"),
+            averagePriceKRW=used.get("average_price_krw"),
+            usdKrwRate=used.get("usd_krw_rate"),
+            listingCount=used.get("listing_count"),
+            sampleLink=used.get("sample_link"),
+        ))
+
+    return UsedPricesResponse(usdKrwRate=round(rate, 2), prices=items)
+
+
+@router.post("/optimize-estimate")
+def optimize_estimate_route(request: OptimizeRequest):
+    """
+    해외(eBay) 중고 시세를 기반으로 견적을 최적화합니다.
+    - mode="save"    : 같은 부품을 중고가로 대체했을 때의 절감액
+    - mode="upgrade" : 동일 예산 내에서 더 높은 성능(벤치마크)의 부품으로 교체
+    - mode="both"    : 두 결과를 모두 반환 (기본값)
+    """
+    parts = [p.model_dump() for p in request.parts]
+    result = optimize_estimate(parts, mode=request.mode, purpose=request.purpose)
+    return {
+        "status": "success",
+        "data": result,
+        "timestamp": datetime.now().isoformat(),
     }
