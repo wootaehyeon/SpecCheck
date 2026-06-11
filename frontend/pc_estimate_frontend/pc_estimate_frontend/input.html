@@ -15,7 +15,7 @@
         <button onclick="navigateTo('result')">분석 결과</button>
         <button onclick="navigateTo('detail')">상세 분석</button>
         <button onclick="navigateTo('recommend')">교체 추천</button>
-        <button onclick="navigateTo('crawl')">크롤링 보기</button>
+        <button onclick="navigateTo('crawl')">시장 조사</button>
       </nav>
     </header>
 
@@ -30,7 +30,13 @@
           <div class="card">
             <h3>파일 업로드</h3>
             <div class="upload-box">
-              <div class="upload-icon">📁</div>
+              <div class="upload-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+              </div>
               <strong>견적서 파일을 업로드하세요</strong>
               <p>이미지, PDF, 엑셀, 텍스트 파일 지원</p>
               <input type="file" />
