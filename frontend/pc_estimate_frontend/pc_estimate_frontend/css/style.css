@@ -298,6 +298,37 @@ main {
   height: 44px;
 }
 
+.upload-samples {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.upload-samples span {
+  width: 100%;
+  font-size: 12px;
+  color: var(--theme_text-muted);
+}
+
+.upload-samples a {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--theme_primary);
+  padding: 4px 10px;
+  border: 1px solid var(--theme_hairline);
+  border-radius: 999px;
+  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.upload-samples a:hover {
+  background: var(--theme_surface-hover, rgba(0, 0, 0, 0.04));
+  border-color: var(--theme_primary);
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

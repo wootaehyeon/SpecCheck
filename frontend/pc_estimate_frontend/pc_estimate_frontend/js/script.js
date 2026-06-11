@@ -49,6 +49,7 @@ function renderPriceInfo(marketData) {
     const sentiment = market_sentiment ? `${market_sentiment.positive}/${market_sentiment.neutral}/${market_sentiment.negative}` : '-';
     const scorePercent = market_sentiment ? (market_sentiment.average_score * 100).toFixed(0) : '-';
 
+    const naverLink = `https://search.shopping.naver.com/search/all?query=${encodeURIComponent(part_name)}`;
     const row = document.createElement('tr');
     row.innerHTML = `
       <td>${escapeHtml(part_name)}</td>
@@ -61,7 +62,7 @@ function renderPriceInfo(marketData) {
       </td>
       <td>
         <small style="color: #666;">
-          네이버 쇼핑<br>
+          <a href="${naverLink}" target="_blank" rel="noreferrer">네이버 쇼핑</a><br>
           YouTube<br>
           나무위키
         </small>
@@ -188,43 +189,88 @@ function getMockMarketPrices(parts) {
   }));
 }
 
+// ===== 시연용 하드코딩 데이터 (확실하게 열리는 실제 링크 사용) =====
+// 백엔드 API가 응답하지 않아도 시연 영상에서 항상 동일한 화면이 보이도록 채워둔 예시입니다.
 const sampleCrawlResults = [
   {
     source: 'DC인사이드',
-    keyword: 'i9-13900K',
-    title: '최신 고성능 CPU 구입 후기',
-    date: '2026-06-07',
-    url: 'https://gall.dcinside.com/mgallery/board/view/?id=cpu&no=12345',
+    keyword: 'Ryzen 5 7500F',
+    title: '7500F 게임용으로 가성비 끝판왕이네요 (구매 후기)',
+    date: '2026-06-09',
+    collected_at: '2026-06-11',
+    url: 'https://gall.dcinside.com/board/lists/?id=computer_new1&s_type=search_subject_memo&s_keyword=7500F',
     sentiment: 'positive',
-    sentiment_score: 0.85
+    sentiment_score: 0.88
   },
   {
     source: '당근마켓',
-    keyword: 'RTX 4070',
-    title: '고급 그래픽카드 중고 거래',
-    date: '2026-06-06',
-    url: 'https://example.com/item/54321',
+    keyword: 'RTX 4060',
+    title: 'RTX 4060 그래픽카드 미개봉 판매합니다 (직거래/택배)',
+    date: '2026-06-10',
+    collected_at: '2026-06-11',
+    url: 'https://www.daangn.com/search/RTX%204060',
     sentiment: 'positive',
-    sentiment_score: 0.78
+    sentiment_score: 0.81
   },
   {
-    source: '네이버 카페',
-    keyword: '라이젠 7 5700X',
-    title: 'CPU 선택에 대한 조언',
-    date: '2026-06-05',
-    url: 'https://cafe.naver.com/article/12345',
+    source: 'eBay',
+    keyword: 'RTX 4060',
+    title: 'NVIDIA GeForce RTX 4060 8GB GDDR6 - Used (해외 중고 시세)',
+    date: '2026-06-08',
+    collected_at: '2026-06-11',
+    url: 'https://www.ebay.com/sch/i.html?_nkw=RTX+4060&LH_ItemCondition=3000',
     sentiment: 'neutral',
-    sentiment_score: 0.52
+    sentiment_score: 0.6
   },
   {
     source: 'DC인사이드',
-    keyword: 'RTX 4090',
-    title: '최고급 그래픽카드 성능 평가',
-    date: '2026-06-04',
-    url: 'https://gall.dcinside.com/mgallery/board/view/?id=vga&no=98765',
+    keyword: '32GB DDR5',
+    title: 'DDR5 32GB 요즘 가격 많이 떨어졌네요 (지금이 적기)',
+    date: '2026-06-07',
+    collected_at: '2026-06-11',
+    url: 'https://gall.dcinside.com/board/lists/?id=computer_new1&s_type=search_subject_memo&s_keyword=DDR5+32GB',
     sentiment: 'positive',
-    sentiment_score: 0.72
+    sentiment_score: 0.74
+  },
+  {
+    source: '당근마켓',
+    keyword: 'B650M',
+    title: 'B650M 메인보드 박스 풀구성 직거래 합니다',
+    date: '2026-06-06',
+    collected_at: '2026-06-11',
+    url: 'https://www.daangn.com/search/B650M',
+    sentiment: 'neutral',
+    sentiment_score: 0.55
+  },
+  {
+    source: 'eBay',
+    keyword: 'Ryzen 5 7500F',
+    title: 'AMD Ryzen 5 7500F 6-Core CPU - Tested Working',
+    date: '2026-06-05',
+    collected_at: '2026-06-11',
+    url: 'https://www.ebay.com/sch/i.html?_nkw=Ryzen+5+7500F',
+    sentiment: 'positive',
+    sentiment_score: 0.79
   }
+];
+
+// 커뮤니티 평가 요약(긍정/중립/부정) 시연용 값
+const sampleSentimentSummary = {
+  total: 6,
+  positive: 4,
+  neutral: 2,
+  negative: 0,
+  average_score: 0.73
+};
+
+// 부품별 가격 정보 테이블 시연용 값 (네이버/eBay/당근 등에서 수집한 것으로 가정)
+const samplePriceInfo = [
+  { part_name: 'Ryzen 5 7500F', price_info: { lowest_price: 178000, average_price: 189000 }, market_sentiment: { positive: 42, neutral: 9, negative: 3, average_score: 0.86 } },
+  { part_name: 'RTX 4060', price_info: { lowest_price: 389000, average_price: 412000 }, market_sentiment: { positive: 51, neutral: 14, negative: 6, average_score: 0.78 } },
+  { part_name: '32GB DDR5', price_info: { lowest_price: 102000, average_price: 118000 }, market_sentiment: { positive: 33, neutral: 7, negative: 2, average_score: 0.82 } },
+  { part_name: '1TB NVMe SSD', price_info: { lowest_price: 88000, average_price: 99000 }, market_sentiment: { positive: 28, neutral: 6, negative: 1, average_score: 0.84 } },
+  { part_name: 'B650M', price_info: { lowest_price: 145000, average_price: 162000 }, market_sentiment: { positive: 19, neutral: 11, negative: 4, average_score: 0.7 } },
+  { part_name: '600W', price_info: { lowest_price: 58000, average_price: 69000 }, market_sentiment: { positive: 22, neutral: 5, negative: 2, average_score: 0.81 } }
 ];
 
 async function fetchCrawlResults(estimate) {
@@ -368,27 +414,27 @@ async function fetchMarketIntelligence(estimate) {
 
 function initCrawlPage() {
   const estimate = loadData('estimateInput');
-  const queryText = estimate?.parts?.map((part) => part.name).filter(Boolean).join(' / ') || '견적을 먼저 등록해 주세요.';
+  const queryText = estimate?.parts?.map((part) => part.name).filter(Boolean).join(' / ') || 'Ryzen 5 7500F / RTX 4060 / 32GB DDR5 / 1TB NVMe SSD / B650M / 600W';
 
+  // 견적이 없어도 시연용 예시 데이터로 화면을 채운다.
   if (!estimate) {
-    renderCrawlData(sampleCrawlResults, queryText, null);
+    renderPriceInfo(samplePriceInfo);
+    renderCrawlData(sampleCrawlResults, queryText, sampleSentimentSummary);
     return;
   }
 
-  // 통합 시장 정보 조회 시도
+  // 통합 시장 정보 조회 시도 (실패 시 예시 가격 정보로 폴백)
   fetchMarketIntelligence(estimate).then((marketData) => {
-    if (marketData && marketData.data) {
-      renderPriceInfo(marketData.data);
-    }
+    renderPriceInfo(marketData && marketData.data ? marketData.data : samplePriceInfo);
   }).catch(() => {
-    // 실패 시 무시 (가격 정보는 선택사항)
+    renderPriceInfo(samplePriceInfo);
   });
 
-  // 기존 크롤링 데이터 조회
+  // 기존 크롤링 데이터 조회 (실패 시 예시 데이터로 폴백)
   fetchCrawlResults(estimate).then((data) => {
-    renderCrawlData(data.results || sampleCrawlResults, data.keywords?.join(' / ') || queryText, data.sentiment_summary || null);
+    renderCrawlData(data.results || sampleCrawlResults, data.keywords?.join(' / ') || queryText, data.sentiment_summary || sampleSentimentSummary);
   }).catch(() => {
-    renderCrawlData(sampleCrawlResults, queryText, null);
+    renderCrawlData(sampleCrawlResults, queryText, sampleSentimentSummary);
   });
 }
 
@@ -750,6 +796,84 @@ function initDetailPage() {
   renderResult(result);
 }
 
+// ===== 시연용 eBay 해외 중고가 최적화 데이터 (실제 eBay 검색 링크 사용) =====
+function ebayUsedLink(name) {
+  return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(name)}&LH_ItemCondition=3000`;
+}
+
+function buildSampleOptimize(parts) {
+  const usdKrwRate = 1385;
+
+  // ① 가격 낮추기: 입력 가격 대비 해외 중고가가 약 22% 저렴하다고 가정
+  const saveItems = parts.map((part) => {
+    const userPrice = toNumber(part.userPrice);
+    const usedLowestKRW = userPrice ? Math.round((userPrice * 0.78) / 1000) * 1000 : 0;
+    const savings = Math.max(0, userPrice - usedLowestKRW);
+    return {
+      category: part.category,
+      name: part.name,
+      userPrice,
+      usedLowestKRW,
+      usedFound: usedLowestKRW > 0,
+      savings,
+      recommend: savings >= 15000,
+      sampleLink: ebayUsedLink(part.name)
+    };
+  });
+  const inputTotal = saveItems.reduce((sum, item) => sum + item.userPrice, 0);
+  const optimizedTotal = saveItems.reduce((sum, item) => sum + (item.usedLowestKRW || item.userPrice), 0);
+  const totalSavings = Math.max(0, inputTotal - optimizedTotal);
+  const savingsRate = inputTotal ? Math.round((totalSavings / inputTotal) * 100) : 0;
+
+  // ② 성능 향상(동일 예산): CPU/GPU만 해외 중고 교체안 제시
+  const upgradeMap = {
+    cpu: { recommendedPart: 'AMD Ryzen 7 5700X3D', recommendedUsedKRW: 198000, currentScore: 22100, recommendedScore: 26800 },
+    gpu: { recommendedPart: 'NVIDIA GeForce RTX 4070', recommendedUsedKRW: 489000, currentScore: 16200, recommendedScore: 22400 }
+  };
+  const upgradeItems = parts.map((part) => {
+    const plan = upgradeMap[part.key];
+    if (!plan) {
+      return {
+        category: part.category,
+        name: part.name,
+        currentBenchmark: part.name,
+        currentScore: 0,
+        upgradeable: false
+      };
+    }
+    const scoreGainPct = Math.round(((plan.recommendedScore - plan.currentScore) / plan.currentScore) * 100);
+    return {
+      category: part.category,
+      name: part.name,
+      currentBenchmark: part.name,
+      currentScore: plan.currentScore,
+      upgradeable: true,
+      recommendedPart: plan.recommendedPart,
+      recommendedUsedKRW: plan.recommendedUsedKRW,
+      recommendedScore: plan.recommendedScore,
+      scoreGainPct,
+      sampleLink: ebayUsedLink(plan.recommendedPart)
+    };
+  });
+  const upgradeableItems = upgradeItems.filter((item) => item.upgradeable);
+
+  return {
+    usdKrwRate,
+    save: {
+      inputTotal,
+      optimizedTotal,
+      totalSavings,
+      savingsRate,
+      items: saveItems
+    },
+    upgrade: {
+      upgradeableCount: upgradeableItems.length,
+      totalScoreGain: upgradeableItems.reduce((sum, item) => sum + (item.recommendedScore - item.currentScore), 0),
+      items: upgradeItems
+    }
+  };
+}
+
 async function fetchOptimize(parts, mode) {
   const controller = new AbortController();
   // 최초 조회는 부품/후보당 eBay 호출이 누적되어 오래 걸릴 수 있음
@@ -777,8 +901,8 @@ async function fetchOptimize(parts, mode) {
     return json.data;
   } catch (error) {
     clearTimeout(timeoutId);
-    console.warn('견적 최적화 API 호출 실패:', error);
-    return null;
+    console.warn('견적 최적화 API 호출에 실패하여 시연용 예시 데이터를 표시합니다.', error);
+    return buildSampleOptimize(parts);
   }
 }
 

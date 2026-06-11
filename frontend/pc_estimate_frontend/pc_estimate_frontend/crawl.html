@@ -15,17 +15,17 @@
         <button onclick="navigateTo('result')">분석 결과</button>
         <button onclick="navigateTo('detail')">상세 분석</button>
         <button onclick="navigateTo('recommend')">교체 추천</button>
-        <button onclick="navigateTo('crawl')">시장 조사</button>
+        <button onclick="navigateTo('crawl')">시장 반응</button>
       </nav>
     </header>
 
     <main>
       <section class="page active">
         <div class="section-title">
-          <h2>입력 견적 기반 시장 조사</h2>
+          <h2>입력 견적 기반 시장 반응</h2>
           <p>
-            입력한 PC 부품 이름을 바탕으로 커뮤니티와 중고거래 시장의
-            관심도 및 평가 정보를 수집하여 제공합니다.
+            입력한 PC 부품 이름을 바탕으로 커뮤니티와 중고거래 시장의 관심도 및
+            평가 정보를 수집하여 제공합니다.
           </p>
         </div>
 
@@ -74,16 +74,31 @@
             </div>
             <div id="sentimentTrend" class="sentiment-trend">
               <div class="trend-bar">
-                <div id="trendPositive" class="trend-segment positive" style="width: 0%"></div>
-                <div id="trendNeutral" class="trend-segment neutral" style="width: 0%"></div>
-                <div id="trendNegative" class="trend-segment negative" style="width: 0%"></div>
+                <div
+                  id="trendPositive"
+                  class="trend-segment positive"
+                  style="width: 0%"
+                ></div>
+                <div
+                  id="trendNeutral"
+                  class="trend-segment neutral"
+                  style="width: 0%"
+                ></div>
+                <div
+                  id="trendNegative"
+                  class="trend-segment negative"
+                  style="width: 0%"
+                ></div>
               </div>
             </div>
           </div>
 
           <div class="section-subtitle">
             <h3>부품별 가격 정보</h3>
-            <p>네이버 쇼핑, YouTube, 나무위키 등 다양한 소스에서 수집한 가격 및 평가 정보입니다.</p>
+            <p>
+              네이버 쇼핑, YouTube, 나무위키 등 다양한 소스에서 수집한 가격 및
+              평가 정보입니다.
+            </p>
           </div>
 
           <div id="priceInfoContainer" class="table-wrap">
@@ -126,9 +141,11 @@
             </table>
           </div>
 
-          <div class="section-subtitle" style="margin-top: 32px;">
+          <div class="section-subtitle" style="margin-top: 32px">
             <h3>커뮤니티 평가 정보</h3>
-            <p>입력 견적과 관련된 커뮤니티 및 중고거래 시장의 상세 평가입니다.</p>
+            <p>
+              입력 견적과 관련된 커뮤니티 및 중고거래 시장의 상세 평가입니다.
+            </p>
           </div>
 
           <div class="button-row">
