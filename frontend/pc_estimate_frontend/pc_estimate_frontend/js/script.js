@@ -56,12 +56,12 @@ function renderPriceInfo(marketData) {
       <td>${formatPrice(lowestPrice)}</td>
       <td>${formatPrice(avgPrice)}</td>
       <td>
-        <span class="sentiment-badge" style="background: #e8f5e9; color: #1b5e20; padding: 4px 8px; border-radius: 4px;">
+        <span class="sentiment-badge sentiment-positive">
           ${scorePercent}%
         </span>
       </td>
       <td>
-        <small style="color: #666;">
+        <small class="link-list">
           <a href="${naverLink}" target="_blank" rel="noreferrer">네이버 쇼핑</a><br>
           YouTube<br>
           나무위키
@@ -1092,3 +1092,73 @@ function initPage() {
 }
 
 window.addEventListener('DOMContentLoaded', initPage);
+
+/* ==========================================================================
+   Scroll reveal — boxes ease in from blurred to sharp as they enter view.
+   Auto-applies to structural boxes; a MutationObserver picks up boxes that
+   are rendered after async fetches (tables, result cards, crawl rows).
+   ========================================================================== */
+(function setupScrollReveal() {
+  const prefersReducedMotion = window.matchMedia(
+    '(prefers-reduced-motion: reduce)'
+  ).matches;
+  if (prefersReducedMotion || !('IntersectionObserver' in window)) return;
+
+  const REVEAL_SELECTOR = [
+    '.hero-card',
+    '.card',
+    '.summary-card',
+    '.feature-item',
+    '.part-card',
+    '.stat-item',
+    '.table-wrap',
+    '.crawl-query',
+    '.result-comment',
+    '.upload-box',
+    '.step-item',
+    '.section-title',
+    '.section-subtitle'
+  ].join(',');
+
+  const io = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add('in-view');
+        io.unobserve(entry.target);
+      });
+    },
+    { threshold: 0.12, rootMargin: '0px 0px -8% 0px' }
+  );
+
+  function register(el) {
+    if (el.dataset.reveal) return;
+    el.dataset.reveal = '1';
+    el.classList.add('reveal');
+    // Stagger siblings of the same group for a gentle cascade.
+    const group = Array.from(el.parentElement?.children || []).filter((c) =>
+      c.classList.contains('reveal')
+    );
+    const index = Math.max(0, group.indexOf(el));
+    el.style.transitionDelay = Math.min(index, 6) * 55 + 'ms';
+    io.observe(el);
+  }
+
+  function scan() {
+    document.querySelectorAll(REVEAL_SELECTOR).forEach(register);
+  }
+
+  scan();
+
+  // Catch boxes injected after async renders.
+  let queued = false;
+  const mo = new MutationObserver(() => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
+      scan();
+    });
+  });
+  mo.observe(document.body, { childList: true, subtree: true });
+})();
