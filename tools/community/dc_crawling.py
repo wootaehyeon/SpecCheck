@@ -5,9 +5,9 @@ backend/app/services/crawl_service.py 의 크롤링 로직과 동일하다.
 
     python debug_dc_crawl.py "RTX 4070"
 """
+import re
 import time
 import random
-import re
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import quote, urljoin, parse_qs, urlparse
@@ -32,6 +32,7 @@ WORD_REGEX = re.compile(r"[A-Za-z0-9]+|[가-힣]+")
 
 
 def tokenize_part_name(part_name: str) -> List[str]:
+    """부품명을 영문/숫자·한글 토큰으로 쪼갠다. ("RTX 4070 Ti" -> [RTX, 4070, Ti])"""
     tokens: List[str] = []
     for token in WORD_REGEX.findall(part_name or ""):
         normalized = token.strip()
@@ -41,34 +42,41 @@ def tokenize_part_name(part_name: str) -> List[str]:
 
 
 def normalize_keyword(part_name: str) -> List[str]:
-    """부품명을 검색어 후보로 확장한다 (접미어 + 토큰 n-gram)."""
+    """검색 키워드 확장.
+
+    부품명 그대로는 검색 결과가 0건인 경우가 많아,
+    접미사(가격/중고/시세 등)와 토큰·부분 구절까지 후보로 넓힌다.
+    """
     part_name = (part_name or "").strip()
-    keywords: List[str] = [part_name] if part_name else []
+    if not part_name:
+        return []
 
-    if part_name:
-        keywords.extend([
-            f"{part_name} 리뷰",
-            f"{part_name} 가격",
-            f"{part_name} 성능평가",
-            f"{part_name} 중고",
-            f"{part_name} 추천",
-            f"{part_name} 시세",
-        ])
+    keywords: List[str] = [part_name]
+    keywords.extend([
+        f"{part_name} 리뷰",
+        f"{part_name} 가격",
+        f"{part_name} 성능평가",
+        f"{part_name} 중고",
+        f"{part_name} 시세",
+        f"{part_name} 추천",
+    ])
 
-        tokens = tokenize_part_name(part_name)
-        for token in tokens:
-            if token not in keywords:
-                keywords.append(token)
-            if len(token) > 1:
-                price_token = f"{token} 가격"
-                if price_token not in keywords:
-                    keywords.append(price_token)
+    no_space = part_name.replace(" ", "")
+    if no_space not in keywords:
+        keywords.append(no_space)
 
-        for n in range(2, min(3, len(tokens) + 1)):
-            for i in range(len(tokens) - n + 1):
-                phrase = " ".join(tokens[i:i + n])
-                if phrase not in keywords:
-                    keywords.append(phrase)
+    tokens = tokenize_part_name(part_name)
+    for token in tokens:
+        if token not in keywords:
+            keywords.append(token)
+        if len(token) > 1 and f"{token} 가격" not in keywords:
+            keywords.append(f"{token} 가격")
+
+    for n in range(2, min(3, len(tokens) + 1)):
+        for i in range(len(tokens) - n + 1):
+            phrase = " ".join(tokens[i:i + n])
+            if phrase not in keywords:
+                keywords.append(phrase)
 
     return keywords
 

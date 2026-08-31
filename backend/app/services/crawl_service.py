@@ -1,3 +1,4 @@
+import re
 import time
 import random
 import requests
@@ -124,27 +125,57 @@ REAL_MARKET_DATA = {
     ]
 }
 
-def normalize_keyword(part_name: str) -> List[str]:
-    return [
-        part_name,
-        f"{part_name} 리뷰",
-        f"{part_name} 가격",
-        f"{part_name} 성능평가",
-        f"{part_name} 중고",
-        f"{part_name} 추천",
-    ]
-
-
 WORD_REGEX = re.compile(r"[A-Za-z0-9]+|[가-힣]+")
 
 
 def tokenize_part_name(part_name: str) -> List[str]:
-    tokens = []
+    """부품명을 영문/숫자·한글 토큰으로 쪼갠다. ("RTX 4070 Ti" -> [RTX, 4070, Ti])"""
+    tokens: List[str] = []
     for token in WORD_REGEX.findall(part_name or ""):
         normalized = token.strip()
         if normalized and normalized not in tokens:
             tokens.append(normalized)
     return tokens
+
+
+def normalize_keyword(part_name: str) -> List[str]:
+    """검색 키워드 확장.
+
+    부품명 그대로는 검색 결과가 0건인 경우가 많아,
+    접미사(가격/중고/시세 등)와 토큰·부분 구절까지 후보로 넓힌다.
+    """
+    part_name = (part_name or "").strip()
+    if not part_name:
+        return []
+
+    keywords: List[str] = [part_name]
+    keywords.extend([
+        f"{part_name} 리뷰",
+        f"{part_name} 가격",
+        f"{part_name} 성능평가",
+        f"{part_name} 중고",
+        f"{part_name} 시세",
+        f"{part_name} 추천",
+    ])
+
+    no_space = part_name.replace(" ", "")
+    if no_space not in keywords:
+        keywords.append(no_space)
+
+    tokens = tokenize_part_name(part_name)
+    for token in tokens:
+        if token not in keywords:
+            keywords.append(token)
+        if len(token) > 1 and f"{token} 가격" not in keywords:
+            keywords.append(f"{token} 가격")
+
+    for n in range(2, min(3, len(tokens) + 1)):
+        for i in range(len(tokens) - n + 1):
+            phrase = " ".join(tokens[i:i + n])
+            if phrase not in keywords:
+                keywords.append(phrase)
+
+    return keywords
 
 
 def normalize_keywords(part_name: str) -> List[str]:
