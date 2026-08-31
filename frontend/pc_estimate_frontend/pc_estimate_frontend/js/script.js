@@ -307,7 +307,15 @@ function renderCrawlData(results, queryText = '입력 견적을 먼저 등록해
 
   tbody.innerHTML = '';
 
-  results.forEach((item) => {
+  const rows = results || [];
+
+  if (rows.length === 0) {
+    const row = document.createElement('tr');
+    row.innerHTML = '<td colspan="9">검색 결과가 없습니다. 다른 키워드로 다시 시도해 주세요.</td>';
+    tbody.appendChild(row);
+  }
+
+  rows.forEach((item) => {
     const score = Number.isFinite(item.sentiment_score) ? (item.sentiment_score * 100).toFixed(0) : '-';
     const sentimentBadge = item.sentiment ? `<span class="sentiment-badge sentiment-${escapeHtml(item.sentiment)}" title="평가 점수: ${score}%">${escapeHtml(item.sentiment)}</span>` : '';
     const safeUrl = escapeHtml(item.url);
@@ -318,16 +326,28 @@ function renderCrawlData(results, queryText = '입력 견적을 먼저 등록해
       <td>${escapeHtml(item.keyword || '-')}</td>
       <td>${escapeHtml(item.date)}</td>
       <td>${escapeHtml(item.collected_at || '-')}</td>
+      <td>${item.perplexity != null ? escapeHtml(String(item.perplexity)) : '-'}</td>
+      <td>${item.quality_score != null ? escapeHtml(String(item.quality_score)) : '-'}</td>
       <td><a href="${safeUrl}" target="_blank" rel="noreferrer">열기</a></td>
       <td>${sentimentBadge}</td>
     `;
     tbody.appendChild(row);
   });
 
-  safeSetText('crawlCount', results.length);
-  safeSetText('crawlLatestDate', results[0]?.date || '-');
-  const sources = [...new Set(results.map((item) => item.source).filter(Boolean))];
+  safeSetText('crawlCount', rows.length);
+  safeSetText('crawlLatestDate', rows[0]?.date || '-');
+  const sources = [...new Set(rows.map((item) => item.source).filter(Boolean))];
   safeSetText('crawlSources', sources.length ? sources.join(', ') : 'DC인사이드');
+
+  // 사전학습 모델 품질 평가 요약 (perplexity / quality_score)
+  const evaluated = rows.filter((item) => item.perplexity != null && item.quality_score != null);
+  safeSetText('avgPerplexity', evaluated.length
+    ? (evaluated.reduce((sum, item) => sum + item.perplexity, 0) / evaluated.length).toFixed(2)
+    : '-');
+  safeSetText('avgQuality', evaluated.length
+    ? (evaluated.reduce((sum, item) => sum + item.quality_score, 0) / evaluated.length).toFixed(2)
+    : '-');
+
   safeSetText('crawlQuery', queryText);
 
   // Display sentiment summary

@@ -7,6 +7,7 @@ backend/app/services/crawl_service.py 의 크롤링 로직과 동일하다.
 """
 import time
 import random
+import re
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import quote, urljoin, parse_qs, urlparse
@@ -27,15 +28,49 @@ HEADERS = {
 }
 
 
+WORD_REGEX = re.compile(r"[A-Za-z0-9]+|[가-힣]+")
+
+
+def tokenize_part_name(part_name: str) -> List[str]:
+    tokens: List[str] = []
+    for token in WORD_REGEX.findall(part_name or ""):
+        normalized = token.strip()
+        if normalized and normalized not in tokens:
+            tokens.append(normalized)
+    return tokens
+
+
 def normalize_keyword(part_name: str) -> List[str]:
-    return [
-        part_name,
-        f"{part_name} 리뷰",
-        f"{part_name} 가격",
-        f"{part_name} 성능평가",
-        f"{part_name} 중고",
-        f"{part_name} 추천",
-    ]
+    """부품명을 검색어 후보로 확장한다 (접미어 + 토큰 n-gram)."""
+    part_name = (part_name or "").strip()
+    keywords: List[str] = [part_name] if part_name else []
+
+    if part_name:
+        keywords.extend([
+            f"{part_name} 리뷰",
+            f"{part_name} 가격",
+            f"{part_name} 성능평가",
+            f"{part_name} 중고",
+            f"{part_name} 추천",
+            f"{part_name} 시세",
+        ])
+
+        tokens = tokenize_part_name(part_name)
+        for token in tokens:
+            if token not in keywords:
+                keywords.append(token)
+            if len(token) > 1:
+                price_token = f"{token} 가격"
+                if price_token not in keywords:
+                    keywords.append(price_token)
+
+        for n in range(2, min(3, len(tokens) + 1)):
+            for i in range(len(tokens) - n + 1):
+                phrase = " ".join(tokens[i:i + n])
+                if phrase not in keywords:
+                    keywords.append(phrase)
+
+    return keywords
 
 
 def _get(url: str, params: Optional[dict] = None, session: Optional[requests.Session] = None) -> Optional[requests.Response]:

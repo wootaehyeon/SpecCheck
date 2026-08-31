@@ -135,6 +135,55 @@ def normalize_keyword(part_name: str) -> List[str]:
     ]
 
 
+WORD_REGEX = re.compile(r"[A-Za-z0-9]+|[가-힣]+")
+
+
+def tokenize_part_name(part_name: str) -> List[str]:
+    tokens = []
+    for token in WORD_REGEX.findall(part_name or ""):
+        normalized = token.strip()
+        if normalized and normalized not in tokens:
+            tokens.append(normalized)
+    return tokens
+
+
+def normalize_keywords(part_name: str) -> List[str]:
+    """부품명을 검색어 후보로 확장한다 (접미어 + 무공백 + 토큰 n-gram)."""
+    part_name = (part_name or "").strip()
+    keywords = [part_name] if part_name else []
+
+    if part_name:
+        keywords.extend([
+            f"{part_name} 가격",
+            f"{part_name} 중고",
+            f"{part_name} 시세",
+            f"{part_name} 구매",
+            f"{part_name} 판매",
+            f"{part_name} 정보"
+        ])
+
+        no_space = part_name.replace(' ', '')
+        if no_space and no_space not in keywords:
+            keywords.append(no_space)
+
+        tokens = tokenize_part_name(part_name)
+        for token in tokens:
+            if token not in keywords:
+                keywords.append(token)
+            if len(token) > 1:
+                price_token = f"{token} 가격"
+                if price_token not in keywords:
+                    keywords.append(price_token)
+
+        for n in range(2, min(3, len(tokens) + 1)):
+            for i in range(len(tokens) - n + 1):
+                phrase = " ".join(tokens[i:i + n])
+                if phrase not in keywords:
+                    keywords.append(phrase)
+
+    return keywords
+
+
 def _get(url: str, params: Optional[dict] = None, session: Optional[requests.Session] = None) -> Optional[requests.Response]:
     """공통 GET 요청. DC는 charset 헤더가 누락될 수 있어 UTF-8을 명시한다."""
     try:
@@ -380,7 +429,18 @@ def crawl_related_parts(parts: List[dict], max_results: int = 20, per_part_limit
         except Exception as e:
             print(f"DC 크롤링 오류 ({part_name}): {e}")
 
-        # 실제 크롤링 실패 시에만 샘플 데이터 사용
+        # 부품명 그대로는 실패했을 때 확장 키워드로 재시도
+        if not part_items:
+            for keyword in normalize_keywords(part_name)[1:]:
+                try:
+                    part_items = crawl_dcinside_search(keyword, max_pages=1, session=session)
+                except Exception as e:
+                    print(f"DC 크롤링 오류 ({keyword}): {e}")
+                    continue
+                if part_items:
+                    break
+
+        # 실제 크롤링이 모두 실패한 경우에만 샘플 데이터 사용
         if not part_items:
             part_items = get_sample_market_reactions(part_name)
 

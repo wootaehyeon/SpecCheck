@@ -22,9 +22,25 @@ from app.services.sentiment_analyzer import SentimentAnalyzer
 from app.services.integrated_crawl import integrate_market_data
 from app.services.ebay_api import search_used_price, get_usd_krw_rate
 from app.services.used_price_optimizer import optimize_estimate
+from app.schemas.evaluation import BuildRequest, EvaluationResult
+from app.logic.risk_score import compute_risk
 
 router = APIRouter()
 sentiment_analyzer = SentimentAnalyzer()
+
+
+def evaluate_post_quality(posts, device: str = "cpu"):
+    """사전학습 모델로 게시물 품질(perplexity)을 채점한다.
+
+    모델 가중치(nsmc/code/nsmc_pretrained/model)나 torch/transformers가 없는 환경에서는
+    크롤링 응답 자체가 실패하지 않도록 원본을 그대로 돌려준다.
+    """
+    try:
+        from app.services.dc_evaluation import evaluate_posts as evaluate_crawl_posts
+
+        return evaluate_crawl_posts(posts, device=device)
+    except Exception:
+        return posts
 
 @router.post("/price-check", response_model=PriceEvaluationResult)
 def check_price(request: PriceCheckRequest):
@@ -83,6 +99,7 @@ def market_prices(request: MarketPricesRequest):
 
     return MarketPricesResponse(prices=response_items)
 
+
 @router.post("/crawl", response_model=CrawlResponse)
 def crawl(request: CrawlRequest):
     """
@@ -94,6 +111,9 @@ def crawl(request: CrawlRequest):
     # Apply sentiment analysis
     analyzed_results = sentiment_analyzer.analyze_crawl_results(search_results)
 
+    # Apply pretrained-model quality scoring (perplexity 기반)
+    analyzed_results = evaluate_post_quality(analyzed_results)
+
     # Get sentiment summary
     sentiment_summary = sentiment_analyzer.get_sentiment_summary(analyzed_results)
 
@@ -101,6 +121,33 @@ def crawl(request: CrawlRequest):
         keywords=[part.name for part in request.parts if part.name],
         results=analyzed_results,
         sentiment_summary=sentiment_summary,
+    )
+
+@router.post("/evaluate-build", response_model=EvaluationResult)
+def evaluate_build(request: BuildRequest):
+    """CPU/GPU 성능 평가, 호환성 검사, 구매 위험도 점수 계산 후 반환합니다."""
+    build = request.dict()
+    risk = compute_risk(build)
+
+    eval_data = risk.get("evaluation", {})
+    comp = risk.get("compatibility", {})
+    breakdown = risk.get("breakdown", {})
+
+    # map to response model
+    return EvaluationResult(
+        cpu_matched=eval_data.get("cpu_matched"),
+        cpu_score=eval_data.get("cpu_score", 0),
+        gpu_matched=eval_data.get("gpu_matched"),
+        gpu_score=eval_data.get("gpu_score", 0),
+        overall_score=eval_data.get("overall_score", 0),
+        tier=eval_data.get("tier", ""),
+        compatibility={
+            "issues": comp.get("issues", []),
+            "estimated_required_watt": comp.get("estimated_required_watt", 0),
+            "recommended_psu_watt": comp.get("recommended_psu_watt", 0),
+        },
+        risk_score=risk.get("risk_score", 0),
+        risk_breakdown=breakdown,
     )
 
 @router.post("/market-intelligence")
