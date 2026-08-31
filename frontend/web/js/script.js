@@ -307,7 +307,13 @@ function renderCrawlData(results, queryText = '입력 견적을 먼저 등록해
 
   tbody.innerHTML = '';
 
-  results.forEach((item) => {
+  if (!results || results.length === 0) {
+    const emptyRow = document.createElement('tr');
+    emptyRow.innerHTML = '<td colspan="7">검색 결과가 없습니다. 다른 키워드로 다시 시도해 주세요.</td>';
+    tbody.appendChild(emptyRow);
+  }
+
+  (results || []).forEach((item) => {
     const score = Number.isFinite(item.sentiment_score) ? (item.sentiment_score * 100).toFixed(0) : '-';
     const sentimentBadge = item.sentiment ? `<span class="sentiment-badge sentiment-${escapeHtml(item.sentiment)}" title="평가 점수: ${score}%">${escapeHtml(item.sentiment)}</span>` : '';
     const safeUrl = escapeHtml(item.url);
@@ -324,9 +330,9 @@ function renderCrawlData(results, queryText = '입력 견적을 먼저 등록해
     tbody.appendChild(row);
   });
 
-  safeSetText('crawlCount', results.length);
-  safeSetText('crawlLatestDate', results[0]?.date || '-');
-  const sources = [...new Set(results.map((item) => item.source).filter(Boolean))];
+  safeSetText('crawlCount', results?.length || 0);
+  safeSetText('crawlLatestDate', results?.[0]?.date || '-');
+  const sources = [...new Set((results || []).map((item) => item.source).filter(Boolean))];
   safeSetText('crawlSources', sources.length ? sources.join(', ') : 'DC인사이드');
   safeSetText('crawlQuery', queryText);
 

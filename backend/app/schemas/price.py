@@ -61,6 +61,8 @@ class CrawlItem(BaseModel):
     content: Optional[str] = None
     sentiment: Optional[str] = None
     sentiment_score: Optional[float] = None
+    perplexity: Optional[float] = None
+    quality_score: Optional[float] = None
 
 class SentimentSummary(BaseModel):
     total: int

@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     naver_client_secret: str = ""
     ebay_app_id: str = ""
 
+    # --- 게시글 품질 평가 (GPT-2 perplexity) ---
+    #: 기본은 비활성. 모델을 저장소에 포함하지 않으므로 경로를 지정해야 동작한다.
+    quality_eval_enabled: bool = False
+    quality_model_dir: str = ""
+
     # --- Local LLM (M5) ---
     #: 기본은 비활성. 활성화하면 Ollama의 Gemma로 진단 설명을 생성한다.
     llm_enabled: bool = False

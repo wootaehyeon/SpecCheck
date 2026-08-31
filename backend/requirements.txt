@@ -8,6 +8,11 @@ python-dotenv==1.0.1
 pydantic==2.7.1
 pydantic-settings==2.2.1
 
+# --- ML (감성/품질 평가 모델) ---
+torch>=2.0.0
+transformers>=4.40.0
+numpy
+
 # --- 개발/테스트 ---
 pytest==8.2.0
 httpx==0.27.0

@@ -22,6 +22,8 @@ from app.services.sentiment_analyzer import SentimentAnalyzer
 from app.services.integrated_crawl import integrate_market_data
 from app.services.ebay_api import search_used_price, get_usd_krw_rate
 from app.services.used_price_optimizer import optimize_estimate
+from app.services.dc_evaluation import evaluate_posts
+from app.core.config import get_settings
 
 router = APIRouter()
 sentiment_analyzer = SentimentAnalyzer()
@@ -88,11 +90,16 @@ def crawl(request: CrawlRequest):
     """
     입력된 부품들에 대한 커뮤니티 및 중고거래 시장의 시장 반응을 수집합니다.
     DC인사이드, 네이버 카페, 당근마켓 등 다양한 소스에서 정보를 수집하고 감정분석을 수행합니다.
+    QUALITY_EVAL_ENABLED 가 켜져 있으면 게시글 품질 점수(perplexity)도 함께 계산합니다.
     """
     search_results = crawl_related_parts(request.parts)
 
     # Apply sentiment analysis
     analyzed_results = sentiment_analyzer.analyze_crawl_results(search_results)
+
+    # 선택: 게시글 품질 평가 (모델 미준비 시 결과를 그대로 통과시킨다)
+    if get_settings().quality_eval_enabled:
+        analyzed_results = evaluate_posts(analyzed_results)
 
     # Get sentiment summary
     sentiment_summary = sentiment_analyzer.get_sentiment_summary(analyzed_results)
