@@ -6,8 +6,8 @@ import os
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 DATA_DIR = PROJECT_ROOT / "backend" / "data"
 
-CPU_CSV = PROJECT_ROOT / "cpu_benchmark" / "CPU_benchmark_v4.csv"
-GPU_CSV = PROJECT_ROOT / "gpu_benchmark" / "GPU_benchmarks_v7.csv"
+CPU_CSV = PROJECT_ROOT / "datasets" / "cpu_benchmark" / "CPU_benchmark_v4.csv"
+GPU_CSV = PROJECT_ROOT / "datasets" / "gpu_benchmark" / "GPU_benchmarks_v7.csv"
 
 CPU_JSON = DATA_DIR / "cpu_benchmark.json"
 GPU_JSON = DATA_DIR / "gpu_benchmark.json"

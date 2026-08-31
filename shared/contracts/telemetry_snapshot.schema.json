@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://speccheck.local/contracts/telemetry_snapshot-1.0.0.json",
+  "title": "SpecCheck Telemetry Snapshot",
+  "description": "Local Agent가 수집하여 Backend로 전달하는 단일 스캔 결과의 표준 형식. Agent(생산자)와 Backend(소비자)의 유일한 계약이다.",
+  "type": "object",
+  "required": ["schema_version", "snapshot_id", "collected_at", "scan_mode", "agent", "sections"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "이 문서 형식의 SemVer. MAJOR 변경 시 Backend는 거절한다."
+    },
+    "snapshot_id": { "type": "string", "description": "UUID4" },
+    "collected_at": { "type": "string", "format": "date-time" },
+    "scan_mode": {
+      "enum": ["actual", "estimated"],
+      "description": "actual = Agent 실측 / estimated = 사용자 입력 사양 기반 추정"
+    },
+    "device_id": {
+      "type": ["string", "null"],
+      "description": "기기 고유 익명 식별자(해시). 시계열 비교/예측 검증에 사용."
+    },
+    "agent": {
+      "type": "object",
+      "required": ["version", "os"],
+      "properties": {
+        "version": { "type": "string" },
+        "os": { "type": "string" },
+        "os_version": { "type": ["string", "null"] },
+        "python": { "type": ["string", "null"] }
+      }
+    },
+    "sections": {
+      "type": "object",
+      "description": "collector 이름 -> 수집 결과. 미구현/실패 collector도 status와 함께 포함된다.",
+      "additionalProperties": { "$ref": "#/$defs/section" },
+      "properties": {
+        "hardware":    { "$ref": "#/$defs/section" },
+        "performance": { "$ref": "#/$defs/section" },
+        "storage":     { "$ref": "#/$defs/section" },
+        "reliability": { "$ref": "#/$defs/section" },
+        "security":    { "$ref": "#/$defs/section" }
+      }
+    },
+    "notes": { "type": ["string", "null"] }
+  },
+  "$defs": {
+    "section": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": {
+          "enum": ["ok", "partial", "skipped", "planned", "error"],
+          "description": "planned = 해당 마일스톤 미구현, skipped = 환경 미지원"
+        },
+        "milestone": { "type": ["string", "null"], "description": "M1 ~ M10" },
+        "duration_ms": { "type": ["number", "null"] },
+        "error": { "type": ["string", "null"] },
+        "data": { "type": "object" }
+      }
+    }
+  }
+}

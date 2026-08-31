@@ -1,0 +1,19 @@
+[project]
+name = "speccheck-agent"
+version = "0.1.0"
+description = "SpecCheck Local Agent - PC telemetry collector"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+speccheck-agent = "speccheck_agent.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["speccheck_agent*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

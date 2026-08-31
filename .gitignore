@@ -68,3 +68,14 @@ backend/data/used_price_cache.json
 
 # Local Claude Code config
 .claude/
+
+# ===========================
+# SpecCheck Agent / Scan 데이터
+# ===========================
+# 로컬 telemetry는 절대 커밋하지 않는다 (개인 하드웨어 정보 포함)
+*.db
+backend/data/snapshots.db
+agent/var/
+.speccheck/
+snapshots/
+*.snapshot.json
