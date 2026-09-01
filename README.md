@@ -181,7 +181,8 @@ Scan은 일회성 진단으로 끝나지 않는다. 예측한 결과와 실제 �
 | M10 | SpecCheck 통합/배포 | 실제 서비스 완성 |
 
 > **MVP 기준선**: M0–M5 완료 시점. 이때부터 실제 사용자 대상 Basic Scan 진단이 가능하다.
-> 현재 진행 상황은 [docs/ROADMAP.md](docs/ROADMAP.md) 참조 — M0·M1·M3 완료, M4·M5 동작, 남은 것은 **M2**다.
+> 현재 진행 상황: Agent 축(우태현)은 **M0–M4 완료** — 자세한 내용은 [docs/AGENT_ROADMAP.md](docs/AGENT_ROADMAP.md).
+> 전체 로드맵은 [docs/ROADMAP.md](docs/ROADMAP.md) 참조.
 
 ---
 

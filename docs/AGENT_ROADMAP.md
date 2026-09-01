@@ -14,9 +14,9 @@
 | --- | --- | --- | --- | --- |
 | M0 | Agent skeleton | ~08/24 | ✅ 완료 | CLI·collector 레지스트리·스냅샷 계약의 뼈대 |
 | M1 | WMI/CIM | ~08/24 | ✅ 완료 | PowerShell CIM 배치 조회 + 하드웨어 인벤토리 |
-| M2 | WHEA / Storage / Performance | 08/25 ~ 09/07 | 🔜 진행 예정 | "얼마나 닳았고 지금 어떤 상태인가"를 실측 |
-| M3 | Normalization / SQLite | 09/08 ~ 09/14 | 🟡 부분 구현 | 로컬 시계열 저장 + spec profile 정규화 완성 |
-| M4 | Rule Detection | 09/15 ~ 09/28 | ⬜ | 규칙 엔진과 Finding 확정 |
+| M2 | WHEA / Storage / Performance | 08/25 ~ 09/07 | ✅ 완료 | "얼마나 닳았고 지금 어떤 상태인가"를 실측 |
+| M3 | Normalization / SQLite | 09/08 ~ 09/14 | ✅ 완료 | 로컬 시계열 저장 + spec profile 정규화 완성 |
+| M4 | Rule Detection | 09/15 ~ 09/28 | ✅ 완료 | 규칙 엔진과 Finding 확정 |
 | M5 | Basic Scan Risk 생성 | 09/29 ~ 10/05 | ⬜ | Finding → Risk 점수/등급, Basic Scan 산출물 |
 | M6 | Sysmon | 10/06 ~ 10/19 | ⬜ | Advanced Scan용 보안 이벤트 수집 |
 | M7 | Event Correlation | 10/20 ~ 11/02 | ⬜ | 이벤트 간 인과 연결 → Root Cause 후보 |
@@ -77,6 +77,37 @@ Agent가 설치되지 않으면 프로젝트 전체가 시연되지 않기 때�
 온도는 "없으면 없는 대로" 두고 `CurrentClockSpeed / MaxClockSpeed` 비율로 스로틀링을
 간접 추정한다. 온도 결측이 collector 실패가 되어서는 안 된다.
 
+**완료 기록 (2026-09-01)**
+
+세 collector 모두 구현했다. i7-12700 / RAM 32GB / NVMe + HDD 구성에서 실측:
+
+```
+wall 9.4s | hardware=1608ms  storage_health=1004ms  reliability=344ms  performance=6207ms
+```
+
+전체 스캔 9.4~10.4초로 목표(10초)를 만족한다. `performance` 가 6초를 쓰는데
+그중 2초는 샘플링 대기이고, 나머지는 collector마다 PowerShell을 새로 띄우는
+고정 비용(약 1.5초 x 4)이다. 이 고정 비용을 줄이려면 collector를 한 프로세스에
+합쳐야 하는데, 그러면 실패 격리가 깨지므로 M2에서는 하지 않았다.
+
+계획에서 바뀐 것 세 가지.
+
+- **전원 계획을 `Win32_PowerPlan` 대신 `powercfg /getactivescheme` 으로 읽는다.**
+  실측 기기에서 `root/cimv2/power` 네임스페이스 접근이 정책으로 막혀 있었다.
+  `powercfg` 는 권한 없이 동작하고 GUID를 주므로 로케일 문제도 함께 사라진다.
+- **`cim.query_batch` 에 script 통로를 추가했다.** `Get-WinEvent`, `powercfg`,
+  샘플링 루프처럼 CIM 조회로 표현할 수 없는 자료원도 같은 PowerShell 기동
+  안에서 처리하기 위해서다.
+- **시스템 볼륨이 올라간 물리 디스크 번호(`system_disk_index`)를 함께 수집한다.**
+  M4 규칙 작업 중 `HW-DISK-001`(시스템 드라이브가 HDD)이 실측에서 오진하는 것을
+  발견했다. 데이터용 HDD가 0번, OS가 설치된 NVMe가 1번인 구성에서 `Index 0` 을
+  시스템 디스크로 가정하고 있었다. `Get-Partition` 으로 실제 연결을 확인한다.
+
+**권한 관련.** SMART(`root/wmi`)과 온도는 관리자 권한을 요구한다. 권한이 없으면
+해당 항목만 빠지고 섹션이 `partial` 이 된다. 오류 메시지는 로케일마다 다르므로
+문자열이 아니라 `cim.is_elevated()` 로 권한을 직접 확인해 조치 가능한 안내로
+바꿔 넣는다.
+
 ---
 
 ## M3 — Normalization / SQLite
@@ -92,6 +123,21 @@ Agent가 설치되지 않으면 프로젝트 전체가 시연되지 않기 때�
 - 보관 정책: 스냅샷 N개/N일 초과분 정리 (`speccheck-agent prune`).
 - `speccheck-agent list` / `show` / `profile` 이 M2 섹션을 사람이 읽는 형태로 출력.
 - 같은 기기의 스냅샷을 `device_id` 로 시간순 조회하는 쿼리 (M9의 전제).
+
+**완료 기록 (2026-09-01)**
+
+- `to_spec_profile()` 이 인벤토리와 수명 정보를 합친 `storage` 목록과 `health`
+  블록을 낸다. **키 집합은 수집 결과와 무관하게 항상 같다** — 섹션이 없으면
+  키가 사라지는 것이 아니라 값이 `None` 이 된다. Backend가 Actual/Estimated
+  경로를 구분하지 않아도 되게 하기 위한 조건이다.
+- `schema_meta` 테이블과 마이그레이션 경로. 버전 기록 이전에 만들어진 DB는
+  `snapshots` 테이블 존재 여부로 v1로 판별해 올린다. 기존 스냅샷은 보존된다.
+- `prune --keep N --older-than D` 는 두 조건을 **모두** 만족할 때만 지운다.
+  오래됐어도 최근 N개 안에 들면 남는다.
+- `health`(상태 요약), `history`(기기별 추이), `show --sections`, `list --device`
+  추가. 상태가 `ok` 가 아닌 섹션도 반드시 함께 출력한다.
+- 부수 수정: stdout이 파이프로 연결되면 한국어 Windows에서 cp949로 인코딩돼
+  `scan --json > file` 결과를 Backend가 읽지 못했다. UTF-8로 고정했다.
 
 ---
 
@@ -110,6 +156,38 @@ Agent가 설치되지 않으면 프로젝트 전체가 시연되지 않기 때�
   `evidence`(어느 섹션의 어떤 값에서 나왔는지), `suggested_action`.
 - 규칙별 단위 테스트를 **합성 스냅샷 fixture**로 작성 (실기기 없이 검증 가능해야 한다).
 - 결측 데이터에서 규칙이 침묵하는지 검증하는 테스트 1개 이상.
+
+**완료 기록 (2026-09-01)**
+
+규칙 12개를 추가해 총 17개가 됐다 (M1 기반 5개 + M2 기반 12개).
+
+| 모듈 | 규칙 |
+| --- | --- |
+| `storage_rules` | `ST-SPACE-001` 시스템 볼륨 여유 공간 / `ST-SMART-001` 불량 섹터 / `ST-SMART-002` 실패 예측 / `ST-WEAR-001` 수명 소모 |
+| `reliability_rules` | `RL-WHEA-001` 정정 오류 누적 / `RL-WHEA-002` 치명적 오류 / `RL-CRASH-001` 비정상 종료 반복 / `RL-DISK-001` IO 오류 |
+| `performance_rules` | `PF-MEM-001` 메모리 압박 / `PF-POWER-001` 절전 계획 / `PF-CPU-001` 상시 CPU 점유 / `PF-THROTTLE-001` 클럭 저하 |
+
+임계값 설계에서 지킨 규칙 세 가지.
+
+- **두 신호가 겹칠 때만 판정한다.** 여유 공간은 비율과 절대량을 모두 넘어야
+  하고(2TB의 8%는 부족하지 않다), 메모리 압박은 커밋 비율과 가용량을 함께 본다.
+- **평균과 최소를 함께 본다.** CPU 점유는 최대만 높으면 스파이크다. 최소까지
+  높아야 상시 부하로 인정한다. 이 구분이 없으면 성능 축에서 오진이 쏟아진다.
+- **낮은 구간에서는 더 싼 조치를 권한다.** WHEA 정정 오류 5~19건은 XMP 해제와
+  재장착(FIX), 20건 이상부터 교체(PURCHASE). 수명 소모 70~89%는 백업과 계획(KEEP),
+  90% 이상부터 교체. 비정상 종료 반복은 원인 부품을 특정할 수 없으므로 구매가
+  아니라 원인 규명을 권한다.
+
+확신도(confidence)에는 관측의 한계를 반영한다. 성능 축은 관측 구간이 수 초에
+불과하므로 0.6~0.75, 이벤트 로그가 관측 구간을 덮지 못하면(`log_covers_window`
+가 false) 0.8배로 낮춘다.
+
+M2 데이터로 M1 규칙 하나를 고쳤다. `HW-DISK-001` 은 `Index 0` 을 시스템 디스크로
+가정했으나 이제 `storage_health.disks[].is_system` 을 본다. 그 정보가 없으면
+기존 추정으로 떨어지되 확신도를 0.85에서 0.5로 낮춘다.
+
+테스트는 `backend/tests/test_m2_rules.py` 38개 + `agent/tests/test_m2_m3.py` 43개.
+모두 합성 스냅샷만 쓰므로 Windows 없이 돈다.
 
 ---
 

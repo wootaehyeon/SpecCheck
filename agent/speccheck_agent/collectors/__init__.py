@@ -6,11 +6,12 @@
 
 from .base import Collector, CollectorResult, iter_collectors, register, registry
 
-# 등록 순서 = 실행 순서 (가벼운 것부터)
+# 등록 순서 = 실행 순서 (가벼운 것부터).
+# performance는 샘플링 대기가 있어 유일하게 초 단위로 걸리므로 뒤에 둔다.
 from . import hardware  # noqa: F401  M1
-from . import performance  # noqa: F401  M2
 from . import storage_health  # noqa: F401  M2
 from . import reliability  # noqa: F401  M2
+from . import performance  # noqa: F401  M2
 from . import security  # noqa: F401  M6
 
 __all__ = ["Collector", "CollectorResult", "iter_collectors", "register", "registry"]

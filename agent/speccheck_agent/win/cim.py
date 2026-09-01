@@ -34,6 +34,23 @@ def is_windows() -> bool:
     return platform.system() == "Windows"
 
 
+def is_elevated() -> bool:
+    """관리자 권한으로 실행 중인지.
+
+    SMART(``root/wmi``)와 온도 센서는 관리자 권한이 없으면 "액세스 거부"로
+    막힌다. 오류 메시지는 로케일마다 달라 문자열로 판별할 수 없으므로,
+    권한 자체를 확인해 사용자에게 조치 가능한 사유를 돌려주는 데 쓴다.
+    """
+    if not is_windows():
+        return False
+    try:
+        import ctypes
+
+        return bool(ctypes.windll.shell32.IsUserAnAdmin())
+    except Exception:
+        return False
+
+
 def run_powershell(script: str, timeout: float = DEFAULT_TIMEOUT) -> str:
     """PowerShell 스크립트를 실행하고 stdout을 반환한다."""
     if not is_windows():
@@ -78,6 +95,27 @@ def _build_query(
     if properties:
         script += " | Select-Object " + ", ".join(properties)
     return script
+
+
+def _spec_to_script(spec: dict[str, Any]) -> str:
+    """배치 항목 하나를 PowerShell 표현식으로 바꾼다.
+
+    ``script`` 를 직접 준 항목은 그대로 쓴다. CIM이 아닌 자료원(이벤트 로그의
+    ``Get-WinEvent``, 성능 카운터 샘플링 루프)도 같은 기동 안에서 처리하기
+    위한 통로다. 여러 문장이 필요하면 ``;`` 로 잇되 개행은 넣지 않는다 —
+    배치 스크립트 전체가 한 줄로 합쳐지기 때문이다.
+    """
+    raw = spec.get("script")
+    if raw:
+        if "\n" in raw:
+            raise CimError("배치 script에는 개행을 넣을 수 없습니다")
+        return raw
+    return _build_query(
+        spec["class_name"],
+        spec.get("properties"),
+        spec.get("namespace", "root/cimv2"),
+        spec.get("where"),
+    )
 
 
 def _rows(parsed: Any) -> list[dict[str, Any]]:
@@ -128,6 +166,7 @@ def query_batch(
 
     Args:
         specs: ``{키: {"class_name":..., "properties":[...], "namespace":..., "where":...}}``
+            또는 CIM이 아닌 자료원을 쓸 때 ``{키: {"script": "Get-WinEvent ..."}}``.
 
     Returns:
         ``(결과, 오류)`` 튜플. 개별 조회가 실패해도 나머지는 정상 반환되며,
@@ -139,19 +178,14 @@ def query_batch(
 
     lines = ["$data = [ordered]@{}", "$errors = [ordered]@{}"]
     for key, spec in specs.items():
-        inner = _build_query(
-            spec["class_name"],
-            spec.get("properties"),
-            spec.get("namespace", "root/cimv2"),
-            spec.get("where"),
-        )
+        inner = _spec_to_script(spec)
         lines.append(
             "try {{ $data['{0}'] = @({1}) }} catch {{ $errors['{0}'] = $_.Exception.Message }}".format(
                 key, inner
             )
         )
     lines.append(
-        "[ordered]@{ data = $data; errors = $errors } | ConvertTo-Json -Depth 5 -Compress"
+        "[ordered]@{ data = $data; errors = $errors } | ConvertTo-Json -Depth 6 -Compress"
     )
 
     raw = run_powershell("; ".join(lines), timeout=timeout).strip()

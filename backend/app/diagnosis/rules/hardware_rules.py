@@ -7,6 +7,8 @@ M2(성능/WHEA/저장장치 상태)가 붙으면 발열 스로틀링, 디스크 
 
 from __future__ import annotations
 
+from typing import Any
+
 from app.diagnosis.engine import Rule, register
 from app.schemas.diagnosis import ActionType, Axis, Evidence, Finding, Severity
 from app.schemas.telemetry import TelemetrySnapshot
@@ -93,10 +95,8 @@ class SystemDiskIsHdd(Rule):
         if not disks:
             return None
 
-        # Win32_DiskDrive의 Index 0이 통상 부팅 디스크다.
-        # M2에서 Win32_LogicalDisk 연결이 붙으면 정확한 시스템 볼륨으로 교체한다.
-        primary = disks[0]
-        if primary.get("media_type") != "HDD":
+        primary, identified = _system_disk(snapshot, disks)
+        if primary is None or primary.get("media_type") != "HDD":
             return None
 
         return Finding(
@@ -112,15 +112,38 @@ class SystemDiskIsHdd(Rule):
             action_detail="NVMe SSD로 교체하면 CPU/GPU 교체보다 적은 비용으로 체감 성능이 가장 크게 개선됩니다.",
             evidence=[
                 Evidence(
-                    source="hardware.storage[0]",
+                    source="hardware.storage",
                     detail="{0} / {1}GB / {2}".format(
                         primary.get("model"), primary.get("size_gb"), primary.get("interface")
                     ),
                     value=primary,
                 )
             ],
-            confidence=0.85,
+            # 어느 디스크에 OS가 있는지 확인한 경우와 추정한 경우를 구분한다.
+            confidence=0.85 if identified else 0.5,
         )
+
+
+def _system_disk(
+    snapshot: TelemetrySnapshot, disks: list[dict[str, Any]]
+) -> tuple[dict[str, Any] | None, bool]:
+    """OS가 설치된 물리 디스크와, 그것을 실제로 특정했는지 여부.
+
+    M2의 ``storage_health`` 는 시스템 볼륨이 올라간 디스크 번호를 알려준다.
+    그 정보가 없으면 Win32_DiskDrive의 Index 0을 쓰지만, 데이터용 HDD가 0번인
+    구성이 흔해 그대로 믿을 수 없다. 그래서 추정일 때는 확신을 낮춘다.
+    """
+    health = snapshot.data("storage_health")
+    for disk in health.get("disks") or []:
+        if not disk.get("is_system"):
+            continue
+        model = (disk.get("model") or "").strip().lower()
+        for candidate in disks:
+            if (candidate.get("model") or "").strip().lower() == model:
+                return candidate, True
+        return None, True  # 시스템 디스크는 특정했지만 인벤토리에서 못 찾은 경우
+
+    return (disks[0] if disks else None), False
 
 
 @register

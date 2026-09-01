@@ -17,7 +17,7 @@ from typing import Any, Iterable
 from . import __version__
 from .collectors.base import CollectorResult
 
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1.0"
 
 
 def _now_iso() -> str:

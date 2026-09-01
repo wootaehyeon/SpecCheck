@@ -5,7 +5,10 @@
     python -m speccheck_agent collectors      # 등록된 collector 목록
     python -m speccheck_agent list            # 최근 스냅샷
     python -m speccheck_agent show <id>       # 스냅샷 원문 출력
+    python -m speccheck_agent health          # 최신 스냅샷의 상태 요약 (M2)
     python -m speccheck_agent profile         # 최신 스냅샷의 부품 사양 프로필
+    python -m speccheck_agent history         # 같은 기기의 스냅샷 추이
+    python -m speccheck_agent prune           # 보관 정책 적용
     python -m speccheck_agent doctor          # 실행 환경 점검
 """
 
@@ -20,13 +23,43 @@ from typing import Any
 from . import __version__
 from .collectors import iter_collectors, registry
 from .config import AgentConfig
-from .pipeline import SnapshotStore, to_spec_profile
-from .snapshot import SCHEMA_VERSION, build_snapshot, summarize
+from .pipeline import (
+    DB_SCHEMA_VERSION,
+    SnapshotStore,
+    section_summaries,
+    to_health_profile,
+    to_spec_profile,
+)
+from .snapshot import SCHEMA_VERSION, build_snapshot, default_device_id, summarize
 from .transport import UploadError, upload_snapshot
+
+
+#: 수집하지 못한 값의 표시. "0"이나 "정상"으로 보이면 안 된다 - 확인하지 못한
+#: 것과 이상이 없는 것은 다른 결론이고, 그 구분이 진단 신뢰도의 출발점이다.
+UNKNOWN = "확인 못함"
 
 
 def _dump(data: Any) -> str:
     return json.dumps(data, ensure_ascii=False, indent=2)
+
+
+def _known(value: Any, unit: str = "") -> str:
+    """값을 표시 문자열로. 결측이면 단위를 붙이지 않는다 ('확인 못함%'는 읽히지 않는다)."""
+    return UNKNOWN if value is None else "{0}{1}".format(value, unit)
+
+
+def _load(store: SnapshotStore, snapshot_id: str | None) -> dict[str, Any] | None:
+    return store.get(snapshot_id) if snapshot_id else store.latest()
+
+
+def _print_sections(snapshot: dict[str, Any]) -> None:
+    """섹션별 상태와 한 줄 요약. 못 본 항목도 반드시 함께 보여준다."""
+    for summary in section_summaries(snapshot):
+        print(
+            "  {0:<16}{1:<10}{2}".format(
+                summary["name"], summary["status"], summary["headline"] or ""
+            )
+        )
 
 
 # --- 명령 ----------------------------------------------------------------
@@ -77,6 +110,8 @@ def cmd_scan(args: argparse.Namespace, config: AgentConfig) -> int:
         print(_dump(snapshot))
     else:
         print(summarize(snapshot))
+        if not args.quiet:
+            _print_sections(snapshot)
     return 0
 
 
@@ -90,17 +125,18 @@ def cmd_collectors(args: argparse.Namespace, config: AgentConfig) -> int:
 
 def cmd_list(args: argparse.Namespace, config: AgentConfig) -> int:
     with SnapshotStore(config.db_path) as store:
-        rows = store.list_recent(args.limit)
+        rows = store.list_recent(args.limit, device_id=args.device)
     if not rows:
         print("저장된 스냅샷이 없습니다. 먼저 'scan' 을 실행하세요.")
         return 0
     for row in rows:
         print(
-            "{0}  {1}  {2:<10}{3}".format(
+            "{0}  {1}  {2:<10}{3:<10}{4}".format(
                 row["snapshot_id"][:8],
                 row["collected_at"],
                 row["scan_mode"],
                 "uploaded" if row["uploaded_at"] else "local",
+                row["notes"] or "",
             )
         )
     return 0
@@ -108,21 +144,113 @@ def cmd_list(args: argparse.Namespace, config: AgentConfig) -> int:
 
 def cmd_show(args: argparse.Namespace, config: AgentConfig) -> int:
     with SnapshotStore(config.db_path) as store:
-        snapshot = store.get(args.snapshot_id) if args.snapshot_id else store.latest()
+        snapshot = _load(store, args.snapshot_id)
     if snapshot is None:
         print("스냅샷을 찾을 수 없습니다.", file=sys.stderr)
         return 1
+    if args.sections:
+        print(summarize(snapshot))
+        _print_sections(snapshot)
+        return 0
     print(_dump(snapshot))
     return 0
 
 
 def cmd_profile(args: argparse.Namespace, config: AgentConfig) -> int:
     with SnapshotStore(config.db_path) as store:
-        snapshot = store.get(args.snapshot_id) if args.snapshot_id else store.latest()
+        snapshot = _load(store, args.snapshot_id)
     if snapshot is None:
         print("스냅샷을 찾을 수 없습니다. 먼저 'scan' 을 실행하세요.", file=sys.stderr)
         return 1
     print(_dump(to_spec_profile(snapshot)))
+    return 0
+
+
+def cmd_health(args: argparse.Namespace, config: AgentConfig) -> int:
+    """M2 telemetry(수명/이벤트/성능)를 사람이 읽는 형태로 보여준다."""
+    with SnapshotStore(config.db_path) as store:
+        snapshot = _load(store, args.snapshot_id)
+    if snapshot is None:
+        print("스냅샷을 찾을 수 없습니다. 먼저 'scan' 을 실행하세요.", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(_dump(to_health_profile(snapshot)))
+        return 0
+
+    print(summarize(snapshot))
+    _print_sections(snapshot)
+
+    health = to_health_profile(snapshot)
+    volume = health["system_volume"]
+    disk = health["worst_disk"]
+    events = health["events"]
+    load = health["load"]
+
+    print("\n[시스템 볼륨] {0}  여유 {1} / {2} ({3})".format(
+        volume["drive"] or UNKNOWN,
+        _known(volume["free_gb"], "GB"),
+        _known(volume["size_gb"], "GB"),
+        _known(volume["free_percent"], "%"),
+    ))
+    print("[저장장치] {0}  소모율 {1} / 재할당 {2} / 대기 {3} / 실패예측 {4}".format(
+        disk["model"] or UNKNOWN,
+        _known(disk["wear_percent"], "%"),
+        _known(disk["reallocated_sectors"]),
+        _known(disk["pending_sectors"]),
+        _known(disk["predict_failure"]),
+    ))
+    print("[이벤트 {0}] WHEA 정정 {1} / 치명 {2} / 비정상 종료 {3} / BSOD {4} / 디스크 {5}".format(
+        _known(events["window_days"], "일"),
+        _known(events["whea_corrected"]),
+        _known(events["whea_fatal"]),
+        _known(events["unexpected_shutdown"]),
+        _known(events["bugcheck"]),
+        _known(events["disk_error"]),
+    ))
+    print("[부하] CPU 평균 {0} (최대 {1}) / 가용 메모리 {2} / 클럭비 {3} / 전원 {4} / 최상위 {5}".format(
+        _known(load["cpu_avg_percent"], "%"),
+        _known(load["cpu_max_percent"], "%"),
+        _known(load["memory_available_mb"], "MB"),
+        _known(load["clock_ratio"]),
+        _known(load["power_plan"]),
+        _known(load["top_process"]),
+    ))
+    return 0
+
+
+def cmd_history(args: argparse.Namespace, config: AgentConfig) -> int:
+    """같은 기기의 스냅샷을 시간순으로 훑는다 (추세 확인용)."""
+    device_id = args.device or config.device_id or default_device_id()
+    with SnapshotStore(config.db_path) as store:
+        snapshots = store.history(device_id, limit=args.limit)
+
+    if not snapshots:
+        print("기기 {0} 의 스냅샷이 없습니다.".format(device_id[:12]), file=sys.stderr)
+        return 1
+
+    print("기기 {0} · 스냅샷 {1}개".format(device_id[:12], len(snapshots)))
+    for snapshot in snapshots:
+        health = to_health_profile(snapshot)
+        print(
+            "{0}  {1}  여유 {2:<12}소모율 {3:<12}WHEA {4:<8}{5}".format(
+                snapshot["snapshot_id"][:8],
+                snapshot["collected_at"],
+                _known(health["system_volume"]["free_gb"], "GB"),
+                _known(health["worst_disk"]["wear_percent"], "%"),
+                _known(health["events"]["whea_corrected"]),
+                snapshot.get("notes") or "",
+            )
+        )
+    return 0
+
+
+def cmd_prune(args: argparse.Namespace, config: AgentConfig) -> int:
+    """보관 정책 적용. 두 조건을 모두 만족하는 스냅샷만 지운다."""
+    with SnapshotStore(config.db_path) as store:
+        before = store.count()
+        removed = store.prune(keep_last=args.keep, older_than_days=args.older_than)
+        print("{0}개 삭제 (보관 {1}개)".format(removed, before - removed))
     return 0
 
 
@@ -146,10 +274,33 @@ def cmd_doctor(args: argparse.Namespace, config: AgentConfig) -> int:
             detail = str(exc)
     checks.append(("PowerShell/CIM", powershell_ok, detail))
 
+    if is_windows:
+        from .win import cim
+
+        # 권한 부족은 실패가 아니다. SMART/온도만 빠지고 나머지는 정상 수집된다.
+        elevated = cim.is_elevated()
+        checks.append(
+            (
+                "관리자 권한",
+                True,
+                "있음 (SMART 수집 가능)" if elevated else "없음 - SMART/온도 항목은 건너뜁니다",
+            )
+        )
+
     config.ensure_dirs()
     checks.append(("Agent Home", config.home.exists(), str(config.home)))
     checks.append(("Backend URL", True, config.backend_url))
     checks.append(("Schema", True, SCHEMA_VERSION))
+
+    with SnapshotStore(config.db_path) as store:
+        version = store.schema_version
+        checks.append(
+            (
+                "Local DB",
+                version == DB_SCHEMA_VERSION,
+                "v{0} / 스냅샷 {1}개".format(version, store.count()),
+            )
+        )
 
     for label, ok, detail in checks:
         print("{0} {1:<16}{2}".format("[OK]  " if ok else "[FAIL]", label, detail))
@@ -184,15 +335,34 @@ def build_parser() -> argparse.ArgumentParser:
 
     listing = subparsers.add_parser("list", help="최근 스냅샷 목록")
     listing.add_argument("--limit", type=int, default=20)
+    listing.add_argument("--device", help="특정 기기의 스냅샷만")
     listing.set_defaults(func=cmd_list)
 
     show = subparsers.add_parser("show", help="스냅샷 원문 출력")
     show.add_argument("snapshot_id", nargs="?", help="생략 시 최신 스냅샷")
+    show.add_argument("--sections", action="store_true", help="원문 대신 섹션별 상태 요약")
     show.set_defaults(func=cmd_show)
 
     profile = subparsers.add_parser("profile", help="부품 사양 프로필 추출")
     profile.add_argument("snapshot_id", nargs="?")
     profile.set_defaults(func=cmd_profile)
+
+    health = subparsers.add_parser("health", help="수명/이벤트/성능 상태 요약 (M2)")
+    health.add_argument("snapshot_id", nargs="?")
+    health.add_argument("--json", action="store_true")
+    health.set_defaults(func=cmd_health)
+
+    history = subparsers.add_parser("history", help="같은 기기의 스냅샷 추이")
+    history.add_argument("--device", help="생략 시 현재 기기")
+    history.add_argument("--limit", type=int, default=50)
+    history.set_defaults(func=cmd_history)
+
+    prune = subparsers.add_parser("prune", help="오래된 스냅샷 정리")
+    prune.add_argument("--keep", type=int, default=50, help="최근 N개는 남긴다 (기본 50)")
+    prune.add_argument(
+        "--older-than", type=int, default=180, dest="older_than", help="N일보다 오래된 것만 (기본 180)"
+    )
+    prune.set_defaults(func=cmd_prune)
 
     doctor = subparsers.add_parser("doctor", help="실행 환경 점검")
     doctor.set_defaults(func=cmd_doctor)
@@ -200,7 +370,24 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _force_utf8_output() -> None:
+    """표준 출력을 UTF-8로 고정한다.
+
+    한국어 Windows에서 stdout이 파이프/파일로 연결되면 Python은 콘솔 코드페이지
+    (cp949)로 인코딩한다. 그러면 ``scan --json > snapshot.json`` 의 결과를
+    Backend나 jq가 읽지 못한다. 스냅샷은 어디로 나가든 UTF-8이어야 한다.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            try:
+                reconfigure(encoding="utf-8")
+            except (ValueError, OSError):
+                pass  # 인코딩을 바꿀 수 없는 스트림이면 그대로 둔다
+
+
 def main(argv: list[str] | None = None) -> int:
+    _force_utf8_output()
     parser = build_parser()
     args = parser.parse_args(argv)
     config = AgentConfig()

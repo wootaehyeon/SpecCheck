@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://speccheck.local/contracts/telemetry_snapshot-1.0.0.json",
+  "$id": "https://speccheck.local/contracts/telemetry_snapshot-1.1.0.json",
   "title": "SpecCheck Telemetry Snapshot",
   "description": "Local Agent가 수집하여 Backend로 전달하는 단일 스캔 결과의 표준 형식. Agent(생산자)와 Backend(소비자)의 유일한 계약이다.",
   "type": "object",
@@ -37,11 +37,11 @@
       "description": "collector 이름 -> 수집 결과. 미구현/실패 collector도 status와 함께 포함된다.",
       "additionalProperties": { "$ref": "#/$defs/section" },
       "properties": {
-        "hardware":    { "$ref": "#/$defs/section" },
-        "performance": { "$ref": "#/$defs/section" },
-        "storage":     { "$ref": "#/$defs/section" },
+        "hardware": { "$ref": "#/$defs/section" },
+        "storage_health": { "$ref": "#/$defs/section" },
         "reliability": { "$ref": "#/$defs/section" },
-        "security":    { "$ref": "#/$defs/section" }
+        "performance": { "$ref": "#/$defs/section" },
+        "security": { "$ref": "#/$defs/section" }
       }
     },
     "notes": { "type": ["string", "null"] }
@@ -59,6 +59,206 @@
         "duration_ms": { "type": ["number", "null"] },
         "error": { "type": ["string", "null"] },
         "data": { "type": "object" }
+      }
+    },
+
+    "_note": "아래 정의는 각 섹션 data의 키를 문서화한다. 진단 규칙이 참조하는 경로이므로 키 이름을 바꾸면 규칙이 조용히 침묵한다. 결측을 허용해야 하므로 required는 두지 않는다.",
+
+    "samples": {
+      "type": "object",
+      "description": "샘플링 구간의 통계. 평균이 높으면 상시 부하, 최대만 높으면 순간 스파이크다.",
+      "properties": {
+        "avg": { "type": ["number", "null"] },
+        "max": { "type": ["number", "null"] },
+        "min": { "type": ["number", "null"] },
+        "samples": { "type": "array", "items": { "type": "number" } }
+      }
+    },
+
+    "storage_health_data": {
+      "type": "object",
+      "description": "storage_health 섹션 data (M2). SMART은 관리자 권한이 없으면 비어 있고 섹션은 partial이 된다.",
+      "properties": {
+        "observed_at": { "type": "string", "format": "date-time" },
+        "system_drive": { "type": "string", "description": "OS가 설치된 드라이브 문자. 예) C:" },
+        "volumes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "drive": { "type": ["string", "null"] },
+              "file_system": { "type": ["string", "null"] },
+              "size_gb": { "type": ["number", "null"] },
+              "free_gb": { "type": ["number", "null"] },
+              "free_percent": { "type": ["number", "null"] },
+              "is_system": { "type": "boolean" }
+            }
+          }
+        },
+        "disks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "index": { "type": ["integer", "null"] },
+              "model": { "type": ["string", "null"] },
+              "size_gb": { "type": ["number", "null"] },
+              "smart_supported": { "type": "boolean" },
+              "predict_failure": {
+                "type": ["boolean", "null"],
+                "description": "펌웨어 자체의 임박 실패 판정. 가장 강한 교체 신호."
+              },
+              "smart": { "type": "object", "description": "속성 이름 -> {id, value, worst, raw}" },
+              "reallocated_sectors": { "type": ["integer", "null"] },
+              "pending_sectors": { "type": ["integer", "null"] },
+              "uncorrectable_sectors": { "type": ["integer", "null"] },
+              "power_on_hours": { "type": ["integer", "null"] },
+              "host_writes_tb": { "type": ["number", "null"] },
+              "wear_percent": {
+                "type": ["integer", "null"],
+                "description": "수명 소모율(%). 0 = 새 디스크, 100 = 보증 수명 소진."
+              },
+              "temperature_c": { "type": ["integer", "null"] },
+              "read_errors_total": { "type": ["integer", "null"] },
+              "write_errors_total": { "type": ["integer", "null"] }
+            }
+          }
+        }
+      }
+    },
+
+    "reliability_data": {
+      "type": "object",
+      "description": "reliability 섹션 data (M2). 이벤트 원문이 아니라 EventID별 집계만 담는다.",
+      "properties": {
+        "window_days": { "type": "integer" },
+        "window_start": { "type": "string", "format": "date-time" },
+        "window_end": { "type": "string", "format": "date-time" },
+        "log_oldest_at": { "type": ["string", "null"] },
+        "log_covers_window": {
+          "type": ["boolean", "null"],
+          "description": "로그 보관 기간이 관측 구간보다 짧으면 false. 0건이 '이상 없음'을 뜻하지 않는다."
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "provider": { "type": "string" },
+              "event_id": { "type": "integer" },
+              "category": {
+                "enum": [
+                  "whea_corrected",
+                  "whea_fatal",
+                  "unexpected_shutdown",
+                  "bugcheck",
+                  "disk_error",
+                  "filesystem_error"
+                ]
+              },
+              "label": { "type": "string" },
+              "count": { "type": "integer" },
+              "first_at": { "type": ["string", "null"] },
+              "last_at": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "totals": {
+          "type": "object",
+          "description": "분류별 총 건수. 관측에 성공하면 모든 키가 0 이상으로 채워진다.",
+          "properties": {
+            "whea_corrected": { "type": "integer" },
+            "whea_fatal": { "type": "integer" },
+            "unexpected_shutdown": { "type": "integer" },
+            "bugcheck": { "type": "integer" },
+            "disk_error": { "type": "integer" },
+            "filesystem_error": { "type": "integer" }
+          }
+        },
+        "unmatched_events": { "type": "integer" }
+      }
+    },
+
+    "performance_data": {
+      "type": "object",
+      "description": "performance 섹션 data (M2). 단발값이 아니라 샘플링 구간의 통계를 담는다.",
+      "properties": {
+        "observed_at": { "type": "string", "format": "date-time" },
+        "sampling": {
+          "type": "object",
+          "properties": {
+            "count": { "type": "integer" },
+            "interval_ms": { "type": "integer" }
+          }
+        },
+        "cpu": {
+          "type": "object",
+          "properties": {
+            "usage_percent": { "$ref": "#/$defs/samples" },
+            "privileged_percent": { "$ref": "#/$defs/samples" },
+            "clock": {
+              "type": "object",
+              "properties": {
+                "current_mhz": { "type": ["integer", "null"] },
+                "max_mhz": { "type": ["integer", "null"] },
+                "ratio": {
+                  "type": ["number", "null"],
+                  "description": "현재/최대 클럭 비율. 온도 센서가 없는 환경의 스로틀링 간접 지표."
+                }
+              }
+            }
+          }
+        },
+        "memory": {
+          "type": "object",
+          "properties": {
+            "available_mb": { "$ref": "#/$defs/samples" },
+            "committed_percent": { "$ref": "#/$defs/samples" },
+            "pages_per_sec": { "$ref": "#/$defs/samples" }
+          }
+        },
+        "disk": {
+          "type": "object",
+          "properties": {
+            "queue_length": { "$ref": "#/$defs/samples" },
+            "idle_percent": { "$ref": "#/$defs/samples" }
+          }
+        },
+        "top_processes": {
+          "type": "array",
+          "description": "CPU 점유 상위 프로세스. 이미지 이름만 담고 경로/명령줄은 수집하지 않는다.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "cpu_percent": {
+                "type": ["number", "null"],
+                "description": "논리 코어 전체 기준이라 100을 넘을 수 있다."
+              },
+              "memory_mb": { "type": ["number", "null"] }
+            }
+          }
+        },
+        "power_plan": {
+          "type": "object",
+          "properties": {
+            "name": { "type": ["string", "null"] },
+            "scheme": {
+              "type": ["string", "null"],
+              "description": "GUID로 판정한 계획 종류. power_saver | balanced | high_performance | ultimate_performance"
+            },
+            "is_power_saver": { "type": "boolean" }
+          }
+        },
+        "thermal": {
+          "type": "object",
+          "description": "ACPI 열 영역 온도. 지원하지 않는 메인보드가 많아 결측이 정상이다.",
+          "properties": {
+            "available": { "type": "boolean" },
+            "max_c": { "type": ["number", "null"] },
+            "zones_c": { "type": "array", "items": { "type": "number" } }
+          }
+        }
       }
     }
   }
