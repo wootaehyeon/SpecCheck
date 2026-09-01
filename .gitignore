@@ -79,3 +79,6 @@ agent/var/
 .speccheck/
 snapshots/
 *.snapshot.json
+
+# 외부 데이터셋 (e9t/nsmc 클론) - 커밋 대상 아님
+nsmc/
