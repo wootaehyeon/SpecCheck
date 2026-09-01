@@ -1,70 +1,44 @@
-# ===========================
-# Python / FastAPI (Backend)
-# ===========================
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-.venv/
-venv/
-env/
-ENV/
-*.egg-info/
-dist/
-build/
-.eggs/
-*.egg
-.mypy_cache/
-.ruff_cache/
-.pytest_cache/
-htmlcov/
-.coverage
-*.log
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
 
-# ===========================
-# Environment Variables (중요!)
-# ===========================
-.env
-.env.local
-.env.*.local
-*.env
+# testing
+/coverage
 
-# ===========================
-# Node.js / Next.js (Frontend)
-# ===========================
-node_modules/
-.next/
-out/
-.cache/
+# next.js
+/.next/
+/.vinext/
+/out/
+
+# misc
+.DS_Store
+*.pem
+
+# debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
-*.tsbuildinfo
+
+# local environment
+.env*
+!.env.example
+
+# local diagnostics data
+/data/*.db
+/data/*.db-shm
+/data/*.db-wal
+
+# deployment and generated files
+.vercel
 next-env.d.ts
-
-# ===========================
-# OS / Editor
-# ===========================
-.DS_Store
-Thumbs.db
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-
-# ===========================
-# Misc
-# ===========================
-*.zip
-*.tar.gz
-
-# Backend secrets and caches
-backend/.env
-backend/data/price_cache.json
-backend/data/used_price_cache.json
-
-# Local Claude Code config
-.claude/
+/dist/
+/.wrangler/
+/outputs/
+/work/

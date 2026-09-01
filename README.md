@@ -1,32 +1,69 @@
-# 🖥️ SpecCheck-AI: 견적 검증 AI 평가 시스템
-> **AI-based PC Build Evaluation System for User-Proposed Configurations** 
+# SpecCheck Diagnostics M0–M3
 
-사용자가 직접 구성한 PC 견적을 입력하면, 인공지능이 **가격 적정성, 성능 균형, 호환성, 용도 적합성**을 종합 분석하여 객관적인 검증 결과를 제공합니다.
+Windows의 정규화된 Hardware / Performance / Storage / WHEA 데이터를 받아 Basic Scan 진단으로 보여 주는 로컬 우선 프로토타입입니다. 김형진 파트의 M0–M3 범위를 구현합니다.
 
----
+## 구현 범위
 
-### 📌 Project Overview
-* **목적**: 추천 중심의 기존 서비스와 달리, 사용자가 선택한 견적의 품질을 객관적으로 검증하고 평가하는 시스템 구축.
-* **핵심 가치**: 정량적 데이터 분석과 LLM(대형 언어 모델)을 결합하여 초보자도 이해하기 쉬운 분석 환경 제공].
+| Milestone | 구현 내용 |
+| --- | --- |
+| M0 | Vinext/React UI와 Node.js Local Agent, loopback API, SQLite 진단 이력 골격 |
+| M1 | Ollama의 로컬 Gemma 모델 연동, 외부 endpoint 차단, 모델 미실행 시 deterministic fallback |
+| M2 | `diagnosis.schema.json` 기반 Diagnosis JSON v1.0.0, 수집기 입력 경계, runtime contract 검사 |
+| M3 | Agent 연결 상태, Basic Scan 실행, Risk/Category/Resource/Finding/Inventory/Source/AI 설명 UI |
 
-### ✨ Key Features
-* **가격 시세 및 오버페이 판단**: 시장 평균가 비교를 통한 부품별 가격 적정성 평가.
-* **성능 밸런스 분석**: CPU-GPU 간 병목(Bottleneck) 현상 및 비효율적 조합 탐지.
-* **부품 호환성 검증**: CPU-메인보드, RAM, 파워 등 실제 조립 가능 여부 확인.
-* **용도 적합성 평가**: 게임, 개발, AI 등 목적에 따른 성능 대비 적합도 분석.
-* **구매 위험도 점수**: 분석 결과를 종합하여 수치화된 점수 및 개선 방향 제시.
-* **LLM 기반 도슨트**: 분석 결과를 자연어 설명으로 변환하여 사용자 친화적 리포트 제공.
+Rule Detection과 Windows collector 자체는 담당 파트가 연결할 수 있도록 입력 adapter로 분리했습니다. 현재 빈 요청으로 스캔하면 재현 가능한 fixture를 사용하며, 실제 정규화 snapshot은 `POST /api/scans`의 `snapshot` 필드로 전달합니다.
 
-### ⚙️ System Workflow
-1. **Input**: 사용자가 웹을 통해 부품 구성, 가격, 용도 입력.
-2. **Analysis**: 최신 데이터를 기반으로 ML 모듈이 정량적 평가 수행.
-3. **Reasoning**: LLM 모듈이 분석 결과를 바탕으로 자연어 설명 및 대체 부품 제안 생성.
-4. **Report**: 최종 구매 위험도 점수와 종합 평가 결과 확인.
+## 빠른 실행
 
-### 🚀 Differentiation
-* **검증 중심**: 단순 추천이 아닌 사용자 견적에 대한 객관적 품질 검증
-* **이유 있는 제안**: 대체 부품 제안 시 구체적인 교체 이유와 근거 함께 제공
-*통합 평가**: 부품의 세대, 기술 수준, 성능 효율을 시장 기준에 맞춰 통합 분석
+필수 조건은 Node.js 22.13 이상과 pnpm입니다.
 
-### 👥 Team Info
-*개발기간**: 2026년 4월 29일 ~ .
+```powershell
+pnpm install
+pnpm dev:all
+```
+
+- UI: `http://localhost:3000`
+- Local Agent: `http://127.0.0.1:4318`
+- Ollama: `http://127.0.0.1:11434` (선택)
+
+UI만 실행하면 Demo mode로 결과 구조를 확인할 수 있습니다. `dev:all`은 UI와 Agent를 함께 시작하며 실행한 Basic Scan 결과를 `data/speccheck.db`에 저장합니다.
+
+## Local Gemma
+
+기본 모델 식별자는 `gemma3:4b`입니다. Ollama와 사용할 모델을 로컬에 준비한 뒤 Agent를 실행하면 자동으로 연결합니다. 다른 Gemma tag를 사용할 때는 환경 변수를 설정합니다.
+
+```powershell
+$env:SPECCHECK_GEMMA_MODEL='gemma3:4b'
+$env:SPECCHECK_OLLAMA_URL='http://127.0.0.1:11434'
+pnpm dev:all
+```
+
+Ollama가 없거나 모델 호출이 실패해도 스캔은 실패하지 않습니다. 동일 Finding에서 생성하는 한국어 template 설명으로 전환되고 UI에 `SAFE FALLBACK`으로 표시됩니다. Gemma URL은 SSRF와 원격 데이터 전송을 막기 위해 loopback 주소만 허용합니다.
+
+## API
+
+| Method | Path | 설명 |
+| --- | --- | --- |
+| `GET` | `/api/health` | Agent와 Gemma 상태 |
+| `POST` | `/api/scans` | fixture 또는 전달된 snapshot으로 Basic Scan 실행 |
+| `GET` | `/api/scans/latest` | SQLite에 저장된 최신 Diagnosis |
+| `GET` | `/api/schema/diagnosis` | Diagnosis JSON Schema |
+
+실제 collector 연결 예시는 [collector-integration.md](docs/collector-integration.md)를 참고하세요. 진단 결과 계약의 원본은 [diagnosis.schema.json](schemas/diagnosis.schema.json)입니다.
+
+## 검증
+
+```powershell
+pnpm test
+pnpm build
+```
+
+테스트는 Risk 경계값, Diagnosis 조립, SQLite round-trip, Gemma endpoint의 loopback 제한을 확인합니다.
+
+## 보안 기본값
+
+- Agent는 `127.0.0.1`에만 bind합니다.
+- UI origin은 기본적으로 `localhost:3000`과 `127.0.0.1:3000`만 허용합니다.
+- 요청 body는 1 MB로 제한합니다.
+- Gemma endpoint는 loopback만 허용하고 진단 데이터가 외부로 나가지 않습니다.
+- Sysmon은 M3 범위 밖이며 UI에서 `Advanced Scan 범위`로 명시합니다.

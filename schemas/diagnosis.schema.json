@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://speccheck.local/schemas/diagnosis.schema.json",
+  "title": "SpecCheck Basic Scan Diagnosis",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "scanId", "scanType", "status", "generatedAt", "machine", "risk", "categories", "resources", "findings", "inventory", "sources", "ai"],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "scanId": { "type": "string", "minLength": 1 },
+    "scanType": { "enum": ["basic"] },
+    "status": { "enum": ["complete", "partial", "failed"] },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "machine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "os", "agentVersion"],
+      "properties": {
+        "name": { "type": "string" },
+        "os": { "type": "string" },
+        "agentVersion": { "type": "string" }
+      }
+    },
+    "risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score", "level", "summary"],
+      "properties": {
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "level": { "enum": ["low", "medium", "high", "critical"] },
+        "summary": { "type": "string" }
+      }
+    },
+    "categories": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hardware", "software", "security"],
+      "properties": {
+        "hardware": { "$ref": "#/$defs/categorySummary" },
+        "software": { "$ref": "#/$defs/categorySummary" },
+        "security": { "$ref": "#/$defs/categorySummary" }
+      }
+    },
+    "resources": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/resource" }
+    },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    },
+    "inventory": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "name", "detail", "status"],
+        "properties": {
+          "kind": { "type": "string" },
+          "name": { "type": "string" },
+          "detail": { "type": "string" },
+          "status": { "enum": ["normal", "warning", "critical", "unknown"] }
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "status", "collectedAt"],
+        "properties": {
+          "name": { "enum": ["wmi", "cim", "whea", "storage", "performance", "sysmon"] },
+          "status": { "enum": ["collected", "unavailable", "permission_required", "not_in_scope"] },
+          "collectedAt": { "type": ["string", "null"], "format": "date-time" }
+        }
+      }
+    },
+    "ai": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "model", "status", "overview", "actionPlan"],
+      "properties": {
+        "provider": { "enum": ["ollama", "template"] },
+        "model": { "type": "string" },
+        "status": { "enum": ["generated", "fallback", "unavailable"] },
+        "overview": { "type": "string" },
+        "actionPlan": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  },
+  "$defs": {
+    "categorySummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count", "highestSeverity", "summary"],
+      "properties": {
+        "count": { "type": "integer", "minimum": 0 },
+        "highestSeverity": { "enum": ["info", "low", "medium", "high", "critical"] },
+        "summary": { "type": "string" }
+      }
+    },
+    "resource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "label", "value", "unit", "status", "detail"],
+      "properties": {
+        "key": { "type": "string" },
+        "label": { "type": "string" },
+        "value": { "type": "number" },
+        "unit": { "type": "string" },
+        "status": { "enum": ["normal", "warning", "critical", "unknown"] },
+        "detail": { "type": "string" }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "category", "code", "title", "severity", "confidence", "summary", "evidence", "rootCauseCandidates", "actions"],
+      "properties": {
+        "id": { "type": "string" },
+        "category": { "enum": ["hardware", "software", "security"] },
+        "code": { "type": "string" },
+        "title": { "type": "string" },
+        "severity": { "enum": ["info", "low", "medium", "high", "critical"] },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "summary": { "type": "string" },
+        "evidence": { "type": "array", "items": { "type": "string" } },
+        "rootCauseCandidates": { "type": "array", "items": { "type": "string" } },
+        "actions": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}
