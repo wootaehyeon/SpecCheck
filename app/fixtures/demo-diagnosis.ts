@@ -1,4 +1,4 @@
-import type { Diagnosis } from './types';
+import type { Diagnosis } from '../types';
 
 export const demoDiagnosis: Diagnosis = {
   schemaVersion: '1.0.0',

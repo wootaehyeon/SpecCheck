@@ -1,4 +1,4 @@
-const DEFAULT_BASE_URL = 'http://127.0.0.1:11434';
+import { gemmaConfig } from './config.mjs';
 
 function fallbackExplanation(diagnosis) {
   const primary = diagnosis.findings[0];
@@ -14,7 +14,7 @@ function fallbackExplanation(diagnosis) {
 }
 
 function safeLocalUrl(raw) {
-  const url = new URL(raw || DEFAULT_BASE_URL);
+  const url = new URL(raw || gemmaConfig.baseUrl);
   if (!['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)) {
     throw new Error('Gemma endpoint must be loopback-only');
   }
@@ -23,14 +23,17 @@ function safeLocalUrl(raw) {
 
 export class GemmaClient {
   constructor(options = {}) {
-    this.baseUrl = safeLocalUrl(options.baseUrl ?? process.env.SPECCHECK_OLLAMA_URL);
-    this.model = options.model ?? process.env.SPECCHECK_GEMMA_MODEL ?? 'gemma3:4b';
-    this.timeoutMs = Number(options.timeoutMs ?? process.env.SPECCHECK_GEMMA_TIMEOUT_MS ?? 12000);
+    this.baseUrl = safeLocalUrl(options.baseUrl ?? gemmaConfig.baseUrl);
+    this.model = options.model ?? gemmaConfig.model;
+    this.timeoutMs = Number(options.timeoutMs ?? gemmaConfig.timeoutMs);
+    this.statusTimeoutMs = Number(options.statusTimeoutMs ?? gemmaConfig.statusTimeoutMs);
+    this.temperature = Number(options.temperature ?? gemmaConfig.temperature);
+    this.maxTokens = Number(options.maxTokens ?? gemmaConfig.maxTokens);
   }
 
   async status() {
     try {
-      const response = await fetch(`${this.baseUrl}/api/tags`, { signal: AbortSignal.timeout(1500) });
+      const response = await fetch(`${this.baseUrl}/api/tags`, { signal: AbortSignal.timeout(this.statusTimeoutMs) });
       if (!response.ok) throw new Error(`Ollama returned ${response.status}`);
       const payload = await response.json();
       return {
@@ -60,7 +63,7 @@ export class GemmaClient {
           model: this.model,
           stream: false,
           format: 'json',
-          options: { temperature: 0.1, num_predict: 350 },
+          options: { temperature: this.temperature, num_predict: this.maxTokens },
           messages: [
             {
               role: 'system',

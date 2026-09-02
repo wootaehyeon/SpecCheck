@@ -34,10 +34,11 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-import { demoDiagnosis } from './demo-data';
+import { getAgentHealth, getLatestDiagnosis, runBasicScan } from './diagnostics-client';
+import { demoDiagnosis } from './fixtures/demo-diagnosis';
 import type { AgentHealth, Diagnosis } from './types';
 
-const AGENT_URL = 'http://127.0.0.1:4318';
+type ConnectionState = 'checking' | 'live' | 'demo' | 'error';
 
 const riskTone = {
   low: { badge: 'bg-emerald-300 text-emerald-950', bar: '[&_[data-slot=progress-indicator]]:bg-emerald-300', label: 'LOW' },
@@ -66,27 +67,33 @@ function formatTime(value: string) {
 
 export default function Home() {
   const [diagnosis, setDiagnosis] = useState<Diagnosis>(demoDiagnosis);
+  const [diagnosisSource, setDiagnosisSource] = useState<'demo' | 'agent'>('demo');
   const [health, setHealth] = useState<AgentHealth | null>(null);
-  const [agentChecked, setAgentChecked] = useState(false);
+  const [connectionState, setConnectionState] = useState<ConnectionState>('checking');
   const [running, setRunning] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<'findings' | 'inventory' | 'sources'>('findings');
 
   useEffect(() => {
     let active = true;
-    fetch(`${AGENT_URL}/api/health`)
-      .then((response) => {
-        if (!response.ok) throw new Error('agent offline');
-        return response.json() as Promise<AgentHealth>;
-      })
-      .then((value) => active && setHealth(value))
-      .catch(() => active && setHealth(null))
-      .finally(() => active && setAgentChecked(true));
+    async function hydrate() {
+      try {
+        const [nextHealth, latest] = await Promise.all([getAgentHealth(), getLatestDiagnosis()]);
+        if (!active) return;
+        setHealth(nextHealth);
+        setConnectionState('live');
+        if (latest) {
+          setDiagnosis(latest);
+          setDiagnosisSource('agent');
+        }
+      } catch {
+        if (!active) return;
+        setHealth(null);
+        setConnectionState('demo');
+      }
+    }
 
-    fetch(`${AGENT_URL}/api/scans/latest`)
-      .then((response) => response.ok ? response.json() as Promise<Diagnosis> : null)
-      .then((value) => value && active && setDiagnosis(value))
-      .catch(() => undefined);
+    void hydrate();
 
     return () => { active = false; };
   }, []);
@@ -95,21 +102,17 @@ export default function Home() {
     setRunning(true);
     setError('');
     try {
-      const response = await fetch(`${AGENT_URL}/api/scans`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: '{}',
-      });
-      const value = await response.json() as Diagnosis & { message?: string };
-      if (!response.ok) throw new Error(value.message ?? '진단을 완료하지 못했습니다.');
+      const value = await runBasicScan();
       setDiagnosis(value);
-      const nextHealth = await fetch(`${AGENT_URL}/api/health`);
-      if (nextHealth.ok) setHealth(await nextHealth.json() as AgentHealth);
+      setDiagnosisSource('agent');
+      setConnectionState('live');
+      const nextHealth = await getAgentHealth().catch(() => null);
+      if (nextHealth) setHealth(nextHealth);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Local Agent에 연결할 수 없습니다.');
       setHealth(null);
+      setConnectionState('error');
     } finally {
-      setAgentChecked(true);
       setRunning(false);
     }
   }
@@ -137,8 +140,8 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-3">
             <span className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
-              <span className={`size-1.5 rounded-full ${health ? 'bg-emerald-400 shadow-[0_0_10px_#34d399]' : 'bg-zinc-500'}`} />
-              {!agentChecked ? 'Agent 확인 중' : health ? `Local Agent v${health.agentVersion}` : 'Demo mode'}
+              <span className={`size-1.5 rounded-full ${connectionState === 'live' ? 'bg-emerald-400 shadow-[0_0_10px_#34d399]' : connectionState === 'error' ? 'bg-red-400' : 'bg-zinc-500'}`} />
+              {connectionState === 'checking' ? 'Agent 확인 중' : connectionState === 'live' && health ? `Local Agent v${health.agentVersion}` : connectionState === 'error' ? 'Agent 연결 오류' : 'Demo mode'}
             </span>
             <Button onClick={runScan} disabled={running} size="lg" className="rounded-xl px-4">
               {running ? <RefreshCw className="animate-spin" data-icon="inline-start" /> : <ScanLine data-icon="inline-start" />}
@@ -163,7 +166,12 @@ export default function Home() {
               <div>
                 <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-primary">Local diagnostics</p>
                 <h1 className="text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">현재 PC 상태</h1>
-                <p className="mt-2 text-sm text-muted-foreground">{formatTime(diagnosis.generatedAt)} · {diagnosis.machine.name}</p>
+                <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                  <span>{formatTime(diagnosis.generatedAt)} · {diagnosis.machine.name}</span>
+                  <Badge variant="outline" className={diagnosisSource === 'agent' ? 'border-emerald-400/20 text-emerald-300' : 'border-white/10 text-muted-foreground'}>
+                    {diagnosisSource === 'agent' ? 'AGENT DATA' : 'DEMO DATA'}
+                  </Badge>
+                </p>
               </div>
               <Badge variant="outline" className={`h-7 px-3 ${severityTone[diagnosis.categories.hardware.highestSeverity]}`}>
                 {diagnosis.risk.score >= 40 ? <TriangleAlert /> : <Check />}

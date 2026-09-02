@@ -50,6 +50,8 @@ Ollama가 없거나 모델 호출이 실패해도 스캔은 실패하지 않습�
 
 실제 collector 연결 예시는 [collector-integration.md](docs/collector-integration.md)를 참고하세요. 진단 결과 계약의 원본은 [diagnosis.schema.json](schemas/diagnosis.schema.json)입니다.
 
+JSON 연동 전에 정리한 설정, API Client, UI 상태, fixture 구조와 후속 연결 절차는 [json-integration-readiness.md](docs/json-integration-readiness.md)에 기록되어 있습니다.
+
 ## 검증
 
 ```powershell
