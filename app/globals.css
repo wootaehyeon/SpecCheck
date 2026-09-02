@@ -53,19 +53,19 @@ body {
 }
 
 :root {
-  --background: oklch(0.15 0.018 255);
+  --background: oklch(0.145 0.006 250);
   --foreground: oklch(0.94 0.008 250);
-  --card: oklch(0.195 0.022 256);
+  --card: oklch(0.19 0.008 250);
   --card-foreground: oklch(0.94 0.008 250);
-  --popover: oklch(0.195 0.022 256);
+  --popover: oklch(0.19 0.008 250);
   --popover-foreground: oklch(0.94 0.008 250);
   --primary: oklch(0.77 0.13 187);
   --primary-foreground: oklch(0.14 0.025 190);
-  --secondary: oklch(0.25 0.025 255);
+  --secondary: oklch(0.25 0.01 250);
   --secondary-foreground: oklch(0.93 0.01 250);
-  --muted: oklch(0.235 0.02 255);
+  --muted: oklch(0.235 0.008 250);
   --muted-foreground: oklch(0.68 0.022 250);
-  --accent: oklch(0.28 0.035 247);
+  --accent: oklch(0.28 0.015 247);
   --accent-foreground: oklch(0.96 0.01 250);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(1 0 0 / 10%);
@@ -76,7 +76,7 @@ body {
   --chart-3: oklch(0.79 0.15 80);
   --chart-4: oklch(0.66 0.19 20);
   --chart-5: oklch(0.72 0.13 300);
-  --radius: 0.8rem;
+  --radius: 0.5rem;
   --sidebar: oklch(0.17 0.02 255);
   --sidebar-foreground: oklch(0.94 0.008 250);
   --sidebar-primary: oklch(0.77 0.13 187);
@@ -127,9 +127,6 @@ body {
   }
   body {
     @apply bg-background text-foreground;
-    background-image:
-      radial-gradient(circle at 22% -10%, rgba(14, 165, 233, 0.1), transparent 31rem),
-      radial-gradient(circle at 92% 10%, rgba(45, 212, 191, 0.08), transparent 28rem);
   }
   html {
     @apply font-sans;

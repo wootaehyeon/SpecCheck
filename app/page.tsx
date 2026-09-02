@@ -117,9 +117,9 @@ export default function Home() {
   const tone = riskTone[diagnosis.risk.level];
   const primaryFinding = diagnosis.findings[0];
   const categoryItems = [
-    { key: 'hardware' as const, label: 'Hardware', icon: <Cpu className="size-4" /> },
-    { key: 'software' as const, label: 'Software', icon: <Activity className="size-4" /> },
-    { key: 'security' as const, label: 'Security', icon: <ShieldCheck className="size-4" /> },
+    { key: 'hardware' as const, label: '하드웨어', icon: <Cpu className="size-4" /> },
+    { key: 'software' as const, label: '소프트웨어', icon: <Activity className="size-4" /> },
+    { key: 'security' as const, label: '보안', icon: <ShieldCheck className="size-4" /> },
   ];
 
   return (
@@ -142,7 +142,7 @@ export default function Home() {
             </span>
             <Button onClick={runScan} disabled={running} size="lg" className="rounded-xl px-4">
               {running ? <RefreshCw className="animate-spin" data-icon="inline-start" /> : <ScanLine data-icon="inline-start" />}
-              {running ? '진단 중…' : 'Basic Scan 시작'}
+              {running ? '진단 중…' : '기본 진단 시작'}
             </Button>
           </div>
         </div>
@@ -161,7 +161,7 @@ export default function Home() {
           <section className="space-y-6">
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
               <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-primary">Basic health scan</p>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-primary">Local diagnostics</p>
                 <h1 className="text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">현재 PC 상태</h1>
                 <p className="mt-2 text-sm text-muted-foreground">{formatTime(diagnosis.generatedAt)} · {diagnosis.machine.name}</p>
               </div>
@@ -174,7 +174,7 @@ export default function Home() {
             <Card className="border border-white/6 bg-card/75 shadow-2xl shadow-black/15">
               <CardHeader className="border-b border-white/6 pb-4">
                 <CardTitle>시스템 상태</CardTitle>
-                <CardDescription>Performance Counter · Storage Health</CardDescription>
+                <CardDescription>성능 카운터 · 저장장치 상태</CardDescription>
                 <CardAction><Gauge className="size-5 text-primary" /></CardAction>
               </CardHeader>
               <CardContent className="grid gap-4 pt-1 sm:grid-cols-3">
@@ -214,8 +214,8 @@ export default function Home() {
               <div role="tablist" aria-label="진단 상세" className="flex w-fit gap-1 border-b border-white/8 text-sm">
                 {[
                   ['findings', '진단 결과'],
-                  ['inventory', 'Hardware Inventory'],
-                  ['sources', '수집 상태'],
+                  ['inventory', '하드웨어 정보'],
+                  ['sources', '수집 출처'],
                 ].map(([value, label]) => (
                   <button
                     key={value}
@@ -295,7 +295,7 @@ export default function Home() {
                         <CardDescription className="font-mono uppercase">{source.name}</CardDescription>
                         <CardTitle className="flex items-center gap-2">
                           {source.status === 'collected' ? <Check className="size-4 text-emerald-300" /> : <Info className="size-4 text-muted-foreground" />}
-                          {source.status === 'collected' ? '수집 완료' : source.status === 'not_in_scope' ? 'Advanced Scan 범위' : '수집 불가'}
+                          {source.status === 'collected' ? '수집 완료' : source.status === 'not_in_scope' ? '기본 진단 미포함' : '수집 불가'}
                         </CardTitle>
                       </CardHeader>
                     </Card>
@@ -306,9 +306,9 @@ export default function Home() {
           </section>
 
           <aside className="space-y-4">
-            <Card className="border border-amber-300/10 bg-[linear-gradient(145deg,rgba(245,158,11,.09),rgba(15,23,42,.7))]">
+            <Card className="border border-amber-300/15 bg-card/80">
               <CardHeader>
-                <CardDescription>통합 Risk Score</CardDescription>
+                <CardDescription>통합 위험도</CardDescription>
                 <CardTitle className="text-5xl font-semibold tracking-[-0.05em]">{diagnosis.risk.score}<span className="ml-1 text-lg text-muted-foreground">/100</span></CardTitle>
                 <CardAction><Badge className={tone.badge}>{tone.label}</Badge></CardAction>
               </CardHeader>
@@ -318,9 +318,9 @@ export default function Home() {
               </CardContent>
             </Card>
 
-            <Card className="border border-primary/12 bg-[linear-gradient(145deg,rgba(45,212,191,.07),rgba(15,23,42,.6))]">
+            <Card className="border border-primary/15 bg-card/75">
               <CardHeader>
-                <CardDescription className="flex items-center gap-2"><Sparkles className="size-4 text-primary" />Local AI Diagnosis</CardDescription>
+                <CardDescription className="flex items-center gap-2"><Sparkles className="size-4 text-primary" />로컬 AI 진단</CardDescription>
                 <CardTitle className="text-base">Gemma 진단 설명</CardTitle>
                 <CardAction>
                   <Badge variant="outline" className={diagnosis.ai.provider === 'ollama' ? 'border-primary/25 text-primary' : 'border-white/10 text-muted-foreground'}>

@@ -1,15 +1,14 @@
-# SpecCheck Diagnostics M0–M3
+# SpecCheck Diagnostics
 
-Windows의 정규화된 Hardware / Performance / Storage / WHEA 데이터를 받아 Basic Scan 진단으로 보여 주는 로컬 우선 프로토타입입니다. 김형진 파트의 M0–M3 범위를 구현합니다.
+Windows의 정규화된 Hardware / Performance / Storage / WHEA 데이터를 받아 Basic Scan 진단으로 보여 주는 로컬 우선 프로토타입입니다.
 
-## 구현 범위
+## 주요 기능
 
-| Milestone | 구현 내용 |
-| --- | --- |
-| M0 | Vinext/React UI와 Node.js Local Agent, loopback API, SQLite 진단 이력 골격 |
-| M1 | Ollama의 로컬 Gemma 모델 연동, 외부 endpoint 차단, 모델 미실행 시 deterministic fallback |
-| M2 | `diagnosis.schema.json` 기반 Diagnosis JSON v1.0.0, 수집기 입력 경계, runtime contract 검사 |
-| M3 | Agent 연결 상태, Basic Scan 실행, Risk/Category/Resource/Finding/Inventory/Source/AI 설명 UI |
+- Vinext/React 진단 UI와 Node.js Local Agent
+- Ollama 기반 로컬 Gemma 진단 및 deterministic fallback
+- `diagnosis.schema.json` 기반 Diagnosis JSON v1.0.0
+- SQLite 진단 이력 저장
+- Risk, Finding, Hardware Inventory, 수집 출처, AI 설명 표시
 
 Rule Detection과 Windows collector 자체는 담당 파트가 연결할 수 있도록 입력 adapter로 분리했습니다. 현재 빈 요청으로 스캔하면 재현 가능한 fixture를 사용하며, 실제 정규화 snapshot은 `POST /api/scans`의 `snapshot` 필드로 전달합니다.
 
@@ -66,4 +65,4 @@ pnpm build
 - UI origin은 기본적으로 `localhost:3000`과 `127.0.0.1:3000`만 허용합니다.
 - 요청 body는 1 MB로 제한합니다.
 - Gemma endpoint는 loopback만 허용하고 진단 데이터가 외부로 나가지 않습니다.
-- Sysmon은 M3 범위 밖이며 UI에서 `Advanced Scan 범위`로 명시합니다.
+- Sysmon은 Basic Scan에서 수집하지 않습니다.
