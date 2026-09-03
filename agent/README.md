@@ -66,7 +66,7 @@ python -m speccheck_agent prune --keep 30 --older-than 90
 | 시스템 / OS | `Win32_ComputerSystem`, `Win32_OperatingSystem` |
 | CPU | `Win32_Processor` |
 | 메모리 | `Win32_PhysicalMemory` |
-| GPU | `Win32_VideoController` |
+| GPU | `Win32_VideoController` + NVIDIA VRAM은 `nvidia-smi`로 보정 |
 | 저장장치 | `Win32_DiskDrive` + `MSFT_PhysicalDisk` |
 | 메인보드 / BIOS | `Win32_BaseBoard`, `Win32_BIOS` |
 

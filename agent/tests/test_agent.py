@@ -16,6 +16,7 @@ from speccheck_agent.collectors.base import Collector, CollectorResult
 from speccheck_agent.collectors.hardware import (
     is_integrated_gpu,
     shape_cpu,
+    shape_gpu,
     shape_memory,
     shape_storage,
 )
@@ -123,6 +124,23 @@ def test_shape_cpu_trims_vendor_padding():
     cpu = shape_cpu(rows)[0]
     assert cpu["name"] == "Intel(R) Core(TM) i7-13700K"
     assert cpu["cores"] == 16
+
+
+def test_shape_gpu_prefers_nvidia_smi_memory_over_limited_wmi_value():
+    rows = [{"Name": "NVIDIA GeForce RTX 5080", "AdapterRAM": 4 * 1024 ** 3 - 1}]
+    vendor_rows = [{"Name": "NVIDIA GeForce RTX 5080", "MemoryTotalMiB": 16303}]
+
+    gpu = shape_gpu(rows, vendor_rows)[0]
+
+    assert gpu["adapter_ram_gb"] == 15.92
+
+
+def test_shape_gpu_does_not_report_ambiguous_wmi_4gb_boundary():
+    rows = [{"Name": "AMD Radeon RX 7800 XT", "AdapterRAM": 4 * 1024 ** 3 - 1}]
+
+    gpu = shape_gpu(rows)[0]
+
+    assert gpu["adapter_ram_gb"] is None
 
 
 def test_shape_storage_joins_media_type_by_disk_index():

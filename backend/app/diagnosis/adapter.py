@@ -228,9 +228,11 @@ def _inventory(snapshot: TelemetrySnapshot, findings: list[Finding]) -> list[Inv
             status=_item_status(findings, ("PF-CPU", "PF-THROTTLE")),
         ))
     for gpu in hardware.get("gpu") or []:
+        vram = gpu.get("adapter_ram_gb")
+        vram_detail = "{0}GB VRAM".format(vram) if vram is not None else "VRAM 확인 불가"
         items.append(InventoryItem(
             kind="GPU", name=gpu.get("name") or "알 수 없는 GPU",
-            detail="{0}GB VRAM · 드라이버 {1}".format(gpu.get("adapter_ram_gb", "-"), gpu.get("driver_version", "-")),
+            detail="{0} · 드라이버 {1}".format(vram_detail, gpu.get("driver_version", "-")),
             status=_item_status(findings, ("SW-GPU",)),
         ))
     memory = hardware.get("memory") or {}

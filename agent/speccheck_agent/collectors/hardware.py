@@ -83,6 +83,9 @@ QUERIES: dict[str, dict[str, Any]] = {
             "CurrentRefreshRate",
         ],
     },
+    "nvidia_gpu_memory": {
+        "script": "$cmd = Get-Command nvidia-smi -ErrorAction SilentlyContinue; if ($cmd) { & $cmd.Source --query-gpu=name,memory.total --format=csv,noheader,nounits | ForEach-Object { $parts = $_ -split ',\\s*'; [pscustomobject]@{ Name = $parts[0]; MemoryTotalMiB = [int]$parts[1] } } }",
+    },
     "disk_drive": {
         "class_name": "Win32_DiskDrive",
         "properties": ["Model", "InterfaceType", "Size", "Partitions", "Index"],
@@ -163,7 +166,7 @@ class HardwareCollector(Collector):
             "os": shape_os(_first(rows.get("os", []))),
             "cpu": shape_cpu(rows.get("cpu", [])),
             "memory": shape_memory(rows.get("memory", [])),
-            "gpu": shape_gpu(rows.get("gpu", [])),
+            "gpu": shape_gpu(rows.get("gpu", []), rows.get("nvidia_gpu_memory", [])),
             "storage": shape_storage(rows.get("disk_drive", []), rows.get("physical_disk", [])),
             "motherboard": shape_motherboard(
                 _first(rows.get("baseboard", [])), _first(rows.get("bios", []))
@@ -239,18 +242,32 @@ def shape_memory(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def shape_gpu(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _wmi_vram_gb(value: Any) -> float | None:
+    """Return AdapterRAM only while its 32-bit value is unambiguous."""
+    size_gb = _bytes_to_gb(value)
+    return None if size_gb is not None and size_gb >= 3.9 else size_gb
+
+
+def shape_gpu(
+    rows: list[dict[str, Any]], nvidia_memory_rows: list[dict[str, Any]] | None = None
+) -> list[dict[str, Any]]:
+    nvidia_memory = {
+        (_clean(row.get("Name")) or "").casefold(): _to_int(row.get("MemoryTotalMiB"))
+        for row in nvidia_memory_rows or []
+    }
     result = []
     for row in rows:
         width = _to_int(row.get("CurrentHorizontalResolution"))
         height = _to_int(row.get("CurrentVerticalResolution"))
         name = _clean(row.get("Name"))
+        memory_mib = nvidia_memory.get((name or "").casefold())
+        vram_gb = round(memory_mib / 1024, 2) if memory_mib is not None else _wmi_vram_gb(row.get("AdapterRAM"))
         result.append(
             {
                 "name": name,
-                # AdapterRAM은 32bit 필드라 4GB 초과 GPU에서 부정확하다.
-                # 실제 VRAM은 datasets/gpu_spec 모델명 매칭으로 보정한다(Phase 5).
-                "adapter_ram_gb": _bytes_to_gb(row.get("AdapterRAM")),
+                # AdapterRAM은 32bit 필드다. NVIDIA는 nvidia-smi로 보강하고,
+                # 경계값은 실제 용량으로 오인하지 않도록 결측 처리한다.
+                "adapter_ram_gb": vram_gb,
                 "driver_version": _clean(row.get("DriverVersion")),
                 "driver_date": _cim_date(row.get("DriverDate")),
                 "video_processor": _clean(row.get("VideoProcessor")),
