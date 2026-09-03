@@ -34,11 +34,12 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-import { getAgentHealth, getLatestDiagnosis, runBasicScan } from './diagnostics-client';
+import { diagnosticsConfig } from './config';
+import { DiagnosticsApiError, getAgentHealth, getLatestDiagnosis, runBasicScan } from './diagnostics-client';
 import { demoDiagnosis } from './fixtures/demo-diagnosis';
 import type { AgentHealth, Diagnosis } from './types';
 
-type ConnectionState = 'checking' | 'live' | 'demo' | 'error';
+type ConnectionState = 'checking' | 'live' | 'empty' | 'offline' | 'demo' | 'error';
 
 const riskTone = {
   low: { badge: 'bg-emerald-300 text-emerald-950', bar: '[&_[data-slot=progress-indicator]]:bg-emerald-300', label: 'LOW' },
@@ -80,7 +81,7 @@ function formatTime(value: string) {
 }
 
 export default function Home() {
-  const [diagnosis, setDiagnosis] = useState<Diagnosis>(demoDiagnosis);
+  const [diagnosis, setDiagnosis] = useState<Diagnosis | null>(diagnosticsConfig.demoMode ? demoDiagnosis : null);
   const [diagnosisSource, setDiagnosisSource] = useState<'demo' | 'agent'>('demo');
   const [health, setHealth] = useState<AgentHealth | null>(null);
   const [connectionState, setConnectionState] = useState<ConnectionState>('checking');
@@ -95,15 +96,29 @@ export default function Home() {
         const [nextHealth, latest] = await Promise.all([getAgentHealth(), getLatestDiagnosis()]);
         if (!active) return;
         setHealth(nextHealth);
-        setConnectionState('live');
         if (latest) {
           setDiagnosis(latest);
           setDiagnosisSource('agent');
+          setConnectionState('live');
+        } else if (diagnosticsConfig.demoMode) {
+          setDiagnosis(demoDiagnosis);
+          setDiagnosisSource('demo');
+          setConnectionState('demo');
+        } else {
+          setDiagnosis(null);
+          setConnectionState('empty');
         }
       } catch {
         if (!active) return;
         setHealth(null);
-        setConnectionState('demo');
+        if (diagnosticsConfig.demoMode) {
+          setDiagnosis(demoDiagnosis);
+          setDiagnosisSource('demo');
+          setConnectionState('demo');
+        } else {
+          setDiagnosis(null);
+          setConnectionState('offline');
+        }
       }
     }
 
@@ -123,6 +138,11 @@ export default function Home() {
       const nextHealth = await getAgentHealth().catch(() => null);
       if (nextHealth) setHealth(nextHealth);
     } catch (cause) {
+      if (cause instanceof DiagnosticsApiError && cause.status === 404) {
+        setDiagnosis(null);
+        setConnectionState('empty');
+        return;
+      }
       setError(cause instanceof Error ? cause.message : 'SpecCheck Backend에 연결할 수 없습니다.');
       setHealth(null);
       setConnectionState('error');
@@ -131,9 +151,9 @@ export default function Home() {
     }
   }
 
-  const tone = riskTone[diagnosis.risk.level];
-  const primaryFinding = diagnosis.findings[0];
-  const hasIncompleteSources = diagnosis.sources.some((source) => source.status !== 'collected' && source.status !== 'not_in_scope');
+  const tone = diagnosis ? riskTone[diagnosis.risk.level] : riskTone.low;
+  const primaryFinding = diagnosis?.findings[0];
+  const hasIncompleteSources = diagnosis?.sources.some((source) => source.status !== 'collected' && source.status !== 'not_in_scope') ?? false;
   const categoryItems = [
     { key: 'hardware' as const, label: '하드웨어', icon: <Cpu className="size-4" /> },
     { key: 'software' as const, label: '소프트웨어', icon: <Activity className="size-4" /> },
@@ -155,12 +175,12 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-3">
             <span className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
-              <span className={`size-1.5 rounded-full ${connectionState === 'live' ? 'bg-emerald-400 shadow-[0_0_10px_#34d399]' : connectionState === 'error' ? 'bg-red-400' : 'bg-zinc-500'}`} />
-              {connectionState === 'checking' ? 'Backend 확인 중' : connectionState === 'live' && health ? health.agentVersion === 'not-connected' ? `Backend v${health.backendVersion}` : `Agent v${health.agentVersion}` : connectionState === 'error' ? 'Backend 연결 오류' : 'Demo mode'}
+              <span className={`size-1.5 rounded-full ${connectionState === 'live' ? 'bg-emerald-400 shadow-[0_0_10px_#34d399]' : connectionState === 'empty' ? 'bg-amber-300' : connectionState === 'error' || connectionState === 'offline' ? 'bg-red-400' : 'bg-zinc-500'}`} />
+              {connectionState === 'checking' ? 'Backend 확인 중' : connectionState === 'live' && health ? health.agentVersion === 'not-connected' ? `Backend v${health.backendVersion}` : `Agent v${health.agentVersion}` : connectionState === 'empty' && health ? `Backend v${health.backendVersion} · 데이터 없음` : connectionState === 'error' || connectionState === 'offline' ? 'Backend 연결 오류' : 'Demo mode'}
             </span>
             <Button onClick={runScan} disabled={running} size="lg" className="rounded-xl px-4">
               {running ? <RefreshCw className="animate-spin" data-icon="inline-start" /> : <ScanLine data-icon="inline-start" />}
-              {running ? '진단 중…' : '기본 진단 시작'}
+              {running ? '확인 중…' : diagnosis ? '진단 새로고침' : '최신 진단 확인'}
             </Button>
           </div>
         </div>
@@ -175,6 +195,36 @@ export default function Home() {
           </Alert>
         )}
 
+        {!diagnosis ? (
+          <section className="grid min-h-[calc(100vh-10rem)] place-items-center border-y border-white/8 py-16">
+            <div className="max-w-xl text-center">
+              <span className="mx-auto grid size-12 place-items-center rounded-lg border border-white/10 bg-white/[.03]">
+                {connectionState === 'checking' ? <RefreshCw className="size-5 animate-spin text-muted-foreground" /> : <Database className="size-5 text-muted-foreground" />}
+              </span>
+              <h1 className="mt-5 text-2xl font-semibold">{connectionState === 'checking' ? '진단 데이터 확인 중' : '진단 데이터가 없습니다'}</h1>
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                {connectionState === 'checking'
+                  ? 'Local Backend와 저장된 Snapshot을 확인하고 있습니다.'
+                  : connectionState === 'offline' || connectionState === 'error'
+                    ? 'Backend에 연결되지 않았습니다. 서버를 실행한 뒤 다시 확인하세요.'
+                    : '고정된 예시 대신 Local Agent가 수집한 실제 Snapshot만 표시합니다.'}
+              </p>
+              {connectionState !== 'checking' && (
+                <>
+                  <div className="mt-6 space-y-2 border-y border-white/8 py-4 text-left font-mono text-xs text-muted-foreground">
+                    <div><span className="mr-3 text-foreground">1</span>pnpm dev:all</div>
+                    <div><span className="mr-3 text-foreground">2</span>cd agent</div>
+                    <div><span className="mr-3 text-foreground">3</span>python -m speccheck_agent scan --upload</div>
+                  </div>
+                  <Button onClick={runScan} disabled={running} className="mt-6">
+                    {running ? <RefreshCw className="animate-spin" data-icon="inline-start" /> : <RefreshCw data-icon="inline-start" />}
+                    다시 확인
+                  </Button>
+                </>
+              )}
+            </div>
+          </section>
+        ) : (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_350px]">
           <section className="space-y-6">
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
@@ -391,6 +441,7 @@ export default function Home() {
             </div>
           </aside>
         </div>
+        )}
       </div>
     </main>
   );

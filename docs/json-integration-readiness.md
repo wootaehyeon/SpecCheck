@@ -14,6 +14,15 @@
 - UI가 사용하는 `/api/health`, `/api/scans`, `/api/scans/latest` 별칭을 FastAPI에 추가했습니다.
 - Gemma endpoint를 loopback으로 제한하고 모델 설치 상태를 구분합니다.
 - UI에서 수집 실패, 권한 필요, 범위 밖을 정상 상태와 구분합니다.
+- 저장된 Snapshot이 없을 때 하드코딩된 장치 정보를 대신 표시하지 않고 빈 상태를 표시합니다.
+
+## Demo 데이터 정책
+
+- 기본값에서는 Local Agent가 수집해 Backend에 저장한 실제 Diagnosis만 표시합니다.
+- Backend가 실행 중이지만 Snapshot이 없으면 `진단 데이터가 없습니다` 상태를 표시합니다.
+- Backend에 연결할 수 없으면 연결 오류 상태를 별도로 표시합니다.
+- 화면 개발용 고정 데이터가 필요할 때만
+  `NEXT_PUBLIC_SPECCHECK_DEMO_MODE=true`로 명시하여 Demo mode를 사용합니다.
 
 ## Risk Score
 
