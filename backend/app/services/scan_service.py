@@ -92,6 +92,17 @@ def latest_snapshot(device_id: str) -> TelemetrySnapshot | None:
     return TelemetrySnapshot.model_validate_json(row["payload"])
 
 
+def latest_snapshot_any() -> TelemetrySnapshot | None:
+    """Return the newest snapshot across devices for the local UI."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT payload FROM snapshots ORDER BY collected_at DESC LIMIT 1"
+        ).fetchone()
+    if row is None:
+        return None
+    return TelemetrySnapshot.model_validate_json(row["payload"])
+
+
 def list_snapshots(device_id: str | None = None, limit: int = 20) -> list[SnapshotSummary]:
     query = "SELECT payload FROM snapshots"
     params: tuple = ()

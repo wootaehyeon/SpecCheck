@@ -24,8 +24,8 @@ class Settings(BaseSettings):
 
     # --- 앱 ---
     app_name: str = "SpecCheck AI"
-    app_version: str = "1.0.0"
-    cors_origins: str = "*"
+    app_version: str = "1.1.0"
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 
     # --- 경로 ---
     data_dir: Path = BACKEND_DIR / "data"
@@ -47,9 +47,10 @@ class Settings(BaseSettings):
     # --- Local LLM (M5) ---
     #: 기본은 비활성. 활성화하면 Ollama의 Gemma로 진단 설명을 생성한다.
     llm_enabled: bool = False
-    llm_model: str = "gemma2:2b"
+    llm_model: str = "gemma3:4b"
     ollama_url: str = "http://127.0.0.1:11434"
-    llm_timeout: float = 60.0
+    llm_timeout: float = 12.0
+    llm_status_timeout: float = 1.5
 
     @property
     def cors_origin_list(self) -> list[str]:

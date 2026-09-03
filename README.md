@@ -6,6 +6,30 @@
 
 ---
 
+## 통합 진단 실행
+
+현재 Basic Scan UI는 Python Local Agent가 생성한 `telemetry 1.1.0`을 FastAPI의
+17개 규칙으로 분석하고 `diagnosis 1.1.0`으로 변환해 표시합니다.
+
+```powershell
+# Backend
+cd backend
+python -m uvicorn app.main:app --reload --port 8000
+
+# Agent 수집 및 업로드
+cd ../agent
+python -m speccheck_agent scan --upload
+
+# UI
+cd ..
+pnpm dev
+```
+
+전체 연결 구조와 결정 사항은 [Collector JSON 통합](docs/collector-integration.md),
+구현 기록은 [진단 JSON 통합 작업 기록](docs/json-integration-readiness.md)을 참고하세요.
+
+---
+
 ## 📌 Project Overview
 
 | 항목 | 내용 |

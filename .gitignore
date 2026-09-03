@@ -35,6 +35,8 @@ htmlcov/
 # ===========================
 node_modules/
 .next/
+.vinext/
+.wrangler/
 out/
 .cache/
 npm-debug.log*
@@ -74,6 +76,7 @@ backend/data/used_price_cache.json
 # ===========================
 # 로컬 telemetry는 절대 커밋하지 않는다 (개인 하드웨어 정보 포함)
 *.db
+*.db-*
 backend/data/snapshots.db
 agent/var/
 .speccheck/

@@ -13,12 +13,13 @@
 
 from fastapi import APIRouter
 
-from . import diagnosis, evaluation, price, scan
+from . import diagnosis, diagnostics, evaluation, price, scan
 
 router = APIRouter()
 router.include_router(price.router, tags=["price"])
 router.include_router(evaluation.router, tags=["evaluation"])
 router.include_router(scan.router, prefix="/scan", tags=["scan"])
 router.include_router(diagnosis.router, prefix="/diagnosis", tags=["diagnosis"])
+router.include_router(diagnostics.router, tags=["diagnostics-ui"])
 
 __all__ = ["router"]

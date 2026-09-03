@@ -122,6 +122,36 @@ def test_rules_endpoint_exposes_criteria(client):
     assert rules and all({"rule_id", "title", "requires"} <= set(rule) for rule in rules)
 
 
+def test_ui_scan_alias_returns_diagnosis_1_1(client):
+    response = client.post("/api/scans", json={"snapshot": make_payload()})
+    assert response.status_code == 200
+    result = response.json()
+    assert result["schemaVersion"] == "1.1.0"
+    assert result["scanType"] == "basic"
+    assert result["decision"]["action"] == "purchase"
+    assert all("recommendedAction" in finding for finding in result["findings"])
+
+    latest = client.get("/api/scans/latest")
+    assert latest.status_code == 200
+    assert latest.json()["scanId"] == result["scanId"]
+
+
+def test_ui_scan_alias_requires_snapshot_history(client):
+    response = client.post("/api/scans", json={})
+    assert response.status_code == 404
+    assert "scan --upload" in response.json()["detail"]
+
+
+def test_ui_health_and_schema_endpoints(client):
+    health = client.get("/api/health")
+    assert health.status_code == 200
+    assert health.json()["backendVersion"] == "1.1.0"
+
+    schema = client.get("/api/schema/diagnosis")
+    assert schema.status_code == 200
+    assert schema.json()["properties"]["schemaVersion"]["const"] == "1.1.0"
+
+
 def test_price_routes_still_mounted(client):
     """구조 개편 후에도 기존 가격 API 경로가 유지되는지 확인한다."""
     paths = {route.path for route in app.routes}
