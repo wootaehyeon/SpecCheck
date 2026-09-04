@@ -1,5 +1,5 @@
 import { diagnosticsConfig } from './config';
-import type { AgentHealth, Diagnosis, LocalScanStatus } from './types';
+import type { AgentHealth, Diagnosis, LocalScanStatus, MarketPricesResponse } from './types';
 
 type ErrorPayload = { error?: string; message?: string; detail?: string };
 
@@ -10,10 +10,10 @@ export class DiagnosticsApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(path: string, init?: RequestInit, timeoutMs = diagnosticsConfig.requestTimeoutMs): Promise<T> {
   const response = await fetch(`${diagnosticsConfig.agentUrl}${path}`, {
     ...init,
-    signal: AbortSignal.timeout(diagnosticsConfig.requestTimeoutMs),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   const payload = await response.json().catch(() => ({})) as T & ErrorPayload;
   if (!response.ok) {
@@ -43,4 +43,19 @@ export function startBasicScan() {
 
 export function getBasicScanStatus() {
   return request<LocalScanStatus>('/api/scans/status');
+}
+
+export function getMarketPrices(recommendations: Diagnosis['recommendations']) {
+  return request<MarketPricesResponse>('/api/market-prices', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      parts: recommendations.map((item) => ({
+        key: item.id,
+        category: item.category,
+        name: item.searchQuery,
+        userPrice: 0,
+      })),
+    }),
+  }, 15_000);
 }

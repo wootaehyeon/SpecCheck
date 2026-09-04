@@ -62,7 +62,9 @@ def _memory_recommendation(finding: Finding, snapshot: TelemetrySnapshot) -> Rec
     current = memory.get("total_gb")
     current_gb = int(current) if isinstance(current, (int, float)) else 0
     target = max(16, current_gb * 2)
-    query = "DDR5 {0}GB 메모리".format(target)
+    modules = memory.get("modules") or []
+    speed = next((item.get("rated_speed_mhz") for item in modules if item.get("rated_speed_mhz")), None)
+    query = "{0}GB PC 메모리{1}".format(target, " {0}MHz".format(speed) if speed else "")
     return Recommendation(
         id="memory-upgrade",
         findingIds=[finding.rule_id],

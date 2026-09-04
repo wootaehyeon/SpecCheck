@@ -2,6 +2,24 @@ export type Severity = 'info' | 'low' | 'medium' | 'high' | 'critical';
 export type HealthStatus = 'normal' | 'warning' | 'critical' | 'unknown';
 export type RecommendedAction = 'keep' | 'fix' | 'purchase';
 
+export type MarketPrice = {
+  key: string;
+  category: string;
+  name: string;
+  userPrice: number;
+  lowestPrice: number;
+  highestPrice: number;
+  averagePrice: number;
+  purchaseLink: string | null;
+  productTitle: string | null;
+  listingCount: number;
+  mall: string | null;
+  source: string | null;
+  error: string | null;
+};
+
+export type MarketPricesResponse = { prices: MarketPrice[] };
+
 export type Diagnosis = {
   schemaVersion: '1.1.0';
   scanId: string;

@@ -36,9 +36,9 @@ import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 import { diagnosticsConfig } from './config';
-import { getAgentHealth, getBasicScanStatus, getLatestDiagnosis, startBasicScan } from './diagnostics-client';
+import { getAgentHealth, getBasicScanStatus, getLatestDiagnosis, getMarketPrices, startBasicScan } from './diagnostics-client';
 import { demoDiagnosis } from './fixtures/demo-diagnosis';
-import type { AgentHealth, Diagnosis, LocalScanStatus } from './types';
+import type { AgentHealth, Diagnosis, LocalScanStatus, MarketPrice } from './types';
 
 type ConnectionState = 'checking' | 'live' | 'empty' | 'offline' | 'demo' | 'error';
 
@@ -87,6 +87,10 @@ function formatTime(value: string) {
   return new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 }
 
+function formatPrice(value: number) {
+  return new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW', maximumFractionDigits: 0 }).format(value);
+}
+
 function delay(milliseconds: number) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
@@ -99,6 +103,8 @@ export default function Home() {
   const [running, setRunning] = useState(false);
   const [scanStatus, setScanStatus] = useState<LocalScanStatus | null>(null);
   const [error, setError] = useState('');
+  const [marketPrices, setMarketPrices] = useState<Record<string, MarketPrice>>({});
+  const [marketLoading, setMarketLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'findings' | 'inventory' | 'sources'>('findings');
 
   useEffect(() => {
@@ -138,6 +144,31 @@ export default function Home() {
 
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    const recommendations = diagnosis?.recommendations ?? [];
+    if (recommendations.length === 0) {
+      setMarketPrices({});
+      setMarketLoading(false);
+      return () => { active = false; };
+    }
+
+    setMarketLoading(true);
+    void getMarketPrices(recommendations)
+      .then((response) => {
+        if (!active) return;
+        setMarketPrices(Object.fromEntries(response.prices.map((item) => [item.key, item])));
+      })
+      .catch(() => {
+        if (active) setMarketPrices({});
+      })
+      .finally(() => {
+        if (active) setMarketLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [diagnosis?.scanId]);
 
   async function runScan() {
     setRunning(true);
@@ -465,21 +496,50 @@ export default function Home() {
                   <CardAction><HardDrive className="size-5 text-orange-300" /></CardAction>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {diagnosis.recommendations.map((recommendation) => (
-                    <div key={recommendation.id} className="border-t border-white/6 pt-4 first:border-t-0 first:pt-0">
+                  {diagnosis.recommendations.map((recommendation) => {
+                    const marketPrice = marketPrices[recommendation.id];
+                    const hasPrice = marketPrice && !marketPrice.error && marketPrice.lowestPrice > 0;
+                    return <div key={recommendation.id} className="border-t border-white/6 pt-4 first:border-t-0 first:pt-0">
                       <div className="flex items-start justify-between gap-3">
                         <div className="font-medium leading-5">{recommendation.title}</div>
                         <Badge variant="outline" className={recommendationTone[recommendation.priority]}>{recommendation.priority.toUpperCase()}</Badge>
                       </div>
                       <p className="mt-2 text-xs leading-5 text-muted-foreground">{recommendation.description}</p>
                       <p className="mt-2 font-mono text-[10px] text-muted-foreground">근거: {recommendation.findingIds.join(', ')}</p>
-                      <Button asChild variant="outline" size="sm" className="mt-3 w-full">
-                        <a href={recommendation.searchUrl} target="_blank" rel="noreferrer">
-                          시세 검색 <ExternalLink data-icon="inline-end" />
-                        </a>
-                      </Button>
+
+                      <div className="mt-3 rounded-lg border border-white/6 bg-white/[.025] p-3">
+                        {marketLoading && !marketPrice ? (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground"><RefreshCw className="size-3.5 animate-spin" />실시간 시세 확인 중</div>
+                        ) : hasPrice ? (
+                          <div className="space-y-3">
+                            <div>
+                              <div className="line-clamp-2 text-xs font-medium leading-5">{marketPrice.productTitle || recommendation.searchQuery}</div>
+                              <div className="mt-1 text-[10px] text-muted-foreground">{marketPrice.mall} · 비교 상품 {marketPrice.listingCount}개</div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div><div className="text-[10px] text-muted-foreground">최저가</div><div className="mt-1 text-sm font-semibold text-primary">{formatPrice(marketPrice.lowestPrice)}</div></div>
+                              <div><div className="text-[10px] text-muted-foreground">평균가</div><div className="mt-1 text-sm font-semibold">{formatPrice(marketPrice.averagePrice)}</div></div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div>
+                            <div className="text-xs font-medium">시세 데이터 연결 필요</div>
+                            <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
+                              {marketPrice?.error?.includes('keys are missing') ? 'Backend에 네이버 쇼핑 API 키를 설정하면 추천 상품과 가격을 자동으로 표시합니다.' : '현재 시세 정보를 불러오지 못했습니다. 진단 근거와 추천 결과는 그대로 유효합니다.'}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {hasPrice && marketPrice.purchaseLink && (
+                        <Button asChild variant="outline" size="sm" className="mt-3 w-full">
+                          <a href={marketPrice.purchaseLink} target="_blank" rel="noreferrer">
+                            최저가 상품 보기 <ExternalLink data-icon="inline-end" />
+                          </a>
+                        </Button>
+                      )}
                     </div>
-                  ))}
+                  })}
                 </CardContent>
               </Card>
             )}

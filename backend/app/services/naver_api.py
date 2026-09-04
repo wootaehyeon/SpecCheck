@@ -1,4 +1,5 @@
 import os
+import re
 import requests
 from dotenv import load_dotenv
 
@@ -8,6 +9,10 @@ load_dotenv()
 NAVER_CLIENT_ID = os.getenv("NAVER_CLIENT_ID")
 NAVER_CLIENT_SECRET = os.getenv("NAVER_CLIENT_SECRET")
 NAVER_SHOP_API_URL = "https://openapi.naver.com/v1/search/shop.json"
+
+
+def _plain_title(value: str) -> str:
+    return re.sub(r"<[^>]+>", "", value or "").strip()
 
 def search_lowest_price(query: str) -> dict:
     """
@@ -82,9 +87,7 @@ def search_market_prices(query: str) -> dict:
         if not items:
             return {"error": "No items found"}
 
-        prices = []
-        lowest_link = ""
-        lowest_price = float('inf')
+        priced_items = []
 
         for item in items:
             lprice_str = item.get("lprice")
@@ -92,14 +95,28 @@ def search_market_prices(query: str) -> dict:
                 price = int(lprice_str)
                 # 너무 터무니없이 낮은 가격(예: 부품 케이스, 쿨러 등)을 필터링하는 로직이 필요할 수 있음
                 # 여기서는 단순 수집
-                prices.append(price)
-                if price < lowest_price:
-                    lowest_price = price
-                    lowest_link = item.get("link", "")
+                priced_items.append({
+                    "price": price,
+                    "title": _plain_title(item.get("title", "")),
+                    "link": item.get("link", ""),
+                    "mall": item.get("mallName", ""),
+                })
 
-        if not prices:
+        if not priced_items:
             return {"error": "No valid prices found"}
 
+        # Keep the representative price range stable when one search result is
+        # an accessory or a marketplace data error. This is intentionally a
+        # conservative trim, not a product-ranking algorithm.
+        raw_prices = sorted(item["price"] for item in priced_items)
+        median = raw_prices[len(raw_prices) // 2]
+        filtered = [
+            item for item in priced_items
+            if median * 0.35 <= item["price"] <= median * 3
+        ] or priced_items
+        lowest_item = min(filtered, key=lambda item: item["price"])
+        prices = [item["price"] for item in filtered]
+        lowest_price = min(prices)
         highest_price = max(prices)
         average_price = sum(prices) // len(prices)
 
@@ -107,7 +124,10 @@ def search_market_prices(query: str) -> dict:
             "lowest_price": lowest_price,
             "highest_price": highest_price,
             "average_price": average_price,
-            "purchase_link": lowest_link
+            "purchase_link": lowest_item["link"],
+            "product_title": lowest_item["title"],
+            "mall": lowest_item["mall"],
+            "listing_count": len(filtered),
         }
 
     except Exception as e:
