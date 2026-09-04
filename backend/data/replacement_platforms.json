@@ -8,6 +8,7 @@
     "cpu": "AMD Ryzen 5 7600",
     "motherboard": "B650 AM5 DDR5 M.2 메인보드",
     "memory": "DDR5 32GB 6000MHz 메모리 키트",
+    "upgrade_path": "향후 AM5 CPU 업그레이드 가능",
     "priority": 10
   },
   {
@@ -19,6 +20,7 @@
     "cpu": "Intel Core i5-12400F",
     "motherboard": "B760 LGA1700 DDR4 M.2 메인보드",
     "memory": "DDR4 32GB 3200MHz 메모리 키트",
+    "upgrade_path": "보급형 CPU·메인보드 선택 폭이 넓어 구성 비용을 낮추기 쉬움",
     "priority": 20
   }
 ]

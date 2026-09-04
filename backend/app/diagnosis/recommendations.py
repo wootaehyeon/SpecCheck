@@ -124,7 +124,7 @@ def _platform_bundle(snapshot: TelemetrySnapshot, reason: str) -> ReplacementCan
             CompatibilityCheck(label="메모리 세대", status="passed", detail=f"메인보드와 메모리는 {profile['memory_generation']} 규격으로 일치합니다."),
             CompatibilityCheck(label="케이스·파워", status="conditional", detail="케이스 규격과 PSU 용량은 WMI에서 확인할 수 없어 구매 전에 확인해야 합니다."),
         ],
-        tradeoffs=["향후 AM5 CPU 업그레이드 가능", "최소 교체안보다 비용과 작업 범위가 큼", reason,
+        tradeoffs=[profile["upgrade_path"], "최소 교체안보다 비용과 작업 범위가 큼", reason,
                    f"현재 플랫폼: {current_socket or '확인 불가'}"],
         build={"cpu": profile["cpu"], "gpu": None, "motherboard": profile["motherboard"],
                "ram": profile["memory"], "psu_watt": None,
@@ -133,11 +133,18 @@ def _platform_bundle(snapshot: TelemetrySnapshot, reason: str) -> ReplacementCan
 
 
 def _system_disk(snapshot: TelemetrySnapshot) -> dict:
-    for disk in snapshot.data("storage_health").get("disks") or []:
-        if disk.get("is_system"):
-            return disk
-    disks = _hardware(snapshot).get("storage") or []
-    return disks[0] if disks else {}
+    health_disks = snapshot.data("storage_health").get("disks") or []
+    inventory_disks = _hardware(snapshot).get("storage") or []
+    health_disk = next((disk for disk in health_disks if disk.get("is_system")), None)
+    if health_disk is None:
+        return inventory_disks[0] if inventory_disks else {}
+
+    model = str(health_disk.get("model") or "").strip().lower()
+    inventory_disk = next(
+        (disk for disk in inventory_disks if str(disk.get("model") or "").strip().lower() == model),
+        None,
+    )
+    return {**(inventory_disk or {}), **health_disk}
 
 
 def _storage_candidates(snapshot: TelemetrySnapshot) -> list[ReplacementCandidate]:
@@ -156,7 +163,11 @@ def _storage_candidates(snapshot: TelemetrySnapshot) -> list[ReplacementCandidat
                     if interface else "현재 인터페이스가 확인되지 않아 SATA/NVMe 지원 여부를 구매 전에 확인해야 합니다."),
         )], tradeoffs=["문제 부품만 교체해 비용을 최소화", "OS와 데이터 마이그레이션 필요"],
         build={"cpu": _cpu_name(snapshot), "gpu": None, "motherboard": _board_name(snapshot), "ram": None,
-               "psu_watt": None, "storage": [{"type": interface or "SSD", "capacity_gb": capacity}], "use_case": None},
+               "psu_watt": None, "storage": [{"type": interface or "SSD", "capacity_gb": capacity}],
+               "existing_storage": [
+                   {"type": item.get("bus_type") or item.get("interface") or item.get("media_type")}
+                   for item in (_hardware(snapshot).get("storage") or [])
+               ], "use_case": None},
     )
     platform = _platform_bundle(snapshot, "저장장치 이상만으로는 플랫폼 전체 교체 근거가 부족함")
     return [candidate for candidate in (minimal, platform) if candidate is not None]

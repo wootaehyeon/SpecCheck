@@ -122,7 +122,11 @@ def check_compatibility(build: dict) -> dict:
 
     # Storage interface checks
     storage_list = build.get("storage") or []
-    supports_m2 = any(k in mobo for k in ["m.2", "m2", "nvme"]) or "m2" in mobo
+    existing_storage = build.get("existing_storage") or []
+    has_existing_nvme = any(
+        (item.get("type") or "").lower() in ["nvme", "m.2", "m2"] for item in existing_storage
+    )
+    supports_m2 = any(k in mobo for k in ["m.2", "m2", "nvme"]) or has_existing_nvme
     has_nvme = any((s.get("type") or "").lower() in ["nvme", "m.2", "m2"] for s in storage_list)
     if has_nvme and not supports_m2:
         issues.append({"type": "warning", "component": "Storage / 메인보드",
