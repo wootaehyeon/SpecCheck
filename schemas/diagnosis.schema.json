@@ -4,7 +4,7 @@
   "title": "SpecCheck Basic Scan Diagnosis",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "scanId", "scanType", "status", "generatedAt", "machine", "risk", "categories", "resources", "findings", "inventory", "sources", "ai", "decision"],
+  "required": ["schemaVersion", "scanId", "scanType", "status", "generatedAt", "machine", "risk", "categories", "resources", "findings", "inventory", "sources", "ai", "decision", "recommendations"],
   "properties": {
     "schemaVersion": { "const": "1.1.0" },
     "scanId": { "type": "string", "minLength": 1 },
@@ -97,6 +97,10 @@
         "reason": { "type": "string" },
         "drivenBy": { "type": "array", "items": { "type": "string" } }
       }
+    },
+    "recommendations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/recommendation" }
     }
   },
   "$defs": {
@@ -139,6 +143,21 @@
         "rootCauseCandidates": { "type": "array", "items": { "type": "string" } },
         "actions": { "type": "array", "items": { "type": "string" } },
         "recommendedAction": { "enum": ["keep", "fix", "purchase"] }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "findingIds", "priority", "category", "title", "description", "searchQuery", "searchUrl"],
+      "properties": {
+        "id": { "type": "string" },
+        "findingIds": { "type": "array", "items": { "type": "string" } },
+        "priority": { "enum": ["normal", "high", "urgent"] },
+        "category": { "enum": ["storage", "memory"] },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "searchQuery": { "type": "string" },
+        "searchUrl": { "type": "string", "format": "uri" }
       }
     }
   }

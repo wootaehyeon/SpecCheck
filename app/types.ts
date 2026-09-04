@@ -39,6 +39,16 @@ export type Diagnosis = {
     actionPlan: string[];
   };
   decision: { action: RecommendedAction; reason: string; drivenBy: string[] };
+  recommendations: Array<{
+    id: string;
+    findingIds: string[];
+    priority: 'normal' | 'high' | 'urgent';
+    category: 'storage' | 'memory';
+    title: string;
+    description: string;
+    searchQuery: string;
+    searchUrl: string;
+  }>;
 };
 
 export type AgentHealth = {

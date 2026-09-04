@@ -60,9 +60,19 @@
 4. 모든 Finding에 Confidence를 표시합니다.
 5. `decision.action=fix`이면 구매 권고를 표시하지 않습니다.
 
-## 다음 연결 지점
+## Recommendation 연동
 
-Recommendation 연동에서는 `decision.drivenBy`의 Rule ID와
-`recommendedAction=purchase`인 Finding을 부품 추천 근거로 사용합니다.
+`decision.drivenBy`의 Rule ID와 `recommendedAction=purchase`인 Finding을
+부품 추천 근거로 사용합니다. Basic Scan 응답의 `recommendations[]`는 현재
+수집한 사양과 확정된 Rule만으로 생성됩니다.
+
+- `fix`와 `keep` Finding은 구매 추천으로 변환하지 않습니다.
+- 시스템 디스크·SMART·수명·디스크 I/O 근거는 NVMe SSD 교체 후보로, 메모리
+  부족 근거는 RAM 증설 후보로 변환합니다.
+- 특정 부품으로 안전하게 연결할 수 없는 Hardware Finding은 기존 진단 조치에
+  남기며, 억지로 상품을 추천하지 않습니다.
+- 외부 시세 API 키가 없어도 추천 목록은 생성됩니다. 화면의 `시세 검색`은
+  추천 검색어를 네이버 쇼핑에 전달할 뿐, 가격을 임의로 표시하지 않습니다.
+
 Advanced Scan에서는 기존 `security` 섹션과 `sysmon` Source 상태를
 확장하되 Diagnosis 1.1 소비 구조는 유지합니다.

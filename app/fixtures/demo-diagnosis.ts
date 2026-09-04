@@ -50,4 +50,5 @@ export const demoDiagnosis: Diagnosis = {
     reason: '설정 및 점검으로 개선 가능한 항목이 있어 구매 전에 조치를 권장합니다.',
     drivenBy: ['STORAGE_WEAR_TREND'],
   },
+  recommendations: [],
 };

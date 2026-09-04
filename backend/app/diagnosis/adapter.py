@@ -20,6 +20,7 @@ from app.schemas.ui_diagnosis import (
     UiDiagnosis,
     UiFinding,
 )
+from app.diagnosis.recommendations import build_recommendations
 
 _SEVERITY_ORDER = {
     Severity.INFO: 0,
@@ -331,4 +332,5 @@ def to_ui_diagnosis(snapshot: TelemetrySnapshot, result: DiagnosisResult, ai: di
             reason=result.decision.reason,
             drivenBy=result.decision.driven_by,
         ),
+        recommendations=build_recommendations(snapshot, result),
     )

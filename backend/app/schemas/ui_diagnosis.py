@@ -96,6 +96,17 @@ class Decision(UiModel):
     driven_by: list[str] = Field(alias="drivenBy")
 
 
+class Recommendation(UiModel):
+    id: str
+    finding_ids: list[str] = Field(alias="findingIds")
+    priority: Literal["normal", "high", "urgent"]
+    category: Literal["storage", "memory"]
+    title: str
+    description: str
+    search_query: str = Field(alias="searchQuery")
+    search_url: str = Field(alias="searchUrl")
+
+
 class UiDiagnosis(UiModel):
     schema_version: Literal["1.1.0"] = Field(default="1.1.0", alias="schemaVersion")
     scan_id: str = Field(alias="scanId")
@@ -111,3 +122,4 @@ class UiDiagnosis(UiModel):
     sources: list[Source]
     ai: AiDiagnosis
     decision: Decision
+    recommendations: list[Recommendation] = Field(default_factory=list)

@@ -74,6 +74,18 @@ def test_adapter_preserves_action_decision_and_aliases():
     assert payload["status"] == "complete"
     assert payload["decision"]["action"] == "purchase"
     assert payload["findings"][0]["recommendedAction"] == "purchase"
+    assert payload["recommendations"] == [
+        {
+            "id": "memory-upgrade",
+            "findingIds": ["HW-RAM-002"],
+            "priority": "high",
+            "category": "memory",
+            "title": "메모리 16GB 이상 증설 검토",
+            "description": "물리 메모리 부족의 근거로 물리 메모리 증설을 우선 검토하세요. 구매 전 메인보드의 DDR 세대와 빈 슬롯을 확인해야 합니다.",
+            "searchQuery": "DDR5 16GB 메모리",
+            "searchUrl": "https://search.shopping.naver.com/search/all?query=DDR5+16GB+%EB%A9%94%EB%AA%A8%EB%A6%AC",
+        }
+    ]
     assert payload["sources"][-1]["status"] == "not_in_scope"
 
 

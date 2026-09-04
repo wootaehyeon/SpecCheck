@@ -7,6 +7,7 @@ import {
   Check,
   Cpu,
   Database,
+  ExternalLink,
   Gauge,
   HardDrive,
   Info,
@@ -61,6 +62,12 @@ const actionTone = {
   keep: 'border-emerald-400/20 text-emerald-300',
   fix: 'border-sky-400/20 text-sky-300',
   purchase: 'border-orange-400/20 text-orange-300',
+} as const;
+
+const recommendationTone = {
+  normal: 'border-sky-400/20 text-sky-300',
+  high: 'border-orange-400/20 text-orange-300',
+  urgent: 'border-red-400/20 text-red-300',
 } as const;
 
 const sourceStatus = {
@@ -446,6 +453,33 @@ export default function Home() {
                     <div className="font-medium">신뢰도 {Math.round(primaryFinding.confidence * 100)}%</div>
                     <p className="mt-1 leading-5 text-muted-foreground">{primaryFinding.rootCauseCandidates.join(' · ')}</p>
                   </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {diagnosis.recommendations.length > 0 && (
+              <Card className="border border-orange-400/15 bg-card/65">
+                <CardHeader>
+                  <CardDescription>근거 기반 교체 추천</CardDescription>
+                  <CardTitle className="text-base">구매 검토 항목</CardTitle>
+                  <CardAction><HardDrive className="size-5 text-orange-300" /></CardAction>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {diagnosis.recommendations.map((recommendation) => (
+                    <div key={recommendation.id} className="border-t border-white/6 pt-4 first:border-t-0 first:pt-0">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="font-medium leading-5">{recommendation.title}</div>
+                        <Badge variant="outline" className={recommendationTone[recommendation.priority]}>{recommendation.priority.toUpperCase()}</Badge>
+                      </div>
+                      <p className="mt-2 text-xs leading-5 text-muted-foreground">{recommendation.description}</p>
+                      <p className="mt-2 font-mono text-[10px] text-muted-foreground">근거: {recommendation.findingIds.join(', ')}</p>
+                      <Button asChild variant="outline" size="sm" className="mt-3 w-full">
+                        <a href={recommendation.searchUrl} target="_blank" rel="noreferrer">
+                          시세 검색 <ExternalLink data-icon="inline-end" />
+                        </a>
+                      </Button>
+                    </div>
+                  ))}
                 </CardContent>
               </Card>
             )}
