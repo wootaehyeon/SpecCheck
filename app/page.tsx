@@ -35,9 +35,9 @@ import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 import { diagnosticsConfig } from './config';
-import { DiagnosticsApiError, getAgentHealth, getLatestDiagnosis, runBasicScan } from './diagnostics-client';
+import { getAgentHealth, getBasicScanStatus, getLatestDiagnosis, startBasicScan } from './diagnostics-client';
 import { demoDiagnosis } from './fixtures/demo-diagnosis';
-import type { AgentHealth, Diagnosis } from './types';
+import type { AgentHealth, Diagnosis, LocalScanStatus } from './types';
 
 type ConnectionState = 'checking' | 'live' | 'empty' | 'offline' | 'demo' | 'error';
 
@@ -80,12 +80,17 @@ function formatTime(value: string) {
   return new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 }
 
+function delay(milliseconds: number) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
 export default function Home() {
   const [diagnosis, setDiagnosis] = useState<Diagnosis | null>(diagnosticsConfig.demoMode ? demoDiagnosis : null);
   const [diagnosisSource, setDiagnosisSource] = useState<'demo' | 'agent'>('demo');
   const [health, setHealth] = useState<AgentHealth | null>(null);
   const [connectionState, setConnectionState] = useState<ConnectionState>('checking');
   const [running, setRunning] = useState(false);
+  const [scanStatus, setScanStatus] = useState<LocalScanStatus | null>(null);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<'findings' | 'inventory' | 'sources'>('findings');
 
@@ -131,21 +136,27 @@ export default function Home() {
     setRunning(true);
     setError('');
     try {
-      const value = await runBasicScan();
+      let status = await startBasicScan();
+      setScanStatus(status);
+      const deadline = Date.now() + 5 * 60_000;
+      while (status.status === 'running') {
+        if (Date.now() >= deadline) throw new Error('스캔 대기 시간 5분을 초과했습니다.');
+        await delay(750);
+        status = await getBasicScanStatus();
+        setScanStatus(status);
+      }
+      if (status.status === 'failed') throw new Error(status.message);
+
+      const value = await getLatestDiagnosis();
+      if (!value) throw new Error('스캔은 끝났지만 새 진단 결과를 찾지 못했습니다.');
       setDiagnosis(value);
       setDiagnosisSource('agent');
       setConnectionState('live');
       const nextHealth = await getAgentHealth().catch(() => null);
       if (nextHealth) setHealth(nextHealth);
     } catch (cause) {
-      if (cause instanceof DiagnosticsApiError && cause.status === 404) {
-        setDiagnosis(null);
-        setConnectionState('empty');
-        return;
-      }
       setError(cause instanceof Error ? cause.message : 'SpecCheck Backend에 연결할 수 없습니다.');
-      setHealth(null);
-      setConnectionState('error');
+      if (!diagnosis) setConnectionState('error');
     } finally {
       setRunning(false);
     }
@@ -180,7 +191,7 @@ export default function Home() {
             </span>
             <Button onClick={runScan} disabled={running} size="lg" className="rounded-xl px-4">
               {running ? <RefreshCw className="animate-spin" data-icon="inline-start" /> : <ScanLine data-icon="inline-start" />}
-              {running ? '확인 중…' : diagnosis ? '진단 새로고침' : '최신 진단 확인'}
+              {running ? `${scanStatus?.progress ?? 0}%` : diagnosis ? '다시 스캔' : '기본 진단 시작'}
             </Button>
           </div>
         </div>
@@ -190,8 +201,19 @@ export default function Home() {
         {error && (
           <Alert variant="destructive" className="mb-5 border-red-400/20 bg-red-400/5">
             <WifiOff />
-            <AlertTitle>SpecCheck Backend 연결 실패</AlertTitle>
-            <AlertDescription>{error} · 터미널에서 <code className="font-mono text-xs">pnpm dev:all</code>을 실행하세요.</AlertDescription>
+            <AlertTitle>기본 진단 실행 실패</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {running && scanStatus && (
+          <Alert className="mb-5 border-primary/20 bg-primary/5">
+            <RefreshCw className="animate-spin text-primary" />
+            <AlertTitle>관리자 Basic Scan 실행 중</AlertTitle>
+            <AlertDescription className="space-y-2">
+              <span className="block">{scanStatus.message}</span>
+              <Progress value={scanStatus.progress} className="[&_[data-slot=progress-indicator]]:bg-primary" />
+            </AlertDescription>
           </Alert>
         )}
 
@@ -210,17 +232,10 @@ export default function Home() {
                     : '고정된 예시 대신 Local Agent가 수집한 실제 Snapshot만 표시합니다.'}
               </p>
               {connectionState !== 'checking' && (
-                <>
-                  <div className="mt-6 space-y-2 border-y border-white/8 py-4 text-left font-mono text-xs text-muted-foreground">
-                    <div><span className="mr-3 text-foreground">1</span>pnpm dev:all</div>
-                    <div><span className="mr-3 text-foreground">2</span>cd agent</div>
-                    <div><span className="mr-3 text-foreground">3</span>python -m speccheck_agent scan --upload</div>
-                  </div>
-                  <Button onClick={runScan} disabled={running} className="mt-6">
-                    {running ? <RefreshCw className="animate-spin" data-icon="inline-start" /> : <RefreshCw data-icon="inline-start" />}
-                    다시 확인
-                  </Button>
-                </>
+                <Button onClick={runScan} disabled={running} className="mt-6">
+                  {running ? <RefreshCw className="animate-spin" data-icon="inline-start" /> : <ScanLine data-icon="inline-start" />}
+                  {running ? `${scanStatus?.progress ?? 0}% 수집 중` : '관리자 스캔 시작'}
+                </Button>
               )}
             </div>
           </section>

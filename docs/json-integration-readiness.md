@@ -15,6 +15,18 @@
 - Gemma endpoint를 loopback으로 제한하고 모델 설치 상태를 구분합니다.
 - UI에서 수집 실패, 권한 필요, 범위 밖을 정상 상태와 구분합니다.
 - 저장된 Snapshot이 없을 때 하드코딩된 장치 정보를 대신 표시하지 않고 빈 상태를 표시합니다.
+- UI의 Basic Scan 버튼이 Local Agent를 관리자 권한으로 실행하고 완료 후 최신 Diagnosis를 자동으로 표시합니다.
+
+## 원클릭 Basic Scan
+
+1. `POST /api/scans/start`가 단일 백그라운드 스캔을 시작합니다.
+2. Windows UAC 승인 후 Agent가 collector별 진행 상태를 로컬 파일에 기록합니다.
+3. UI는 `GET /api/scans/status`를 폴링해 단계와 진행률을 표시합니다.
+4. Agent가 Snapshot을 Backend에 업로드하면 UI가 최신 Diagnosis를 다시 불러옵니다.
+
+동시에 두 개의 스캔을 실행하지 않으며, 허용된 Local UI Origin이 아닌 웹 페이지의
+스캔 시작 요청은 `403`으로 거부합니다. 배포 단계에서는 관리자 Agent를 Windows
+서비스로 설치해 UAC와 프로세스 수명 관리를 Installer가 담당하도록 전환합니다.
 
 ## Demo 데이터 정책
 

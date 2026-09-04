@@ -12,18 +12,14 @@
 17개 규칙으로 분석하고 `diagnosis 1.1.0`으로 변환해 표시합니다.
 
 ```powershell
-# Backend
-cd backend
-python -m uvicorn app.main:app --reload --port 8000
-
-# Agent 수집 및 업로드
-cd ../agent
-python -m speccheck_agent scan --upload
-
-# UI
-cd ..
-pnpm dev
+# Backend + UI
+pnpm dev:all
 ```
+
+`http://localhost:3000`에서 `기본 진단 시작`을 누르고 Windows UAC를 승인하면
+Agent 수집, Backend 업로드, Diagnosis 생성, UI 갱신이 자동으로 이어집니다.
+8000 포트가 사용 중이면 `$env:SPECCHECK_BACKEND_PORT=8001`처럼 포트를 지정한
+뒤 `pnpm dev:all`을 실행할 수 있으며 UI와 Agent 업로드 대상도 함께 변경됩니다.
 
 전체 연결 구조와 결정 사항은 [Collector JSON 통합](docs/collector-integration.md),
 구현 기록은 [진단 JSON 통합 작업 기록](docs/json-integration-readiness.md)을 참고하세요.

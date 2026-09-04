@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -12,13 +12,19 @@ from app.core.config import PROJECT_ROOT, get_settings
 from app.diagnosis.explainer import ollama_status
 from app.schemas.telemetry import TelemetrySnapshot
 from app.schemas.ui_diagnosis import UiDiagnosis
-from app.services import diagnosis_service, scan_service
+from app.services import diagnosis_service, local_scan_service, scan_service
 
 router = APIRouter()
 
 
 class ScanRequest(BaseModel):
     snapshot: TelemetrySnapshot | None = None
+
+
+def _validate_scan_origin(request: Request) -> None:
+    origin = request.headers.get("origin")
+    if origin and origin not in get_settings().cors_origin_list:
+        raise HTTPException(status_code=403, detail="허용되지 않은 Origin의 로컬 스캔 요청입니다.")
 
 
 def _latest_or_404() -> TelemetrySnapshot:
@@ -53,6 +59,18 @@ def diagnosis_schema() -> JSONResponse:
 @router.get("/scans/latest", response_model=UiDiagnosis)
 def latest_diagnosis() -> UiDiagnosis:
     return diagnosis_service.diagnose_for_ui(_latest_or_404())
+
+
+@router.post("/scans/start", status_code=status.HTTP_202_ACCEPTED)
+def start_local_scan(request: Request) -> dict:
+    _validate_scan_origin(request)
+    state, started = local_scan_service.start_scan()
+    return {**state, "started": started}
+
+
+@router.get("/scans/status")
+def local_scan_status() -> dict:
+    return local_scan_service.get_status()
 
 
 @router.post("/scans", response_model=UiDiagnosis)

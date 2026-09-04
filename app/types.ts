@@ -48,3 +48,16 @@ export type AgentHealth = {
   backendVersion?: string;
   gemma: { available: boolean; model: string; installed: boolean };
 };
+
+export type LocalScanStatus = {
+  runId: string | null;
+  status: 'idle' | 'running' | 'completed' | 'failed';
+  phase: 'idle' | 'permission' | 'collecting' | 'saving' | 'uploading' | 'completed' | 'failed';
+  progress: number;
+  currentCollector: string | null;
+  message: string;
+  scanId: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  started?: boolean;
+};

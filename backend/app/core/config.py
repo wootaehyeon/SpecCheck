@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     datasets_dir: Path = PROJECT_ROOT / "datasets"
     #: Agent가 업로드한 스냅샷 저장소 (M3)
     snapshot_db: Path = BACKEND_DIR / "data" / "snapshots.db"
+    local_agent_backend_url: str = "http://127.0.0.1:8000"
 
     # --- 외부 API ---
     openai_api_key: str = ""

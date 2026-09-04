@@ -78,6 +78,7 @@ backend/data/used_price_cache.json
 *.db
 *.db-*
 backend/data/snapshots.db
+backend/data/scan-runs/
 agent/var/
 .speccheck/
 snapshots/

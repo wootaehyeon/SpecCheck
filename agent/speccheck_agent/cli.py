@@ -18,6 +18,7 @@ import argparse
 import json
 import platform
 import sys
+from pathlib import Path
 from typing import Any
 
 from . import __version__
@@ -37,6 +38,32 @@ from .transport import UploadError, upload_snapshot
 #: 수집하지 못한 값의 표시. "0"이나 "정상"으로 보이면 안 된다 - 확인하지 못한
 #: 것과 이상이 없는 것은 다른 결론이고, 그 구분이 진단 신뢰도의 출발점이다.
 UNKNOWN = "확인 못함"
+
+
+def _write_scan_status(
+    path: str | None,
+    *,
+    phase: str,
+    progress: int,
+    collector: str | None = None,
+    message: str,
+) -> None:
+    if not path:
+        return
+    target = Path(path)
+    temporary = target.with_suffix(target.suffix + ".tmp")
+    payload = {
+        "phase": phase,
+        "progress": max(0, min(100, progress)),
+        "collector": collector,
+        "message": message,
+    }
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temporary.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+        temporary.replace(target)
+    except OSError:
+        pass
 
 
 def _dump(data: Any) -> str:
@@ -69,13 +96,36 @@ def cmd_scan(args: argparse.Namespace, config: AgentConfig) -> int:
     names = [name.strip() for name in args.collectors.split(",")] if args.collectors else None
 
     results = []
-    for collector in iter_collectors(names):
+    collectors = list(iter_collectors(names))
+    total = len(collectors)
+    _write_scan_status(
+        args.status_file,
+        phase="collecting",
+        progress=0,
+        message="시스템 데이터 수집을 시작했습니다.",
+    )
+    for index, collector in enumerate(collectors):
+        progress = round(index / total * 75) if total else 75
+        _write_scan_status(
+            args.status_file,
+            phase="collecting",
+            progress=progress,
+            collector=collector.name,
+            message="{0} 데이터를 수집하고 있습니다.".format(collector.name),
+        )
         if not args.quiet:
             print("  - {0} ...".format(collector.name), end="", flush=True)
         result = collector.run()
         if not args.quiet:
             print(" {0}".format(result.status))
         results.append(result)
+
+    _write_scan_status(
+        args.status_file,
+        phase="saving",
+        progress=80,
+        message="Snapshot을 정규화하고 저장하고 있습니다.",
+    )
 
     snapshot = build_snapshot(
         results,
@@ -96,9 +146,21 @@ def cmd_scan(args: argparse.Namespace, config: AgentConfig) -> int:
         print("로컬 DB: {0}".format(config.db_path))
 
     if args.upload:
+        _write_scan_status(
+            args.status_file,
+            phase="uploading",
+            progress=90,
+            message="수집 결과를 Local Backend에 전달하고 있습니다.",
+        )
         try:
             response = upload_snapshot(snapshot, config.backend_url, config.upload_timeout)
         except UploadError as exc:
+            _write_scan_status(
+                args.status_file,
+                phase="failed",
+                progress=90,
+                message="Backend 업로드에 실패했습니다.",
+            )
             print("업로드 실패: {0}".format(exc), file=sys.stderr)
             return 1
         print("업로드 완료: {0}".format(response.get("snapshot_id", "?")))
@@ -112,6 +174,12 @@ def cmd_scan(args: argparse.Namespace, config: AgentConfig) -> int:
         print(summarize(snapshot))
         if not args.quiet:
             _print_sections(snapshot)
+    _write_scan_status(
+        args.status_file,
+        phase="completed",
+        progress=100,
+        message="수집과 업로드가 완료됐습니다.",
+    )
     return 0
 
 
@@ -328,6 +396,7 @@ def build_parser() -> argparse.ArgumentParser:
     scan.add_argument("--upload", action="store_true", help="Backend로 전송")
     scan.add_argument("--note", help="스냅샷에 남길 메모 (예: 'RAM 교체 전')")
     scan.add_argument("--quiet", action="store_true")
+    scan.add_argument("--status-file", help=argparse.SUPPRESS)
     scan.set_defaults(func=cmd_scan)
 
     collectors = subparsers.add_parser("collectors", help="등록된 collector 목록")

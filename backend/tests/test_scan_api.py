@@ -5,6 +5,8 @@ Agent -> Backend -> 진단으로 이어지는 경로 전체를 한 번에 확인
 
 from __future__ import annotations
 
+import threading
+import time
 from datetime import datetime, timezone
 
 import pytest
@@ -12,6 +14,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
 from app.main import app
+from app.services import local_scan_service
 
 
 @pytest.fixture(autouse=True)
@@ -20,6 +23,7 @@ def isolated_db(tmp_path, monkeypatch):
     settings = get_settings()
     monkeypatch.setattr(settings, "snapshot_db", tmp_path / "snapshots.db")
     monkeypatch.setattr(settings, "llm_enabled", False)
+    local_scan_service._reset_for_tests()
     yield
 
 
@@ -150,6 +154,73 @@ def test_ui_health_and_schema_endpoints(client):
     schema = client.get("/api/schema/diagnosis")
     assert schema.status_code == 200
     assert schema.json()["properties"]["schemaVersion"]["const"] == "1.1.0"
+
+
+def test_local_scan_start_and_status_endpoints(client, monkeypatch):
+    running = {
+        "runId": "run-1",
+        "status": "running",
+        "phase": "collecting",
+        "progress": 30,
+        "currentCollector": "storage_health",
+        "message": "storage_health 데이터를 수집하고 있습니다.",
+        "scanId": None,
+        "startedAt": datetime.now(timezone.utc).isoformat(),
+        "finishedAt": None,
+    }
+    monkeypatch.setattr(local_scan_service, "start_scan", lambda: (running, True))
+    monkeypatch.setattr(local_scan_service, "get_status", lambda: running)
+
+    started = client.post("/api/scans/start", headers={"origin": "http://localhost:3000"})
+    assert started.status_code == 202
+    assert started.json()["started"] is True
+    assert started.json()["status"] == "running"
+
+    status_response = client.get("/api/scans/status")
+    assert status_response.status_code == 200
+    assert status_response.json()["currentCollector"] == "storage_health"
+
+
+def test_local_scan_rejects_untrusted_browser_origin(client, monkeypatch):
+    called = False
+
+    def start():
+        nonlocal called
+        called = True
+        return {}, True
+
+    monkeypatch.setattr(local_scan_service, "start_scan", start)
+    response = client.post("/api/scans/start", headers={"origin": "https://example.com"})
+
+    assert response.status_code == 403
+    assert called is False
+
+
+def test_local_scan_prevents_parallel_runs(tmp_path, monkeypatch):
+    entered = threading.Event()
+    release = threading.Event()
+
+    def run_agent(_status_file):
+        entered.set()
+        release.wait(timeout=2)
+
+    monkeypatch.setattr(local_scan_service, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(local_scan_service, "_run_agent", run_agent)
+    monkeypatch.setattr(local_scan_service.scan_service, "latest_snapshot_any", lambda: None)
+
+    first, first_started = local_scan_service.start_scan()
+    assert entered.wait(timeout=1)
+    second, second_started = local_scan_service.start_scan()
+
+    assert first_started is True
+    assert second_started is False
+    assert second["runId"] == first["runId"]
+
+    release.set()
+    deadline = time.monotonic() + 2
+    while local_scan_service.get_status()["status"] == "running" and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert local_scan_service.get_status()["status"] == "failed"
 
 
 def test_price_routes_still_mounted(client):

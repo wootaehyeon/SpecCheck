@@ -1,5 +1,5 @@
 import { diagnosticsConfig } from './config';
-import type { AgentHealth, Diagnosis } from './types';
+import type { AgentHealth, Diagnosis, LocalScanStatus } from './types';
 
 type ErrorPayload = { error?: string; message?: string; detail?: string };
 
@@ -35,10 +35,12 @@ export async function getLatestDiagnosis() {
   }
 }
 
-export function runBasicScan(snapshot?: unknown) {
-  return request<Diagnosis>('/api/scans', {
+export function startBasicScan() {
+  return request<LocalScanStatus>('/api/scans/start', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(snapshot === undefined ? {} : { snapshot }),
   });
+}
+
+export function getBasicScanStatus() {
+  return request<LocalScanStatus>('/api/scans/status');
 }

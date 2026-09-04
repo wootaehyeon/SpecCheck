@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 
+from speccheck_agent.cli import _write_scan_status
 from speccheck_agent.collectors import registry
 from speccheck_agent.collectors.base import Collector, CollectorResult
 from speccheck_agent.collectors.hardware import (
@@ -102,6 +103,24 @@ def test_partial_flag_downgrades_status():
     result = Partial().run()
     assert result.status == "partial"
     assert "_partial" not in result.data
+
+
+def test_scan_status_file_is_written_atomically(tmp_path):
+    path = tmp_path / "scan-status.json"
+
+    _write_scan_status(
+        str(path),
+        phase="collecting",
+        progress=25,
+        collector="hardware",
+        message="hardware 데이터를 수집하고 있습니다.",
+    )
+
+    status = json.loads(path.read_text(encoding="utf-8"))
+    assert status["phase"] == "collecting"
+    assert status["progress"] == 25
+    assert status["collector"] == "hardware"
+    assert not path.with_suffix(".json.tmp").exists()
 
 
 # --- 정규화 ------------------------------------------------------------------
