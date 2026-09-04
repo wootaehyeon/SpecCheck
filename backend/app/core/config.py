@@ -24,7 +24,7 @@ class Settings(BaseSettings):
 
     # --- 앱 ---
     app_name: str = "SpecCheck AI"
-    app_version: str = "1.1.0"
+    app_version: str = "1.2.0"
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 
     # --- 경로 ---

@@ -130,7 +130,7 @@ def test_ui_scan_alias_returns_diagnosis_1_1(client):
     response = client.post("/api/scans", json={"snapshot": make_payload()})
     assert response.status_code == 200
     result = response.json()
-    assert result["schemaVersion"] == "1.1.0"
+    assert result["schemaVersion"] == "1.2.0"
     assert result["scanType"] == "basic"
     assert result["decision"]["action"] == "purchase"
     assert all("recommendedAction" in finding for finding in result["findings"])
@@ -149,11 +149,11 @@ def test_ui_scan_alias_requires_snapshot_history(client):
 def test_ui_health_and_schema_endpoints(client):
     health = client.get("/api/health")
     assert health.status_code == 200
-    assert health.json()["backendVersion"] == "1.1.0"
+    assert health.json()["backendVersion"] == "1.2.0"
 
     schema = client.get("/api/schema/diagnosis")
     assert schema.status_code == 200
-    assert schema.json()["properties"]["schemaVersion"]["const"] == "1.1.0"
+    assert schema.json()["properties"]["schemaVersion"]["const"] == "1.2.0"
 
 
 def test_local_scan_start_and_status_endpoints(client, monkeypatch):

@@ -83,6 +83,10 @@ QUERIES: dict[str, dict[str, Any]] = {
             "CurrentRefreshRate",
         ],
     },
+    "memory_array": {
+        "class_name": "Win32_PhysicalMemoryArray",
+        "properties": ["MemoryDevices", "MaxCapacityEx"],
+    },
     "nvidia_gpu_memory": {
         "script": "$cmd = Get-Command nvidia-smi -ErrorAction SilentlyContinue; if ($cmd) { & $cmd.Source --query-gpu=name,memory.total --format=csv,noheader,nounits | ForEach-Object { $parts = $_ -split ',\\s*'; [pscustomobject]@{ Name = $parts[0]; MemoryTotalMiB = [int]$parts[1] } } }",
     },
@@ -165,7 +169,7 @@ class HardwareCollector(Collector):
             "system": shape_system(_first(rows.get("system", []))),
             "os": shape_os(_first(rows.get("os", []))),
             "cpu": shape_cpu(rows.get("cpu", [])),
-            "memory": shape_memory(rows.get("memory", [])),
+            "memory": shape_memory(rows.get("memory", []), rows.get("memory_array", [])),
             "gpu": shape_gpu(rows.get("gpu", []), rows.get("nvidia_gpu_memory", [])),
             "storage": shape_storage(rows.get("disk_drive", []), rows.get("physical_disk", [])),
             "motherboard": shape_motherboard(
@@ -221,7 +225,9 @@ def shape_cpu(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
-def shape_memory(rows: list[dict[str, Any]]) -> dict[str, Any]:
+def shape_memory(
+    rows: list[dict[str, Any]], array_rows: list[dict[str, Any]] | None = None
+) -> dict[str, Any]:
     modules = [
         {
             "capacity_gb": _bytes_to_gb(row.get("Capacity")),
@@ -235,9 +241,12 @@ def shape_memory(rows: list[dict[str, Any]]) -> dict[str, Any]:
         for row in rows
     ]
     total = sum(module["capacity_gb"] or 0 for module in modules)
+    slot_count = sum(_to_int(row.get("MemoryDevices")) or 0 for row in array_rows or []) or None
     return {
         "modules": modules,
         "module_count": len(modules),
+        "slot_count": slot_count,
+        "empty_slot_count": max(slot_count - len(modules), 0) if slot_count is not None else None,
         "total_gb": round(total, 2) if modules else None,
     }
 

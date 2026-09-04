@@ -1,4 +1,4 @@
-"""Telemetry to diagnosis 1.1 adapter contract tests."""
+"""Telemetry to diagnosis 1.2 adapter contract tests."""
 
 from datetime import datetime, timezone
 
@@ -23,10 +23,16 @@ def make_snapshot(storage_status: str = "ok", storage_errors: list[str] | None =
                     "data": {
                         "os": {"caption": "Windows 11 Pro", "build": "26200"},
                         "cpu": [{"name": "Test CPU", "cores": 8, "threads": 16, "max_clock_mhz": 4200}],
-                        "memory": {"total_gb": 4, "module_count": 1, "modules": []},
+                        "memory": {
+                            "total_gb": 4,
+                            "module_count": 1,
+                            "slot_count": 2,
+                            "empty_slot_count": 1,
+                            "modules": [{"capacity_gb": 4, "rated_speed_mhz": 3200}],
+                        },
                         "gpu": [],
                         "storage": [],
-                        "motherboard": {},
+                        "motherboard": {"manufacturer": "Test", "product": "B450 Board"},
                     },
                 },
                 "storage_health": {
@@ -69,23 +75,21 @@ def test_adapter_preserves_action_decision_and_aliases():
     diagnosis = to_ui_diagnosis(snapshot, diagnose(snapshot), fallback_ai())
     payload = diagnosis.model_dump(by_alias=True, mode="json")
 
-    assert payload["schemaVersion"] == "1.1.0"
+    assert payload["schemaVersion"] == "1.2.0"
     assert payload["machine"]["name"] == "25264e6dc980"
     assert payload["status"] == "complete"
     assert payload["decision"]["action"] == "purchase"
     assert payload["findings"][0]["recommendedAction"] == "purchase"
-    assert payload["recommendations"] == [
-        {
-            "id": "memory-upgrade",
-            "findingIds": ["HW-RAM-002"],
-            "priority": "high",
-            "category": "memory",
-            "title": "메모리 16GB 이상 증설 검토",
-            "description": "물리 메모리 부족의 근거로 물리 메모리 증설을 우선 검토하세요. 구매 전 메인보드의 DDR 세대와 빈 슬롯을 확인해야 합니다.",
-            "searchQuery": "16GB PC 메모리",
-            "searchUrl": "https://search.shopping.naver.com/search/all?query=16GB+PC+%EB%A9%94%EB%AA%A8%EB%A6%AC",
-        }
-    ]
+    recommendation = payload["recommendations"][0]
+    assert recommendation["findingIds"] == ["HW-RAM-002"]
+    assert recommendation["title"] == "메모리 교체 범위 비교"
+    assert [candidate["strategy"] for candidate in recommendation["candidates"]] == ["minimal", "platform"]
+    minimal, platform = recommendation["candidates"]
+    assert minimal["recommended"] is True
+    assert minimal["compatibilityStatus"] == "passed"
+    assert minimal["parts"][0]["name"] == "DDR4 16GB 3200MHz 메모리"
+    assert platform["recommended"] is False
+    assert platform["compatibilityStatus"] == "conditional"
     assert payload["sources"][-1]["status"] == "not_in_scope"
 
 

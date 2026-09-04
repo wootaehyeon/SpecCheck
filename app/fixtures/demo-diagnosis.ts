@@ -1,7 +1,7 @@
 import type { Diagnosis } from '../types';
 
 export const demoDiagnosis: Diagnosis = {
-  schemaVersion: '1.1.0',
+  schemaVersion: '1.2.0',
   scanId: 'demo-basic-scan',
   scanType: 'basic',
   status: 'complete',

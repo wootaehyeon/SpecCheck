@@ -95,6 +95,98 @@ function delay(milliseconds: number) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
+function CandidateComparison({ diagnosis, marketPrices, marketLoading }: {
+  diagnosis: Diagnosis;
+  marketPrices: Record<string, MarketPrice>;
+  marketLoading: boolean;
+}) {
+  if (diagnosis.recommendations.length === 0) return null;
+
+  return <Card className="border border-orange-400/15 bg-card/65">
+    <CardHeader>
+      <CardDescription>호환성 검증 후보 비교</CardDescription>
+      <CardTitle>최소 교체와 플랫폼 교체</CardTitle>
+      <CardAction><HardDrive className="size-5 text-orange-300" /></CardAction>
+    </CardHeader>
+    <CardContent className="space-y-6">
+      {diagnosis.recommendations.map((recommendation) => (
+        <section key={recommendation.id} className="border-t border-white/6 pt-5 first:border-t-0 first:pt-0">
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="font-medium">{recommendation.title}</div>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">{recommendation.description}</p>
+            </div>
+            <Badge variant="outline" className={recommendationTone[recommendation.priority]}>{recommendation.priority.toUpperCase()}</Badge>
+          </div>
+          <div className="grid gap-4 xl:grid-cols-2">
+            {(recommendation.candidates ?? []).map((candidate) => {
+              const priced = candidate.parts.map((part) => marketPrices[part.key]).filter(Boolean);
+              const completePrice = candidate.parts.length > 0 && priced.length === candidate.parts.length && priced.every((item) => !item.error && item.averagePrice > 0);
+              const averageTotal = completePrice ? priced.reduce((sum, item) => sum + item.averagePrice, 0) : null;
+              return <div key={candidate.id} className={`rounded-lg border p-4 ${candidate.recommended ? 'border-primary/25 bg-primary/[.04]' : 'border-white/8 bg-white/[.02]'}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-sm font-semibold">{candidate.title}</h3>
+                      {candidate.recommended && <Badge className="bg-primary text-primary-foreground">권장</Badge>}
+                    </div>
+                    <p className="mt-2 text-xs leading-5 text-muted-foreground">{candidate.summary}</p>
+                  </div>
+                  <Badge variant="outline" className={candidate.compatibilityStatus === 'passed' ? 'border-emerald-400/20 text-emerald-300' : 'border-amber-400/20 text-amber-300'}>
+                    {candidate.compatibilityStatus === 'passed' ? '호환 통과' : '조건부 통과'} · {candidate.compatibilityScore}
+                  </Badge>
+                </div>
+
+                <div className="mt-4 space-y-2">
+                  <div className="text-[11px] font-semibold">교체 부품</div>
+                  {candidate.parts.map((part) => {
+                    const price = marketPrices[part.key];
+                    const hasPrice = price && !price.error && price.averagePrice > 0;
+                    return <div key={part.key} className="rounded-md border border-white/6 bg-black/10 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-xs font-medium">{part.name}</div>
+                          <div className="mt-1 text-[10px] leading-4 text-muted-foreground">{part.reason}</div>
+                        </div>
+                        {hasPrice && <div className="shrink-0 text-xs font-semibold text-primary">{formatPrice(price.averagePrice)}</div>}
+                      </div>
+                      {hasPrice && <div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground">
+                        <span>최저 {formatPrice(price.lowestPrice)} · {price.mall}</span>
+                        {price.purchaseLink && <a href={price.purchaseLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary">상품 <ExternalLink className="size-3" /></a>}
+                      </div>}
+                    </div>;
+                  })}
+                  {marketLoading && <div className="flex items-center gap-2 text-[10px] text-muted-foreground"><RefreshCw className="size-3 animate-spin" />부품별 시세 확인 중</div>}
+                  {!marketLoading && !completePrice && <div className="text-[10px] leading-4 text-muted-foreground">네이버 쇼핑 API 연결 후 부품별 시세와 합계가 표시됩니다.</div>}
+                  {averageTotal !== null && <div className="flex items-center justify-between border-t border-white/8 pt-3 text-sm"><span>예상 평균 합계</span><strong>{formatPrice(averageTotal)}</strong></div>}
+                </div>
+
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <div className="mb-2 text-[11px] font-semibold">호환성 근거</div>
+                    <ul className="space-y-2">
+                      {candidate.checks.map((check) => <li key={`${candidate.id}-${check.label}`} className="text-[10px] leading-4 text-muted-foreground">
+                        <span className={check.status === 'passed' ? 'text-emerald-300' : 'text-amber-300'}>{check.status === 'passed' ? '통과' : '확인 필요'}</span> · {check.detail}
+                      </li>)}
+                    </ul>
+                  </div>
+                  <div>
+                    <div className="mb-2 text-[11px] font-semibold">비교 근거</div>
+                    <ul className="space-y-2 text-[10px] leading-4 text-muted-foreground">
+                      {candidate.tradeoffs.map((item) => <li key={item}>· {item}</li>)}
+                    </ul>
+                  </div>
+                </div>
+              </div>;
+            })}
+          </div>
+          <div className="mt-3 font-mono text-[10px] text-muted-foreground">판정 근거: {recommendation.findingIds.join(', ')}</div>
+        </section>
+      ))}
+    </CardContent>
+  </Card>;
+}
+
 export default function Home() {
   const [diagnosis, setDiagnosis] = useState<Diagnosis | null>(diagnosticsConfig.demoMode ? demoDiagnosis : null);
   const [diagnosisSource, setDiagnosisSource] = useState<'demo' | 'agent'>('demo');
@@ -336,6 +428,8 @@ export default function Home() {
               ))}
             </div>
 
+            <CandidateComparison diagnosis={diagnosis} marketPrices={marketPrices} marketLoading={marketLoading} />
+
             <div className="space-y-4">
               <div role="tablist" aria-label="진단 상세" className="flex w-fit gap-1 border-b border-white/8 text-sm">
                 {[
@@ -484,62 +578,6 @@ export default function Home() {
                     <div className="font-medium">신뢰도 {Math.round(primaryFinding.confidence * 100)}%</div>
                     <p className="mt-1 leading-5 text-muted-foreground">{primaryFinding.rootCauseCandidates.join(' · ')}</p>
                   </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {diagnosis.recommendations.length > 0 && (
-              <Card className="border border-orange-400/15 bg-card/65">
-                <CardHeader>
-                  <CardDescription>근거 기반 교체 추천</CardDescription>
-                  <CardTitle className="text-base">구매 검토 항목</CardTitle>
-                  <CardAction><HardDrive className="size-5 text-orange-300" /></CardAction>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {diagnosis.recommendations.map((recommendation) => {
-                    const marketPrice = marketPrices[recommendation.id];
-                    const hasPrice = marketPrice && !marketPrice.error && marketPrice.lowestPrice > 0;
-                    return <div key={recommendation.id} className="border-t border-white/6 pt-4 first:border-t-0 first:pt-0">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="font-medium leading-5">{recommendation.title}</div>
-                        <Badge variant="outline" className={recommendationTone[recommendation.priority]}>{recommendation.priority.toUpperCase()}</Badge>
-                      </div>
-                      <p className="mt-2 text-xs leading-5 text-muted-foreground">{recommendation.description}</p>
-                      <p className="mt-2 font-mono text-[10px] text-muted-foreground">근거: {recommendation.findingIds.join(', ')}</p>
-
-                      <div className="mt-3 rounded-lg border border-white/6 bg-white/[.025] p-3">
-                        {marketLoading && !marketPrice ? (
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground"><RefreshCw className="size-3.5 animate-spin" />실시간 시세 확인 중</div>
-                        ) : hasPrice ? (
-                          <div className="space-y-3">
-                            <div>
-                              <div className="line-clamp-2 text-xs font-medium leading-5">{marketPrice.productTitle || recommendation.searchQuery}</div>
-                              <div className="mt-1 text-[10px] text-muted-foreground">{marketPrice.mall} · 비교 상품 {marketPrice.listingCount}개</div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
-                              <div><div className="text-[10px] text-muted-foreground">최저가</div><div className="mt-1 text-sm font-semibold text-primary">{formatPrice(marketPrice.lowestPrice)}</div></div>
-                              <div><div className="text-[10px] text-muted-foreground">평균가</div><div className="mt-1 text-sm font-semibold">{formatPrice(marketPrice.averagePrice)}</div></div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div>
-                            <div className="text-xs font-medium">시세 데이터 연결 필요</div>
-                            <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
-                              {marketPrice?.error?.includes('keys are missing') ? 'Backend에 네이버 쇼핑 API 키를 설정하면 추천 상품과 가격을 자동으로 표시합니다.' : '현재 시세 정보를 불러오지 못했습니다. 진단 근거와 추천 결과는 그대로 유효합니다.'}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-
-                      {hasPrice && marketPrice.purchaseLink && (
-                        <Button asChild variant="outline" size="sm" className="mt-3 w-full">
-                          <a href={marketPrice.purchaseLink} target="_blank" rel="noreferrer">
-                            최저가 상품 보기 <ExternalLink data-icon="inline-end" />
-                          </a>
-                        </Button>
-                      )}
-                    </div>
-                  })}
                 </CardContent>
               </Card>
             )}

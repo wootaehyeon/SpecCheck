@@ -8,7 +8,7 @@
 - 최신 `integration` 브랜치를 기준으로 Python Agent, FastAPI Backend,
   Rule Detection 17개, 기존 가격·견적 기능을 유지했습니다.
 - 현재 Basic Scan UI와 `diagnosis.schema.json`을 다시 포함했습니다.
-- `TelemetrySnapshot → DiagnosisResult → Diagnosis 1.1` Adapter를 추가했습니다.
+- `TelemetrySnapshot → DiagnosisResult → Diagnosis 1.2` Adapter를 추가했습니다.
 - Finding 심각도, 확신도, 개수를 사용해 0–100 Risk Score를 계산합니다.
 - 각 Finding의 `recommendedAction`과 최상위 `decision`을 출력 계약에 추가했습니다.
 - UI가 사용하는 `/api/health`, `/api/scans`, `/api/scans/latest` 별칭을 FastAPI에 추가했습니다.
@@ -71,9 +71,17 @@
   부족 근거는 RAM 증설 후보로 변환합니다.
 - 특정 부품으로 안전하게 연결할 수 없는 Hardware Finding은 기존 진단 조치에
   남기며, 억지로 상품을 추천하지 않습니다.
+- 각 추천은 `candidates[]`에 최소 교체안과 플랫폼 교체안을 함께 제공합니다.
+  오류가 발생한 후보는 제외하고, 통과 후보만 `compatibilityStatus`, 점수,
+  검사 근거, 추가 교체 부품, 장단점과 함께 반환합니다.
+- 플랫폼 묶음은 코드에 고정하지 않고 `backend/data/replacement_platforms.json`
+  카탈로그에서 현재 CPU 제조사와 소켓을 기준으로 선택합니다.
+- WMI에서 메모리 전체 슬롯 수까지 수집해 최소 교체안이 빈 슬롯 증설인지 기존
+  모듈 교체인지 구분합니다. PSU·케이스처럼 WMI로 확인할 수 없는 항목은
+  `conditional`로 남겨 호환 통과로 오인하지 않게 합니다.
 - 외부 시세 API 키가 없어도 추천 목록은 생성됩니다. 키가 설정된 환경에서는
   `/api/market-prices`가 대표 상품, 최저가, 평균가, 판매처, 비교 상품 수를 조회해
   추천 카드 안에 표시합니다. 조회 실패 시 가격을 임의로 채우지 않습니다.
 
 Advanced Scan에서는 기존 `security` 섹션과 `sysmon` Source 상태를
-확장하되 Diagnosis 1.1 소비 구조는 유지합니다.
+확장하되 Diagnosis 1.2 소비 구조는 유지합니다.

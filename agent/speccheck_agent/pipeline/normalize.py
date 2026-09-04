@@ -56,6 +56,8 @@ def to_spec_profile(snapshot: dict[str, Any]) -> dict[str, Any]:
         "memory": {
             "total_gb": memory.get("total_gb"),
             "module_count": memory.get("module_count"),
+            "slot_count": memory.get("slot_count"),
+            "empty_slot_count": memory.get("empty_slot_count"),
             "configured_speed_mhz": _first(memory.get("modules"), "configured_speed_mhz"),
         },
         # 인벤토리(무엇이 달렸는가)에 수명(얼마나 닳았는가)을 합쳐 하나로 낸다.

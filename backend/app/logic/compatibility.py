@@ -1,8 +1,45 @@
 import json
+import re
 from pathlib import Path
 from math import ceil
 
 DATA_DIR = Path(__file__).parent.parent.parent / "data"
+
+_BOARD_SOCKETS = {
+    "AM4": ("a320", "b350", "x370", "b450", "x470", "a520", "b550", "x570", "am4"),
+    "AM5": ("a620", "b650", "x670", "x870", "b840", "b850", "am5"),
+    "LGA1700": ("h610", "b660", "h670", "z690", "b760", "h770", "z790", "lga1700"),
+}
+
+
+def infer_board_socket(value: str | None) -> str | None:
+    text = (value or "").lower()
+    return next((socket for socket, keys in _BOARD_SOCKETS.items() if any(key in text for key in keys)), None)
+
+
+def infer_cpu_socket(value: str | None) -> str | None:
+    text = (value or "").lower()
+    if "ryzen" in text:
+        match = re.search(r"\b(?:ryzen\s+[3579]\s+)(\d{4})", text)
+        if match:
+            return "AM5" if int(match.group(1)) >= 7000 else "AM4"
+    if re.search(r"\bi[3579]-1[234]\d{3}", text):
+        return "LGA1700"
+    return None
+
+
+def infer_memory_generation(value: str | None) -> str | None:
+    text = (value or "").lower()
+    if "ddr5" in text:
+        return "DDR5"
+    if "ddr4" in text:
+        return "DDR4"
+    socket = infer_board_socket(text)
+    if socket == "AM4":
+        return "DDR4"
+    if socket == "AM5":
+        return "DDR5"
+    return None
 
 
 def _load(filename: str) -> dict:
@@ -39,10 +76,12 @@ def check_compatibility(build: dict) -> dict:
     # RAM generation
     ram = (build.get("ram") or "").lower()
     mobo = (build.get("motherboard") or "").lower()
-    if "ddr5" in ram and "ddr4" in mobo:
+    ram_generation = infer_memory_generation(ram)
+    board_generation = infer_memory_generation(mobo)
+    if ram_generation == "DDR5" and board_generation == "DDR4":
         issues.append({"type": "error", "component": "RAM / 메인보드",
                        "message": "DDR5 RAM과 DDR4 지원 메인보드는 호환되지 않습니다."})
-    elif "ddr4" in ram and "ddr5" in mobo:
+    elif ram_generation == "DDR4" and board_generation == "DDR5":
         issues.append({"type": "error", "component": "RAM / 메인보드",
                        "message": "DDR4 RAM과 DDR5 지원 메인보드는 호환되지 않습니다."})
 
@@ -57,6 +96,15 @@ def check_compatibility(build: dict) -> dict:
     if is_amd and any(k in mobo for k in intel_socket_keywords):
         issues.append({"type": "error", "component": "CPU / 메인보드",
                        "message": "AMD CPU는 Intel 소켓 메인보드와 호환되지 않습니다."})
+
+    cpu_socket = infer_cpu_socket(build.get("cpu"))
+    board_socket = infer_board_socket(build.get("motherboard"))
+    if cpu_socket and board_socket and cpu_socket != board_socket:
+        issues.append({
+            "type": "error",
+            "component": "CPU / 메인보드",
+            "message": "CPU 소켓 {0}과 메인보드 소켓 {1}이 호환되지 않습니다.".format(cpu_socket, board_socket),
+        })
 
     # PSU wattage estimate
     cpu_tdp = int(cpu_data.get("tdp", 0)) if cpu_data else 65

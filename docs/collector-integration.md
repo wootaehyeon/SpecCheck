@@ -5,7 +5,7 @@ SpecCheck 진단 파이프라인은 입력과 출력 계약을 분리합니다.
 | 경계 | 계약 | 네이밍 | 역할 |
 | --- | --- | --- | --- |
 | Agent → Backend | `telemetry 1.1.0` | snake_case | 원본 측정값과 섹션별 수집 상태 |
-| Backend → UI | `diagnosis 1.1.0` | camelCase | 규칙 결과, 위험도, 권고와 화면용 요약 |
+| Backend → UI | `diagnosis 1.2.0` | camelCase | 규칙 결과, 위험도, 권고와 화면용 요약 |
 
 원본 계약은 `shared/contracts/telemetry_snapshot.schema.json`, 출력 계약은
 `schemas/diagnosis.schema.json`입니다. 두 계약 사이의 변환은
@@ -20,7 +20,7 @@ Python Local Agent
   → 17개 Rule Detection
   → DiagnosisResult
   → UI Adapter + Risk Score
-  → Diagnosis 1.1
+  → Diagnosis 1.2
   → Basic Scan UI
 ```
 

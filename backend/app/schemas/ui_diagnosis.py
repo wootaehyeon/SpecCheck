@@ -1,4 +1,4 @@
-"""UI-facing diagnosis 1.1 contract.
+"""UI-facing diagnosis 1.2 contract.
 
 The rule engine keeps its snake_case domain model. These models define the
 camelCase payload consumed by the diagnostics UI.
@@ -96,6 +96,33 @@ class Decision(UiModel):
     driven_by: list[str] = Field(alias="drivenBy")
 
 
+class CompatibilityCheck(UiModel):
+    label: str
+    status: Literal["passed", "conditional", "failed"]
+    detail: str
+
+
+class CandidatePart(UiModel):
+    key: str
+    category: Literal["cpu", "motherboard", "memory", "storage"]
+    name: str
+    search_query: str = Field(alias="searchQuery")
+    reason: str
+
+
+class ReplacementCandidate(UiModel):
+    id: str
+    strategy: Literal["minimal", "platform"]
+    title: str
+    summary: str
+    recommended: bool
+    compatibility_status: Literal["passed", "conditional"] = Field(alias="compatibilityStatus")
+    compatibility_score: int = Field(alias="compatibilityScore", ge=0, le=100)
+    checks: list[CompatibilityCheck]
+    parts: list[CandidatePart]
+    tradeoffs: list[str]
+
+
 class Recommendation(UiModel):
     id: str
     finding_ids: list[str] = Field(alias="findingIds")
@@ -105,10 +132,11 @@ class Recommendation(UiModel):
     description: str
     search_query: str = Field(alias="searchQuery")
     search_url: str = Field(alias="searchUrl")
+    candidates: list[ReplacementCandidate]
 
 
 class UiDiagnosis(UiModel):
-    schema_version: Literal["1.1.0"] = Field(default="1.1.0", alias="schemaVersion")
+    schema_version: Literal["1.2.0"] = Field(default="1.2.0", alias="schemaVersion")
     scan_id: str = Field(alias="scanId")
     scan_type: Literal["basic"] = Field(default="basic", alias="scanType")
     status: DiagnosisStatus

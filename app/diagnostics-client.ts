@@ -46,16 +46,21 @@ export function getBasicScanStatus() {
 }
 
 export function getMarketPrices(recommendations: Diagnosis['recommendations']) {
+  const parts = recommendations.flatMap((recommendation) =>
+    (recommendation.candidates ?? []).flatMap((candidate) =>
+      candidate.parts.map((part) => ({
+        key: part.key,
+        category: part.category,
+        name: part.searchQuery,
+        userPrice: 0,
+      })),
+    ),
+  );
   return request<MarketPricesResponse>('/api/market-prices', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      parts: recommendations.map((item) => ({
-        key: item.id,
-        category: item.category,
-        name: item.searchQuery,
-        userPrice: 0,
-      })),
+      parts,
     }),
   }, 15_000);
 }

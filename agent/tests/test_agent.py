@@ -131,9 +131,11 @@ def test_shape_memory_sums_module_capacity():
         {"Capacity": str(8 * 1024 ** 3), "Speed": 3200, "ConfiguredClockSpeed": 2400},
         {"Capacity": str(8 * 1024 ** 3), "Speed": 3200, "ConfiguredClockSpeed": 2400},
     ]
-    memory = shape_memory(rows)
+    memory = shape_memory(rows, [{"MemoryDevices": 4}])
     assert memory["total_gb"] == 16.0
     assert memory["module_count"] == 2
+    assert memory["slot_count"] == 4
+    assert memory["empty_slot_count"] == 2
     # 정격 3200인데 2400으로 동작 -> XMP 미적용 진단 규칙의 입력
     assert memory["modules"][0]["configured_speed_mhz"] < memory["modules"][0]["rated_speed_mhz"]
 

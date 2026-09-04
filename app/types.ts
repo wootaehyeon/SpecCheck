@@ -21,7 +21,7 @@ export type MarketPrice = {
 export type MarketPricesResponse = { prices: MarketPrice[] };
 
 export type Diagnosis = {
-  schemaVersion: '1.1.0';
+  schemaVersion: '1.2.0';
   scanId: string;
   scanType: 'basic';
   status: 'complete' | 'partial' | 'failed';
@@ -66,6 +66,24 @@ export type Diagnosis = {
     description: string;
     searchQuery: string;
     searchUrl: string;
+    candidates: Array<{
+      id: string;
+      strategy: 'minimal' | 'platform';
+      title: string;
+      summary: string;
+      recommended: boolean;
+      compatibilityStatus: 'passed' | 'conditional';
+      compatibilityScore: number;
+      checks: Array<{ label: string; status: 'passed' | 'conditional' | 'failed'; detail: string }>;
+      parts: Array<{
+        key: string;
+        category: 'cpu' | 'motherboard' | 'memory' | 'storage';
+        name: string;
+        searchQuery: string;
+        reason: string;
+      }>;
+      tradeoffs: string[];
+    }>;
   }>;
 };
 

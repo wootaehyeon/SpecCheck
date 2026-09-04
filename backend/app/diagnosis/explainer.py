@@ -62,7 +62,7 @@ def ollama_status() -> dict:
 
 
 def explain_for_ui(result: DiagnosisResult) -> dict:
-    """Build the structured explanation required by diagnosis 1.1."""
+    """Build the structured explanation required by diagnosis 1.2."""
     settings = get_settings()
     fallback = {
         "provider": "template",

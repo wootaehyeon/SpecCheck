@@ -9,7 +9,7 @@
 ## 통합 진단 실행
 
 현재 Basic Scan UI는 Python Local Agent가 생성한 `telemetry 1.1.0`을 FastAPI의
-17개 규칙으로 분석하고 `diagnosis 1.1.0`으로 변환해 표시합니다.
+17개 규칙으로 분석하고 `diagnosis 1.2.0`으로 변환해 표시합니다.
 
 ```powershell
 # Backend + UI

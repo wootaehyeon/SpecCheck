@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://speccheck.local/schemas/diagnosis-1.1.0.schema.json",
+  "$id": "https://speccheck.local/schemas/diagnosis-1.2.0.schema.json",
   "title": "SpecCheck Basic Scan Diagnosis",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "scanId", "scanType", "status", "generatedAt", "machine", "risk", "categories", "resources", "findings", "inventory", "sources", "ai", "decision", "recommendations"],
   "properties": {
-    "schemaVersion": { "const": "1.1.0" },
+    "schemaVersion": { "const": "1.2.0" },
     "scanId": { "type": "string", "minLength": 1 },
     "scanType": { "enum": ["basic"] },
     "status": { "enum": ["complete", "partial", "failed"] },
@@ -148,7 +148,7 @@
     "recommendation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "findingIds", "priority", "category", "title", "description", "searchQuery", "searchUrl"],
+      "required": ["id", "findingIds", "priority", "category", "title", "description", "searchQuery", "searchUrl", "candidates"],
       "properties": {
         "id": { "type": "string" },
         "findingIds": { "type": "array", "items": { "type": "string" } },
@@ -157,7 +157,47 @@
         "title": { "type": "string" },
         "description": { "type": "string" },
         "searchQuery": { "type": "string" },
-        "searchUrl": { "type": "string", "format": "uri" }
+        "searchUrl": { "type": "string", "format": "uri" },
+        "candidates": { "type": "array", "items": { "$ref": "#/$defs/replacementCandidate" } }
+      }
+    },
+    "replacementCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "strategy", "title", "summary", "recommended", "compatibilityStatus", "compatibilityScore", "checks", "parts", "tradeoffs"],
+      "properties": {
+        "id": { "type": "string" },
+        "strategy": { "enum": ["minimal", "platform"] },
+        "title": { "type": "string" },
+        "summary": { "type": "string" },
+        "recommended": { "type": "boolean" },
+        "compatibilityStatus": { "enum": ["passed", "conditional"] },
+        "compatibilityScore": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "checks": { "type": "array", "items": { "$ref": "#/$defs/compatibilityCheck" } },
+        "parts": { "type": "array", "items": { "$ref": "#/$defs/candidatePart" } },
+        "tradeoffs": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "compatibilityCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "status", "detail"],
+      "properties": {
+        "label": { "type": "string" },
+        "status": { "enum": ["passed", "conditional", "failed"] },
+        "detail": { "type": "string" }
+      }
+    },
+    "candidatePart": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "category", "name", "searchQuery", "reason"],
+      "properties": {
+        "key": { "type": "string" },
+        "category": { "enum": ["cpu", "motherboard", "memory", "storage"] },
+        "name": { "type": "string" },
+        "searchQuery": { "type": "string" },
+        "reason": { "type": "string" }
       }
     }
   }

@@ -1,0 +1,24 @@
+[
+  {
+    "id": "platform-am5-value",
+    "vendor": "amd",
+    "socket": "AM5",
+    "memory_generation": "DDR5",
+    "title": "플랫폼 교체: AM5 묶음",
+    "cpu": "AMD Ryzen 5 7600",
+    "motherboard": "B650 AM5 DDR5 M.2 메인보드",
+    "memory": "DDR5 32GB 6000MHz 메모리 키트",
+    "priority": 10
+  },
+  {
+    "id": "platform-lga1700-value",
+    "vendor": "intel",
+    "socket": "LGA1700",
+    "memory_generation": "DDR4",
+    "title": "플랫폼 교체: LGA1700 묶음",
+    "cpu": "Intel Core i5-12400F",
+    "motherboard": "B760 LGA1700 DDR4 M.2 메인보드",
+    "memory": "DDR4 32GB 3200MHz 메모리 키트",
+    "priority": 20
+  }
+]
