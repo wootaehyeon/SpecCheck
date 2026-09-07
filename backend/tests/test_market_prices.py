@@ -16,6 +16,7 @@ def test_market_prices_exposes_representative_product(monkeypatch):
             "product_title": "테스트 DDR 메모리 16GB",
             "mall": "테스트몰",
             "listing_count": 12,
+            "cached": False,
         },
     )
 
@@ -33,7 +34,7 @@ def test_market_prices_exposes_representative_product(monkeypatch):
 
 
 def test_market_prices_keeps_api_failure_in_item(monkeypatch):
-    monkeypatch.setattr(price, "search_market_prices", lambda _query: {"error": "Naver API keys are missing."})
+    monkeypatch.setattr(price, "search_market_prices", lambda _query: {"error": "네이버 쇼핑 API 키가 설정되지 않았습니다.", "error_code": "credentials_missing"})
 
     response = TestClient(app).post(
         "/api/market-prices",
@@ -44,4 +45,5 @@ def test_market_prices_keeps_api_failure_in_item(monkeypatch):
     item = response.json()["prices"][0]
     assert item["source"] == "error"
     assert item["lowestPrice"] == 0
-    assert item["error"] == "Naver API keys are missing."
+    assert item["error"] == "네이버 쇼핑 API 키가 설정되지 않았습니다."
+    assert item["errorCode"] == "credentials_missing"

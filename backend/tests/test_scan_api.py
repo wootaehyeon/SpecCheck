@@ -134,9 +134,10 @@ def test_ui_scan_alias_returns_diagnosis_1_1(client):
     assert result["scanType"] == "basic"
     assert result["decision"]["action"] == "purchase"
     assert all("recommendedAction" in finding for finding in result["findings"])
-    platform = result["recommendations"][0]["candidates"][1]
-    assert platform["title"] == "플랫폼 교체: AM5 묶음"
-    assert "향후 AM5 CPU 업그레이드 가능" in platform["tradeoffs"]
+    assert result["recommendations"][0]["aiInsight"]["status"] == "fallback"
+    candidates = result["recommendations"][0]["candidates"]
+    assert len(candidates) == 1
+    assert candidates[0]["strategy"] == "minimal"
 
     latest = client.get("/api/scans/latest")
     assert latest.status_code == 200

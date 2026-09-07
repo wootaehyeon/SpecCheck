@@ -1,20 +1,27 @@
-"""Create compatibility-checked minimal and platform replacement candidates."""
+"""Create compatibility-checked replacement candidates for detected faults."""
 
 from __future__ import annotations
 
 import json
+from functools import lru_cache
 from pathlib import Path
 from urllib.parse import quote_plus
 
-from app.logic.compatibility import check_compatibility, infer_board_socket, infer_cpu_socket, infer_memory_generation
+from app.logic.compatibility import check_compatibility, infer_board_socket, infer_memory_generation
 from app.schemas.diagnosis import ActionType, DiagnosisResult, Finding, Severity
 from app.schemas.telemetry import TelemetrySnapshot
-from app.schemas.ui_diagnosis import CandidatePart, CompatibilityCheck, Recommendation, ReplacementCandidate
+from app.schemas.ui_diagnosis import (
+    CandidatePart,
+    CompatibilityCheck,
+    Recommendation,
+    RecommendationAiInsight,
+    ReplacementCandidate,
+)
 
 _PRIORITY = {Severity.CRITICAL: "urgent", Severity.HIGH: "high", Severity.MEDIUM: "normal", Severity.LOW: "normal", Severity.INFO: "normal"}
 _STORAGE_RULES = {"HW-DISK-001", "ST-SMART-001", "ST-SMART-002", "ST-WEAR-001", "RL-DISK-001"}
 _MEMORY_RULES = {"HW-RAM-002", "PF-MEM-001"}
-_PLATFORM_CATALOG = Path(__file__).resolve().parents[2] / "data" / "replacement_platforms.json"
+_COMPONENT_CATALOG = Path(__file__).resolve().parents[2] / "data" / "component_catalog.json"
 
 
 def _hardware(snapshot: TelemetrySnapshot) -> dict:
@@ -42,8 +49,27 @@ def _memory_generation(snapshot: TelemetrySnapshot) -> str | None:
     return None
 
 
-def _part(candidate_id: str, category: str, name: str, reason: str) -> CandidatePart:
-    return CandidatePart(key=f"{candidate_id}-{category}", category=category, name=name, searchQuery=name, reason=reason)
+@lru_cache(maxsize=1)
+def _catalog_products() -> list[dict]:
+    """Load only curated products with an official specification source."""
+    payload = json.loads(_COMPONENT_CATALOG.read_text(encoding="utf-8"))
+    return sorted(
+        [item for item in payload.get("products", []) if item.get("id") and item.get("source_url")],
+        key=lambda item: int(item.get("selection_priority") or 50),
+    )
+
+
+def _catalog_part(product: dict, reason: str) -> CandidatePart:
+    return CandidatePart(
+        key=product["id"],
+        category=product["category"],
+        name=product["name"],
+        searchQuery=product["search_query"],
+        reason=reason,
+        specifications=product.get("specifications", []),
+        sourceLabel=product.get("source_label"),
+        sourceUrl=product.get("source_url"),
+    )
 
 
 def _verified_candidate(*, candidate_id: str, strategy: str, title: str, summary: str,
@@ -75,7 +101,15 @@ def _minimal_memory(snapshot: TelemetrySnapshot, target: int) -> ReplacementCand
     generation = _memory_generation(snapshot)
     empty_slots = memory.get("empty_slot_count")
     speed = next((item.get("rated_speed_mhz") for item in memory.get("modules") or [] if item.get("rated_speed_mhz")), None)
-    spec = " ".join(filter(None, [generation, f"{target}GB", f"{speed}MHz" if speed else None, "메모리"]))
+    products = [
+        product for product in _catalog_products()
+        if product.get("category") == "memory"
+        and (not generation or product.get("memory_generation") == generation)
+        and int(product.get("capacity_gb") or 0) >= target
+    ]
+    if not products:
+        return None
+    product = products[0]
     checks = [CompatibilityCheck(
         label="메모리 규격", status="passed" if generation else "conditional",
         detail=(f"현재 플랫폼이 {generation}로 확인돼 같은 세대 후보만 선택했습니다."
@@ -87,48 +121,12 @@ def _minimal_memory(snapshot: TelemetrySnapshot, target: int) -> ReplacementCand
                 else "전체 슬롯 수가 수집되지 않아 설치 전에 빈 슬롯을 확인해야 합니다."),
     )]
     return _verified_candidate(
-        candidate_id="memory-minimal", strategy="minimal", title="최소 교체: 메모리만 증설",
-        summary="현재 CPU와 메인보드를 유지하고 메모리 용량 부족만 해결합니다.", recommended=True,
-        parts=[_part("memory-minimal", "memory", spec, "물리 메모리 부족을 직접 해소")], checks=checks,
-        tradeoffs=["교체 부품과 비용이 가장 적음", "현재 CPU·메인보드의 성능 한계는 유지"],
-        build={"cpu": _cpu_name(snapshot), "gpu": None, "motherboard": _board_name(snapshot), "ram": spec,
-               "psu_watt": None, "storage": [], "use_case": None},
-    )
-
-
-def _select_platform(snapshot: TelemetrySnapshot) -> dict:
-    profiles = json.loads(_PLATFORM_CATALOG.read_text(encoding="utf-8"))
-    current_cpu = _cpu_name(snapshot).lower()
-    current_vendor = "amd" if "amd" in current_cpu or "ryzen" in current_cpu else "intel" if "intel" in current_cpu else None
-    current_socket = infer_cpu_socket(_cpu_name(snapshot)) or infer_board_socket(_board_name(snapshot))
-    candidates = [profile for profile in profiles if profile["socket"] != current_socket]
-    preferred = [profile for profile in candidates if profile["vendor"] == current_vendor]
-    return min(preferred or candidates or profiles, key=lambda profile: profile["priority"])
-
-
-def _platform_bundle(snapshot: TelemetrySnapshot, reason: str) -> ReplacementCandidate | None:
-    profile = _select_platform(snapshot)
-    candidate_id = profile["id"]
-    parts = [
-        _part(candidate_id, "cpu", profile["cpu"], "플랫폼 카탈로그의 보급형 CPU 후보"),
-        _part(candidate_id, "motherboard", profile["motherboard"], "CPU 소켓과 메모리 규격을 함께 전환"),
-        _part(candidate_id, "memory", profile["memory"], "신규 플랫폼에 맞는 메모리 구성"),
-    ]
-    current_socket = infer_cpu_socket(_cpu_name(snapshot)) or infer_board_socket(_board_name(snapshot))
-    return _verified_candidate(
-        candidate_id=candidate_id, strategy="platform", title=profile["title"],
-        summary="CPU·메인보드·RAM을 함께 바꿔 향후 업그레이드 경로를 확보합니다.", recommended=False,
-        parts=parts,
-        checks=[
-            CompatibilityCheck(label="CPU 소켓", status="passed", detail=f"CPU와 메인보드는 {profile['socket']} 소켓으로 일치합니다."),
-            CompatibilityCheck(label="메모리 세대", status="passed", detail=f"메인보드와 메모리는 {profile['memory_generation']} 규격으로 일치합니다."),
-            CompatibilityCheck(label="케이스·파워", status="conditional", detail="케이스 규격과 PSU 용량은 WMI에서 확인할 수 없어 구매 전에 확인해야 합니다."),
-        ],
-        tradeoffs=[profile["upgrade_path"], "최소 교체안보다 비용과 작업 범위가 큼", reason,
-                   f"현재 플랫폼: {current_socket or '확인 불가'}"],
-        build={"cpu": profile["cpu"], "gpu": None, "motherboard": profile["motherboard"],
-               "ram": profile["memory"], "psu_watt": None,
-               "storage": [{"type": "NVMe", "capacity_gb": 1000}], "use_case": None},
+        candidate_id=product["id"], strategy="minimal", title=product["name"],
+        summary="현재 CPU와 메인보드를 유지하고 메모리 용량 부족만 해결하는 카탈로그 후보입니다.", recommended=True,
+        parts=[_catalog_part(product, "수집된 메모리 세대와 필요 용량 조건에 맞는 실제 제품")], checks=checks,
+        tradeoffs=["문제 부품만 교체해 비용을 최소화", "메모리 모듈 규격과 빈 슬롯은 장착 전에 다시 확인 필요"],
+        build={"cpu": _cpu_name(snapshot), "gpu": None, "motherboard": _board_name(snapshot),
+               "ram": product["specifications"][0], "psu_watt": None, "storage": [], "use_case": None},
     )
 
 
@@ -152,47 +150,77 @@ def _storage_candidates(snapshot: TelemetrySnapshot) -> list[ReplacementCandidat
     capacity = max(1000, int(disk.get("size_gb") or 0))
     bus = str(disk.get("bus_type") or disk.get("interface") or "").upper()
     interface = "NVMe" if "NVME" in bus else "SATA" if "SATA" in bus or "IDE" in bus else None
-    name = f"{interface or '내장'} SSD {capacity}GB"
-    minimal = _verified_candidate(
-        candidate_id="storage-minimal", strategy="minimal", title="최소 교체: 저장장치만 교체",
-        summary="현재 플랫폼을 유지하고 문제가 확인된 저장장치만 같은 인터페이스로 교체합니다.", recommended=True,
-        parts=[_part("storage-minimal", "storage", name, "고장 위험 또는 성능 병목이 확인된 디스크를 교체")],
-        checks=[CompatibilityCheck(
-            label="저장장치 인터페이스", status="passed" if interface else "conditional",
-            detail=(f"현재 시스템 디스크의 {interface} 인터페이스와 같은 규격을 선택했습니다."
-                    if interface else "현재 인터페이스가 확인되지 않아 SATA/NVMe 지원 여부를 구매 전에 확인해야 합니다."),
-        )], tradeoffs=["문제 부품만 교체해 비용을 최소화", "OS와 데이터 마이그레이션 필요"],
-        build={"cpu": _cpu_name(snapshot), "gpu": None, "motherboard": _board_name(snapshot), "ram": None,
-               "psu_watt": None, "storage": [{"type": interface or "SSD", "capacity_gb": capacity}],
-               "existing_storage": [
-                   {"type": item.get("bus_type") or item.get("interface") or item.get("media_type")}
-                   for item in (_hardware(snapshot).get("storage") or [])
-               ], "use_case": None},
-    )
-    platform = _platform_bundle(snapshot, "저장장치 이상만으로는 플랫폼 전체 교체 근거가 부족함")
-    return [candidate for candidate in (minimal, platform) if candidate is not None]
+    products = [
+        product for product in _catalog_products()
+        if product.get("category") == "storage"
+        and (not interface or product.get("interface") == interface)
+        and int(product.get("capacity_gb") or 0) >= capacity
+    ]
+    candidates: list[ReplacementCandidate] = []
+    for product in products:
+        candidate = _verified_candidate(
+            candidate_id=product["id"], strategy="minimal", title=product["name"],
+            summary="현재 플랫폼을 유지하고 문제가 확인된 저장장치만 교체하는 카탈로그 후보입니다.", recommended=not candidates,
+            parts=[_catalog_part(product, "수집된 저장장치 인터페이스와 최소 용량 조건에 맞는 실제 제품")],
+            checks=[
+                CompatibilityCheck(label="제품 정보 출처", status="passed", detail=f"{product['source_label']}에 등록된 모델입니다."),
+                CompatibilityCheck(
+                    label="저장장치 인터페이스", status="passed" if interface else "conditional",
+                    detail=(f"현재 시스템 디스크의 {interface} 인터페이스 조건과 일치합니다."
+                            if interface else "현재 인터페이스를 확인하지 못해 NVMe M.2 슬롯 지원 여부를 구매 전에 확인해야 합니다."),
+                ),
+                CompatibilityCheck(label="물리 규격", status="conditional", detail=f"{product['form_factor']} 규격입니다. 메인보드 또는 노트북의 실제 슬롯 길이와 방열판 간섭을 구매 전에 확인해야 합니다."),
+                CompatibilityCheck(label="용량", status="passed", detail=f"현재 시스템 디스크 {capacity}GB 이상인 {product['capacity_gb']}GB 모델입니다."),
+            ], tradeoffs=["문제 부품만 교체해 비용을 최소화", "OS와 데이터 마이그레이션 필요"],
+            build={"cpu": _cpu_name(snapshot), "gpu": None, "motherboard": _board_name(snapshot), "ram": None,
+                   "psu_watt": None, "storage": [{"type": interface or "SSD", "capacity_gb": product["capacity_gb"]}],
+                   "existing_storage": [
+                       {"type": item.get("bus_type") or item.get("interface") or item.get("media_type")}
+                       for item in (_hardware(snapshot).get("storage") or [])
+                   ], "use_case": None},
+        )
+        if candidate is not None:
+            candidates.append(candidate)
+    return candidates
 
 
 def _recommendation(finding: Finding, snapshot: TelemetrySnapshot) -> Recommendation | None:
     if finding.rule_id in _MEMORY_RULES:
         memory = _hardware(snapshot).get("memory") or {}
         target = max(16, int(memory.get("total_gb") or 0) * 2)
-        candidates = [candidate for candidate in (
-            _minimal_memory(snapshot, target),
-            _platform_bundle(snapshot, "메모리 부족만으로는 플랫폼 전체 교체 근거가 부족함"),
-        ) if candidate is not None]
-        category, title = "memory", "메모리 교체 범위 비교"
+        candidates = [candidate for candidate in (_minimal_memory(snapshot, target),) if candidate is not None]
+        category, title = "memory", "호환 메모리 증설 제안"
     elif finding.rule_id in _STORAGE_RULES:
         candidates = _storage_candidates(snapshot)
-        category, title = "storage", "저장장치 교체 범위 비교"
+        category, title = "storage", "호환 저장장치 교체 제안"
     else:
         return None
+    if not candidates:
+        return None
     query = candidates[0].parts[0].search_query if candidates else f"{category} replacement"
+    recommended = candidates[0]
+    cautions = [
+        check.detail
+        for check in recommended.checks
+        if check.status == "conditional"
+    ][:3]
+    if not cautions:
+        cautions = recommended.tradeoffs[-2:]
     return Recommendation(
         id=f"{category}-recommendation", findingIds=[finding.rule_id], priority=_PRIORITY[finding.severity],
         category=category, title=title, description=finding.summary, searchQuery=query,
         searchUrl="https://search.shopping.naver.com/search/all?query={0}".format(quote_plus(query)),
         candidates=candidates,
+        aiInsight=RecommendationAiInsight(
+            provider="template",
+            model="deterministic-ko-v1",
+            status="fallback",
+            rationale=(
+                f"{finding.title}에 대응하면서 현재 부품을 최대한 유지하는 선택입니다. "
+                f"우선 후보는 {recommended.title}입니다."
+            ),
+            cautions=cautions,
+        ),
     )
 
 

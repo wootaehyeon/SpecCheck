@@ -108,6 +108,9 @@ class CandidatePart(UiModel):
     name: str
     search_query: str = Field(alias="searchQuery")
     reason: str
+    specifications: list[str] = Field(default_factory=list)
+    source_label: str | None = Field(default=None, alias="sourceLabel")
+    source_url: str | None = Field(default=None, alias="sourceUrl")
 
 
 class ReplacementCandidate(UiModel):
@@ -123,6 +126,14 @@ class ReplacementCandidate(UiModel):
     tradeoffs: list[str]
 
 
+class RecommendationAiInsight(UiModel):
+    provider: Literal["ollama", "template"]
+    model: str
+    status: Literal["generated", "fallback", "unavailable"]
+    rationale: str
+    cautions: list[str]
+
+
 class Recommendation(UiModel):
     id: str
     finding_ids: list[str] = Field(alias="findingIds")
@@ -133,6 +144,7 @@ class Recommendation(UiModel):
     search_query: str = Field(alias="searchQuery")
     search_url: str = Field(alias="searchUrl")
     candidates: list[ReplacementCandidate]
+    ai_insight: RecommendationAiInsight = Field(alias="aiInsight")
 
 
 class UiDiagnosis(UiModel):

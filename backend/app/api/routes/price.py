@@ -64,7 +64,9 @@ def market_prices(request: MarketPricesRequest):
                     listingCount=0,
                     mall=None,
                     source="error",
-                    error=market_data.get("error")
+                    error=market_data.get("error"),
+                    errorCode=market_data.get("error_code"),
+                    cached=False,
                 )
             )
             continue
@@ -83,7 +85,9 @@ def market_prices(request: MarketPricesRequest):
                 listingCount=market_data.get("listing_count", 0),
                 mall=market_data.get("mall") or "Naver 쇼핑",
                 source="naver",
-                error=None
+                error=None,
+                errorCode=None,
+                cached=market_data.get("cached", False),
             )
         )
 

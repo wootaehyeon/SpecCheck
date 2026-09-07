@@ -16,6 +16,8 @@ export type MarketPrice = {
   mall: string | null;
   source: string | null;
   error: string | null;
+  errorCode: string | null;
+  cached: boolean | null;
 };
 
 export type MarketPricesResponse = { prices: MarketPrice[] };
@@ -66,6 +68,13 @@ export type Diagnosis = {
     description: string;
     searchQuery: string;
     searchUrl: string;
+    aiInsight: {
+      provider: 'ollama' | 'template';
+      model: string;
+      status: 'generated' | 'fallback' | 'unavailable';
+      rationale: string;
+      cautions: string[];
+    };
     candidates: Array<{
       id: string;
       strategy: 'minimal' | 'platform';
@@ -81,6 +90,9 @@ export type Diagnosis = {
         name: string;
         searchQuery: string;
         reason: string;
+        specifications: string[];
+        sourceLabel: string | null;
+        sourceUrl: string | null;
       }>;
       tradeoffs: string[];
     }>;

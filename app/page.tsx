@@ -104,8 +104,8 @@ function CandidateComparison({ diagnosis, marketPrices, marketLoading }: {
 
   return <Card className="border border-orange-400/15 bg-card/65">
     <CardHeader>
-      <CardDescription>호환성 검증 후보 비교</CardDescription>
-      <CardTitle>최소 교체와 플랫폼 교체</CardTitle>
+      <CardDescription>진단 근거 기반 호환성 검증</CardDescription>
+      <CardTitle>문제 부품 중심 교체 제안</CardTitle>
       <CardAction><HardDrive className="size-5 text-orange-300" /></CardAction>
     </CardHeader>
     <CardContent className="space-y-6">
@@ -118,11 +118,30 @@ function CandidateComparison({ diagnosis, marketPrices, marketLoading }: {
             </div>
             <Badge variant="outline" className={recommendationTone[recommendation.priority]}>{recommendation.priority.toUpperCase()}</Badge>
           </div>
+          <div className="mb-4 border-l-2 border-primary/35 pl-3">
+            <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold">
+              <Sparkles className="size-3.5 text-primary" />
+              <span>교체 추천 AI</span>
+              <Badge variant="outline" className="text-[9px]">
+                {recommendation.aiInsight.status === 'generated'
+                  ? 'LOCAL GEMMA'
+                  : recommendation.aiInsight.status === 'unavailable'
+                    ? 'GEMMA UNAVAILABLE'
+                    : 'RULE FALLBACK'}
+              </Badge>
+            </div>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">{recommendation.aiInsight.rationale}</p>
+            {recommendation.aiInsight.cautions.length > 0 && <ul className="mt-2 space-y-1 text-[10px] leading-4 text-muted-foreground">
+              {recommendation.aiInsight.cautions.map((item) => <li key={item}>주의 · {item}</li>)}
+            </ul>}
+            <div className="mt-2 font-mono text-[9px] text-muted-foreground">{recommendation.aiInsight.model} · PC 외부 전송 없음</div>
+          </div>
           <div className="grid gap-4 xl:grid-cols-2">
             {(recommendation.candidates ?? []).map((candidate) => {
               const priced = candidate.parts.map((part) => marketPrices[part.key]).filter(Boolean);
               const completePrice = candidate.parts.length > 0 && priced.length === candidate.parts.length && priced.every((item) => !item.error && item.averagePrice > 0);
-              const averageTotal = completePrice ? priced.reduce((sum, item) => sum + item.averagePrice, 0) : null;
+              const lowestTotal = completePrice ? priced.reduce((sum, item) => sum + item.lowestPrice, 0) : null;
+              const marketError = priced.find((item) => item.error)?.error;
               return <div key={candidate.id} className={`rounded-lg border p-4 ${candidate.recommended ? 'border-primary/25 bg-primary/[.04]' : 'border-white/8 bg-white/[.02]'}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -133,7 +152,7 @@ function CandidateComparison({ diagnosis, marketPrices, marketLoading }: {
                     <p className="mt-2 text-xs leading-5 text-muted-foreground">{candidate.summary}</p>
                   </div>
                   <Badge variant="outline" className={candidate.compatibilityStatus === 'passed' ? 'border-emerald-400/20 text-emerald-300' : 'border-amber-400/20 text-amber-300'}>
-                    {candidate.compatibilityStatus === 'passed' ? '호환 통과' : '조건부 통과'} · {candidate.compatibilityScore}
+                    {candidate.compatibilityStatus === 'passed' ? '확인 조건 일치' : '추가 확인 필요'}
                   </Badge>
                 </div>
 
@@ -141,24 +160,31 @@ function CandidateComparison({ diagnosis, marketPrices, marketLoading }: {
                   <div className="text-[11px] font-semibold">교체 부품</div>
                   {candidate.parts.map((part) => {
                     const price = marketPrices[part.key];
-                    const hasPrice = price && !price.error && price.averagePrice > 0;
+                    const hasPrice = price && !price.error && price.lowestPrice > 0;
                     return <div key={part.key} className="rounded-md border border-white/6 bg-black/10 p-3">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <div className="text-xs font-medium">{part.name}</div>
                           <div className="mt-1 text-[10px] leading-4 text-muted-foreground">{part.reason}</div>
+                          {part.specifications.length > 0 && <div className="mt-2 flex flex-wrap gap-1">
+                            {part.specifications.map((specification) => <Badge key={specification} variant="outline" className="text-[9px] font-normal text-muted-foreground">{specification}</Badge>)}
+                          </div>}
                         </div>
-                        {hasPrice && <div className="shrink-0 text-xs font-semibold text-primary">{formatPrice(price.averagePrice)}</div>}
+                        {hasPrice && <div className="shrink-0 text-xs font-semibold text-primary">최저 {formatPrice(price.lowestPrice)}</div>}
                       </div>
                       {hasPrice && <div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground">
-                        <span>최저 {formatPrice(price.lowestPrice)} · {price.mall}</span>
-                        {price.purchaseLink && <a href={price.purchaseLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary">상품 <ExternalLink className="size-3" /></a>}
+                        <span>{price.mall} · {price.listingCount}건 비교 · 평균 {formatPrice(price.averagePrice)}</span>
+                        {price.purchaseLink && <a href={price.purchaseLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary">최저가 상품 <ExternalLink className="size-3" /></a>}
                       </div>}
+                      {part.sourceUrl && <a href={part.sourceUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-[10px] text-primary">
+                        {part.sourceLabel ?? '제조사 사양'} <ExternalLink className="size-3" />
+                      </a>}
                     </div>;
                   })}
                   {marketLoading && <div className="flex items-center gap-2 text-[10px] text-muted-foreground"><RefreshCw className="size-3 animate-spin" />부품별 시세 확인 중</div>}
-                  {!marketLoading && !completePrice && <div className="text-[10px] leading-4 text-muted-foreground">네이버 쇼핑 API 연결 후 부품별 시세와 합계가 표시됩니다.</div>}
-                  {averageTotal !== null && <div className="flex items-center justify-between border-t border-white/8 pt-3 text-sm"><span>예상 평균 합계</span><strong>{formatPrice(averageTotal)}</strong></div>}
+                  {!marketLoading && marketError && <div className="text-[10px] leading-4 text-amber-300">{marketError}</div>}
+                  {!marketLoading && !completePrice && !marketError && <div className="text-[10px] leading-4 text-muted-foreground">동일 모델의 네이버 쇼핑 최저가를 확인하지 못했습니다.</div>}
+                  {lowestTotal !== null && <div className="flex items-center justify-between border-t border-white/8 pt-3 text-sm"><span>예상 최저 합계</span><strong>{formatPrice(lowestTotal)}</strong></div>}
                 </div>
 
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">

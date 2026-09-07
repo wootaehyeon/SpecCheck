@@ -148,7 +148,7 @@
     "recommendation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "findingIds", "priority", "category", "title", "description", "searchQuery", "searchUrl", "candidates"],
+      "required": ["id", "findingIds", "priority", "category", "title", "description", "searchQuery", "searchUrl", "candidates", "aiInsight"],
       "properties": {
         "id": { "type": "string" },
         "findingIds": { "type": "array", "items": { "type": "string" } },
@@ -158,7 +158,20 @@
         "description": { "type": "string" },
         "searchQuery": { "type": "string" },
         "searchUrl": { "type": "string", "format": "uri" },
-        "candidates": { "type": "array", "items": { "$ref": "#/$defs/replacementCandidate" } }
+        "candidates": { "type": "array", "items": { "$ref": "#/$defs/replacementCandidate" } },
+        "aiInsight": { "$ref": "#/$defs/recommendationAiInsight" }
+      }
+    },
+    "recommendationAiInsight": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "model", "status", "rationale", "cautions"],
+      "properties": {
+        "provider": { "enum": ["ollama", "template"] },
+        "model": { "type": "string" },
+        "status": { "enum": ["generated", "fallback", "unavailable"] },
+        "rationale": { "type": "string" },
+        "cautions": { "type": "array", "items": { "type": "string" } }
       }
     },
     "replacementCandidate": {
@@ -191,13 +204,16 @@
     "candidatePart": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["key", "category", "name", "searchQuery", "reason"],
+      "required": ["key", "category", "name", "searchQuery", "reason", "specifications", "sourceLabel", "sourceUrl"],
       "properties": {
         "key": { "type": "string" },
         "category": { "enum": ["cpu", "motherboard", "memory", "storage"] },
         "name": { "type": "string" },
         "searchQuery": { "type": "string" },
-        "reason": { "type": "string" }
+        "reason": { "type": "string" },
+        "specifications": { "type": "array", "items": { "type": "string" } },
+        "sourceLabel": { "type": ["string", "null"] },
+        "sourceUrl": { "type": ["string", "null"], "format": "uri" }
       }
     }
   }

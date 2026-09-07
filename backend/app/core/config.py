@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     naver_client_id: str = ""
     naver_client_secret: str = ""
+    #: 동일 모델의 가격 조회 결과를 짧게 보관해 API 호출량과 화면 대기 시간을 줄인다.
+    naver_price_cache_ttl_seconds: int = 900
     ebay_app_id: str = ""
 
     # --- 게시글 품질 평가 (GPT-2 perplexity) ---

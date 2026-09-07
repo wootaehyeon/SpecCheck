@@ -16,6 +16,7 @@ from app.schemas.ui_diagnosis import (
     Machine,
     Resource,
     Risk,
+    Recommendation,
     Source,
     UiDiagnosis,
     UiFinding,
@@ -296,7 +297,12 @@ def _findings(findings: Iterable[Finding]) -> list[UiFinding]:
     ]
 
 
-def to_ui_diagnosis(snapshot: TelemetrySnapshot, result: DiagnosisResult, ai: dict[str, Any]) -> UiDiagnosis:
+def to_ui_diagnosis(
+    snapshot: TelemetrySnapshot,
+    result: DiagnosisResult,
+    ai: dict[str, Any],
+    recommendations: list[Recommendation] | None = None,
+) -> UiDiagnosis:
     findings = result.findings
     score = score_findings(findings)
     status = _diagnosis_status(snapshot)
@@ -332,5 +338,7 @@ def to_ui_diagnosis(snapshot: TelemetrySnapshot, result: DiagnosisResult, ai: di
             reason=result.decision.reason,
             drivenBy=result.decision.driven_by,
         ),
-        recommendations=build_recommendations(snapshot, result),
+        recommendations=(
+            recommendations if recommendations is not None else build_recommendations(snapshot, result)
+        ),
     )

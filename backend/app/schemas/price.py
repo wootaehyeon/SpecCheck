@@ -42,6 +42,8 @@ class PartPriceInfo(BaseModel):
     mall: Optional[str] = None
     source: Optional[str] = None
     error: Optional[str] = None
+    errorCode: Optional[str] = None
+    cached: Optional[bool] = None
 
 class MarketPricesRequest(BaseModel):
     parts: List[PartRequest]

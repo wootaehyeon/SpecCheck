@@ -1,0 +1,105 @@
+{
+  "version": "2026.09",
+  "products": [
+    {
+      "id": "wd-black-sn850x-1tb",
+      "category": "storage",
+      "name": "WD_BLACK SN850X 1TB",
+      "search_query": "WD_BLACK SN850X 1TB WDS100T2X0E",
+      "interface": "NVMe",
+      "form_factor": "M.2 2280",
+      "capacity_gb": 1000,
+      "selection_priority": 10,
+      "specifications": ["고성능 OS/게임 등급", "PCIe Gen4 x4 NVMe", "M.2 2280", "TLC 3D NAND", "최대 읽기/쓰기 7,300/6,300 MB/s", "600 TBW / 5년 제한 보증"],
+      "source_label": "Western Digital SN850X 제품 사양서",
+      "source_url": "https://documents.westerndigital.com/content/dam/doc-library/en_us/assets/public/western-digital/product/internal-drives/wd-black-ssd/data-sheet-wd-black-sn850x-nvme-ssd.pdf"
+    },
+    {
+      "id": "crucial-t500-1tb",
+      "category": "storage",
+      "name": "Crucial T500 1TB",
+      "search_query": "Crucial T500 1TB CT1000T500SSD8",
+      "interface": "NVMe",
+      "form_factor": "M.2 2280",
+      "capacity_gb": 1000,
+      "selection_priority": 10,
+      "specifications": ["고성능 OS/작업 등급", "PCIe Gen4 x4 NVMe", "M.2 2280", "최대 읽기/쓰기 7,400/7,000 MB/s", "5년 제한 보증"],
+      "source_label": "Crucial T500 제품 정보",
+      "source_url": "https://www.crucial.com/ssd/t500"
+    },
+    {
+      "id": "sk-hynix-platinum-p41-1tb",
+      "category": "storage",
+      "name": "SK hynix Platinum P41 1TB",
+      "search_query": "SK hynix Platinum P41 1TB",
+      "interface": "NVMe",
+      "form_factor": "M.2 2280",
+      "capacity_gb": 1000,
+      "selection_priority": 10,
+      "specifications": ["고성능 OS/작업 등급", "PCIe 4.0 x4 NVMe", "M.2 2280 단면", "176L 3D TLC NAND", "최대 읽기/쓰기 7,000/6,500 MB/s", "750 TBW / 5년 보증"],
+      "source_label": "SK hynix Platinum P41 제품 사양",
+      "source_url": "https://ssd.skhynix.com/kr/platinum_p41/"
+    },
+    {
+      "id": "wd-blue-sn580-1tb",
+      "category": "storage",
+      "name": "WD Blue SN580 1TB",
+      "search_query": "WD Blue SN580 1TB WDS100T3B0E",
+      "interface": "NVMe",
+      "form_factor": "M.2 2280",
+      "capacity_gb": 1000,
+      "selection_priority": 80,
+      "specifications": ["가성비 일반용 등급", "PCIe Gen4 NVMe 1.4b", "M.2 2280", "TLC NAND", "최대 읽기/쓰기 4,150/4,150 MB/s", "5년 제한 보증"],
+      "source_label": "Western Digital 제품 사양서",
+      "source_url": "https://documents.westerndigital.com/content/dam/doc-library/en_us/assets/public/western-digital/product/internal-drives/wd-blue-ssd/product-brief-wd-blue-sn580-nvme-ssd.pdf"
+    },
+    {
+      "id": "samsung-990-evo-plus-1tb",
+      "category": "storage",
+      "name": "Samsung 990 EVO Plus 1TB",
+      "search_query": "Samsung 990 EVO Plus 1TB MZ-V9S1T0",
+      "interface": "NVMe",
+      "form_factor": "M.2 2280",
+      "capacity_gb": 1000,
+      "selection_priority": 25,
+      "specifications": ["균형형 OS/일반 작업 등급", "PCIe 4.0 x4 / 5.0 x2 NVMe 2.0", "M.2 2280", "V-NAND TLC", "최대 읽기/쓰기 7,150/6,300 MB/s", "600 TBW 또는 5년 제한 보증"],
+      "source_label": "Samsung 990 EVO Plus 제품 사양",
+      "source_url": "https://www.samsung.com/sec/support/model/MZ-V9S1T0BW/"
+    },
+    {
+      "id": "kingston-kc3000-1024gb",
+      "category": "storage",
+      "name": "Kingston KC3000 1024GB",
+      "search_query": "Kingston KC3000 1024GB SKC3000S/1024G",
+      "interface": "NVMe",
+      "form_factor": "M.2 2280",
+      "capacity_gb": 1024,
+      "selection_priority": 25,
+      "specifications": ["균형형 OS/작업 등급", "PCIe 4.0 x4 NVMe", "M.2 2280", "3D TLC NAND / DRAM cache", "최대 읽기/쓰기 7,000/6,000 MB/s", "5년 제한 보증"],
+      "source_label": "Kingston KC3000 제품 사양",
+      "source_url": "https://www.kingston.com/unitedkingdom/en/ssd/kc3000-nvme-m2-solid-state-drive/?capacity=1024gb"
+    },
+    {
+      "id": "kingston-fury-beast-ddr4-32gb-3200",
+      "category": "memory",
+      "name": "Kingston FURY Beast DDR4 32GB 3200MT/s Kit",
+      "search_query": "Kingston FURY Beast DDR4 32GB 3200 KF432C16BBK2/32",
+      "memory_generation": "DDR4",
+      "capacity_gb": 32,
+      "specifications": ["DDR4", "32GB kit (16GB x2)", "3200MT/s", "데스크톱 UDIMM"],
+      "source_label": "Kingston FURY Beast DDR4 제품 정보",
+      "source_url": "https://www.kingston.com/en/memory/gaming/kingston-fury-beast-ddr4-memory"
+    },
+    {
+      "id": "kingston-fury-beast-ddr5-32gb-6000",
+      "category": "memory",
+      "name": "Kingston FURY Beast DDR5 32GB 6000MT/s Kit",
+      "search_query": "Kingston FURY Beast DDR5 32GB 6000 KF560C36BBEK2-32",
+      "memory_generation": "DDR5",
+      "capacity_gb": 32,
+      "specifications": ["DDR5", "32GB kit (16GB x2)", "6000MT/s", "데스크톱 UDIMM"],
+      "source_label": "Kingston FURY Beast DDR5 제품 정보",
+      "source_url": "https://www.kingston.com/en/memory/gaming/kingston-fury-beast-ddr5-memory"
+    }
+  ]
+}
