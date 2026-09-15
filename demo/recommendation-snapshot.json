@@ -1,0 +1,149 @@
+{
+  "schema_version": "1.1.0",
+  "snapshot_id": "00000000-0000-0000-0000-000000000000",
+  "collected_at": "2026-01-01T00:00:00Z",
+  "scan_mode": "actual",
+  "device_id": "speccheck-demo-recommendation",
+  "agent": {
+    "version": "0.3.0-demo",
+    "os": "Windows",
+    "os_version": "11 Demo"
+  },
+  "sections": {
+    "hardware": {
+      "status": "ok",
+      "milestone": "M1",
+      "data": {
+        "os": {
+          "caption": "Windows 11 Pro",
+          "build": "26100"
+        },
+        "cpu": [
+          {
+            "name": "AMD Ryzen 5 3600 6-Core Processor",
+            "cores": 6,
+            "threads": 12,
+            "max_clock_mhz": 4200
+          }
+        ],
+        "memory": {
+          "total_gb": 4,
+          "module_count": 1,
+          "slot_count": 4,
+          "empty_slot_count": 3,
+          "modules": [
+            {
+              "slot": "DIMM_A1",
+              "capacity_gb": 4,
+              "rated_speed_mhz": 3200,
+              "configured_speed_mhz": 3200,
+              "manufacturer": "Demo Memory"
+            }
+          ]
+        },
+        "gpu": [
+          {
+            "name": "NVIDIA GeForce GTX 1660 SUPER",
+            "adapter_ram_gb": 6,
+            "driver_version": "Demo Driver"
+          }
+        ],
+        "storage": [
+          {
+            "index": 0,
+            "model": "Demo 1TB System HDD",
+            "media_type": "HDD",
+            "size_gb": 1000
+          }
+        ],
+        "motherboard": {
+          "manufacturer": "GIGABYTE",
+          "product": "B450M DS3H",
+          "bios": {
+            "version": "F64"
+          }
+        }
+      }
+    },
+    "storage_health": {
+      "status": "ok",
+      "milestone": "M2",
+      "data": {
+        "volumes": [
+          {
+            "drive": "C:",
+            "is_system": true,
+            "size_gb": 1000,
+            "free_gb": 180,
+            "free_percent": 18
+          }
+        ],
+        "disks": [
+          {
+            "index": 0,
+            "model": "Demo 1TB System HDD",
+            "is_system": true,
+            "size_gb": 1000,
+            "predict_failure": true,
+            "predict_failure_reason": "DEMO-SMART",
+            "reallocated_sectors": 18,
+            "pending_sectors": 3,
+            "uncorrectable_sectors": 1,
+            "power_on_hours": 28400
+          }
+        ],
+        "collect_errors": []
+      }
+    },
+    "reliability": {
+      "status": "ok",
+      "milestone": "M2",
+      "data": {
+        "totals": {
+          "whea": 0,
+          "disk_error": 15,
+          "driver_error": 1
+        },
+        "events": []
+      }
+    },
+    "performance": {
+      "status": "ok",
+      "milestone": "M2",
+      "data": {
+        "cpu": {
+          "usage_percent": {
+            "avg": 38,
+            "max": 72
+          },
+          "clock": {
+            "current_mhz": 3950,
+            "max_mhz": 4200
+          }
+        },
+        "memory": {
+          "available_mb": {
+            "avg": 420,
+            "min": 180
+          },
+          "committed_percent": {
+            "avg": 94,
+            "max": 98
+          }
+        },
+        "disk": {
+          "queue_length": {
+            "avg": 3.8,
+            "max": 8.2
+          }
+        }
+      }
+    },
+    "security": {
+      "status": "planned",
+      "milestone": "M6",
+      "data": {}
+    }
+  },
+  "notes": "SpecCheck component recommendation demo data. This is not actual PC telemetry."
+}

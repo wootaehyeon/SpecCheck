@@ -11,6 +11,19 @@
 현재 Basic Scan UI는 Python Local Agent가 생성한 `telemetry 1.1.0`을 FastAPI의
 17개 규칙으로 분석하고 `diagnosis 1.2.0`으로 변환해 표시합니다.
 
+### Windows 원클릭 실행
+
+프로젝트 루트의 `Start-SpecCheck.bat`을 더블클릭하면 필요한 패키지를 최초 1회
+준비한 뒤 Backend와 UI를 함께 실행하고 브라우저를 자동으로 엽니다. 사용자명이나
+절대 경로 설정은 필요하지 않습니다. 실행 창을 닫거나 `Ctrl+C`를 누르면 서버가
+종료됩니다. 다른 PC에서는 Node.js 22.13 이상과 Python 3.10 이상이 필요합니다.
+
+부품 추천 화면을 바로 시연하려면 `Start-SpecCheck-Demo.bat`을 더블클릭합니다.
+실제 PC telemetry 대신 저장소에 포함된 비식별 데모 Snapshot을 사용하며, 메모리
+증설과 저장장치 교체 후보가 포함된 진단 결과를 생성합니다.
+
+### 명령어 실행
+
 ```powershell
 # Backend + UI
 pnpm dev:all
