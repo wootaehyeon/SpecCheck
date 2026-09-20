@@ -83,3 +83,14 @@ python -m pytest
 ```
 
 CIM(Windows)에 의존하지 않는 순수 로직만 검증하므로 어느 환경에서도 돈다.
+
+## Advanced Scan (M5–M9)
+
+Sysmon 수집, 이벤트 상관 분석, 로컬 z-score 이상 신호, 추세 예측과 안정화가
+추가되었습니다. [구현·사용법·제한 사항](../docs/ADVANCED_SCAN.md)을 참고하세요.
+
+```powershell
+python -m speccheck_agent scan
+python -m speccheck_agent analyze
+python -m speccheck_agent prune --keep 200
+```

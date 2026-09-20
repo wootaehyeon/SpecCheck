@@ -11,6 +11,7 @@ PowerShell 프로세스 기동 비용이 조회당 약 2초다. 조회가 여러
 from __future__ import annotations
 
 import json
+import base64
 import platform
 import subprocess
 from typing import Any
@@ -23,7 +24,7 @@ _PREAMBLE = (
 )
 
 DEFAULT_TIMEOUT = 30.0
-BATCH_TIMEOUT = 60.0
+BATCH_TIMEOUT = 12.0
 
 
 class CimError(RuntimeError):
@@ -47,12 +48,13 @@ def run_powershell(script: str, timeout: float = DEFAULT_TIMEOUT) -> str:
                 "-NonInteractive",
                 "-ExecutionPolicy",
                 "Bypass",
-                "-Command",
-                _PREAMBLE + script,
+                "-EncodedCommand",
+                base64.b64encode((_PREAMBLE + script).encode('utf-16-le')).decode('ascii'),
             ],
             capture_output=True,
             timeout=timeout,
             check=False,
+            creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
         )
     except FileNotFoundError as exc:  # PowerShell 자체가 없는 경우
         raise CimError("powershell 실행 파일을 찾을 수 없습니다") from exc
@@ -60,10 +62,9 @@ def run_powershell(script: str, timeout: float = DEFAULT_TIMEOUT) -> str:
         raise CimError("PowerShell 조회 시간 초과 ({0}s)".format(timeout)) from exc
 
     if proc.returncode != 0:
-        stderr = proc.stderr.decode("utf-8", errors="replace").strip()
-        raise CimError(stderr or "PowerShell 종료 코드 {0}".format(proc.returncode))
+        raise CimError("PowerShell 종료 코드 {0}; 권한과 데이터 소스를 확인하세요".format(proc.returncode))
 
-    return proc.stdout.decode("utf-8", errors="replace")
+    return proc.stdout.decode("utf-8-sig", errors="replace")
 
 
 def _build_query(
@@ -113,7 +114,7 @@ def query(
     try:
         return _rows(json.loads(raw))
     except json.JSONDecodeError as exc:
-        raise CimError("CIM 응답 JSON 파싱 실패: {0}".format(raw[:200])) from exc
+        raise CimError("CIM 응답 JSON 파싱 실패") from exc
 
 
 def query_one(class_name: str, properties: list[str] | None = None, **kwargs: Any) -> dict[str, Any]:
@@ -146,7 +147,7 @@ def query_batch(
             spec.get("where"),
         )
         lines.append(
-            "try {{ $data['{0}'] = @({1}) }} catch {{ $errors['{0}'] = $_.Exception.Message }}".format(
+            "try {{ $data['{0}'] = @({1}) }} catch {{ $errors['{0}'] = 'query_unavailable' }}".format(
                 key, inner
             )
         )
@@ -161,7 +162,7 @@ def query_batch(
     try:
         parsed = json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise CimError("CIM 배치 응답 JSON 파싱 실패: {0}".format(raw[:200])) from exc
+        raise CimError("CIM 배치 응답 JSON 파싱 실패") from exc
 
     data_block = parsed.get("data") or {}
     error_block = parsed.get("errors") or {}

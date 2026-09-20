@@ -19,3 +19,10 @@ Agent(생산자)와 Backend(소비자)가 공유하는 데이터 계약.
 
 1. `agent/speccheck_agent/snapshot.py` → `SCHEMA_VERSION`
 2. `backend/app/schemas/telemetry.py` → `SUPPORTED_SCHEMA_MAJOR`
+
+## 1.1.0
+
+optional 섹션 `storage_health`, `correlation`, `anomaly`, `trajectory`와 Sysmon
+집계 데이터가 추가됐다. 기존 섹션 envelope는 동일하므로 지원 major는 1이다.
+Agent와 Backend의 저장·조회 테스트로 새 섹션의 보존을 확인한다.
+필드 의미와 결측/프라이버시 정책은 [Advanced Scan 계약 설명](../../docs/ADVANCED_SCAN.md)을 따른다.

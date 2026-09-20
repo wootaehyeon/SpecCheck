@@ -1,6 +1,10 @@
 # 로드맵 및 진행 상황
 
-기준일: 2026-08-25
+기준일: 2026-09-20
+
+> Agent M5–M9 구현 업데이트: [ADVANCED_SCAN.md](ADVANCED_SCAN.md).
+> 아래 표는 전체 서비스의 기존 번호다. 이전 M2 계획은 범위가 더 넓으며,
+> 이번에 추가한 분석 입력 수집과 상세 제한 사항은 링크에서 확인한다.
 
 ## Milestone
 
@@ -13,10 +17,10 @@
 | M4 | Rule Detection | 기본 이상 탐지 | 🟡 엔진 완료 · 규칙 5개 |
 | M5 | Local AI Diagnosis | Gemma 기반 설명 | 🟡 연동 완료 · 모델 검증 필요 |
 | **MVP** | **Basic Scan 완성** | **실제 사용자 진단 가능** | **M2 완료 시 도달** |
-| M6 | Sysmon 기반 구축 | Advanced Scan | 🔲 스텁 준비됨 |
-| M7 | Security Event Correlation | Process/Network/File 연결 | 🔲 |
-| M8 | ML Anomaly Detection | 비정상 패턴 탐지 | 🔲 |
-| M9 | Trajectory Analysis | 행동 sequence 분석 | 🔲 |
+| M6 | Sysmon 기반 구축 | Advanced Scan | 구현 · Sysmon 설치 기기 검증 필요 |
+| M7 | Security Event Correlation | 시간 창/프로세스 연결 | 구현 · 합성 시나리오 검증 |
+| M8 | ML Anomaly Detection | z-score 이상 신호 | 구현 · 로컬 baseline |
+| M9 | Trajectory Analysis | 저장장치/오류 추세 | 구현 · 선형 baseline |
 | M10 | SpecCheck 통합/배포 | 실제 서비스 완성 | 🔲 |
 
 ## Phase 대응

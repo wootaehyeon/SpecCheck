@@ -60,6 +60,21 @@ def test_health(client):
     assert response.json()["status"] == "ok"
 
 
+def test_schema_1_1_advanced_sections_round_trip(client):
+    payload = make_payload(schema_version='1.1.0')
+    payload['sections'].update({
+        'security': {'status': 'partial', 'milestone': 'M5', 'data': {'sysmon': {'status': 'skipped'}}},
+        'correlation': {'status': 'partial', 'milestone': 'M6', 'data': {'conclusion': 'unknown', 'candidates': []}},
+        'anomaly': {'status': 'partial', 'milestone': 'M7', 'data': {'signals': []}},
+        'trajectory': {'status': 'partial', 'milestone': 'M8', 'data': {'trends': []}},
+    })
+    response = client.post('/api/scan/snapshots', json=payload)
+    assert response.status_code == 201
+    fetched = client.get('/api/scan/snapshots/' + payload['snapshot_id']).json()
+    for key in ('security', 'correlation', 'anomaly', 'trajectory'):
+        assert fetched['sections'][key]['data'] == payload['sections'][key]['data']
+
+
 def test_upload_and_fetch_snapshot(client):
     response = client.post("/api/scan/snapshots", json=make_payload())
     assert response.status_code == 201

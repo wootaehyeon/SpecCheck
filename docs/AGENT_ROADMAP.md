@@ -1,6 +1,6 @@
 # Local Agent 로드맵
 
-담당: 우태현 · 브랜치: `agent-telemetry` · 기준일 2026-08-25
+담당: 우태현 · 브랜치: `agent-telemetry` · 기준일 2026-09-20
 
 이 문서는 `agent/` (Local Agent) 한 축의 마일스톤 계획이다. 설계 원칙과
 계약은 [ARCHITECTURE.md](ARCHITECTURE.md) 를 따르며, 이 문서는 **무엇을
@@ -8,7 +8,13 @@
 
 ---
 
-## 전체 지도
+## 현재 요청 범위 (M5–M9)
+
+요청한 번호는 M5 Sysmon, M6 Event Correlation, M7 ML Anomaly, M8 Trajectory,
+M9 Agent 안정화다. 구현·검증·제한 사항은 [ADVANCED_SCAN.md](ADVANCED_SCAN.md)에
+정리했다. 아래 지도는 이전 계획 번호를 보존한 것으로 현재 요청 번호와 다르다.
+
+## 이전 전체 지도
 
 | # | 마일스톤 | 기간 | 상태 | 한 줄 정의 |
 | --- | --- | --- | --- | --- |

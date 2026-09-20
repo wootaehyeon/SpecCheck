@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 
 #: Backend가 수용하는 스냅샷 스키마 MAJOR 버전.
 #: 이보다 높은 MAJOR가 오면 Agent 업데이트 없이는 해석할 수 없으므로 거절한다.
+# Schema 1.1 adds optional security/local-analysis sections; major stays 1.
 SUPPORTED_SCHEMA_MAJOR = 1
 
 ScanMode = Literal["actual", "estimated"]

@@ -28,6 +28,8 @@ CREATE TABLE IF NOT EXISTS snapshots (
 
 CREATE INDEX IF NOT EXISTS idx_snapshots_collected_at
     ON snapshots (collected_at DESC);
+CREATE INDEX IF NOT EXISTS idx_snapshots_device_time
+    ON snapshots (device_id, collected_at DESC);
 
 CREATE TABLE IF NOT EXISTS collector_runs (
     snapshot_id TEXT NOT NULL,
@@ -74,12 +76,19 @@ class SnapshotStore:
     # --- 쓰기 ------------------------------------------------------------
 
     def save(self, snapshot: dict[str, Any]) -> str:
+        with self.connect():
+            return self._save(snapshot)
+
+    def _save(self, snapshot: dict[str, Any]) -> str:
         conn = self.connect()
         agent = snapshot.get("agent") or {}
         conn.execute(
-            "INSERT OR REPLACE INTO snapshots "
+            "INSERT INTO snapshots "
             "(snapshot_id, device_id, collected_at, scan_mode, schema_version, agent_version, payload) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(snapshot_id) DO UPDATE SET "
+            "device_id=excluded.device_id, collected_at=excluded.collected_at, "
+            "scan_mode=excluded.scan_mode, schema_version=excluded.schema_version, "
+            "agent_version=excluded.agent_version, payload=excluded.payload",
             (
                 snapshot["snapshot_id"],
                 snapshot.get("device_id"),
@@ -90,6 +99,7 @@ class SnapshotStore:
                 json.dumps(snapshot, ensure_ascii=False),
             ),
         )
+        conn.execute('DELETE FROM collector_runs WHERE snapshot_id = ?', (snapshot['snapshot_id'],))
         rows = [
             (
                 snapshot["snapshot_id"],
@@ -106,7 +116,6 @@ class SnapshotStore:
             "(snapshot_id, name, status, milestone, duration_ms, error) VALUES (?, ?, ?, ?, ?, ?)",
             rows,
         )
-        conn.commit()
         return snapshot["snapshot_id"]
 
     def mark_uploaded(self, snapshot_id: str) -> None:
@@ -144,3 +153,27 @@ class SnapshotStore:
         )
         row = cursor.fetchone()
         return json.loads(row["payload"]) if row else None
+
+    def history(self, device_id: str, before: str, limit: int = 200) -> list[dict[str, Any]]:
+        """Bounded, device-scoped actual measurements, returned oldest first."""
+        if not 1 <= limit <= 1000:
+            raise ValueError('history limit must be between 1 and 1000')
+        rows = self.connect().execute(
+            "SELECT payload FROM snapshots WHERE device_id = ? AND scan_mode = 'actual' "
+            "AND julianday(collected_at) < julianday(?) ORDER BY julianday(collected_at) DESC LIMIT ?",
+            (device_id, before, limit),
+        ).fetchall()
+        return [json.loads(row['payload']) for row in reversed(rows)]
+
+    def prune(self, keep: int = 200) -> int:
+        """Keep the newest N snapshots per device, cascading collector runs."""
+        if keep < 1:
+            raise ValueError('keep must be positive')
+        conn = self.connect()
+        with conn:
+            cursor = conn.execute(
+                'DELETE FROM snapshots WHERE snapshot_id IN ('
+                'SELECT snapshot_id FROM (SELECT snapshot_id, ROW_NUMBER() OVER ('
+                'PARTITION BY device_id ORDER BY julianday(collected_at) DESC, snapshot_id DESC) AS n '
+                'FROM snapshots) WHERE n > ?)', (keep,))
+        return cursor.rowcount

@@ -92,13 +92,15 @@ class Collector(ABC):
             )
 
         elapsed = round((time.perf_counter() - started) * 1000, 1)
-        status = "partial" if data.get("_partial") else "ok"
+        status = "skipped" if data.pop("_skipped", False) else "partial" if data.get("_partial") else "ok"
+        reason = data.pop("_reason", None)
         data.pop("_partial", None)
         return CollectorResult(
             name=self.name,
             status=status,
             milestone=self.milestone,
             duration_ms=elapsed,
+            error=reason,
             data=data,
         )
 

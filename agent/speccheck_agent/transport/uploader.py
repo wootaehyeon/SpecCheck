@@ -36,8 +36,13 @@ def upload_snapshot(snapshot: dict[str, Any], backend_url: str, timeout: float =
         raise UploadError("{0} {1} - {2}".format(exc.code, exc.reason, detail)) from exc
     except urllib.error.URLError as exc:
         raise UploadError("Backend 연결 실패 ({0}): {1}".format(url, exc.reason)) from exc
+    except (TimeoutError, OSError) as exc:
+        raise UploadError('Backend transport failed ({0})'.format(type(exc).__name__)) from exc
 
     try:
-        return json.loads(payload)
-    except json.JSONDecodeError:
-        return {"raw": payload}
+        parsed = json.loads(payload)
+        if not isinstance(parsed, dict):
+            raise UploadError('Backend response must be an object')
+        return parsed
+    except (json.JSONDecodeError, UnicodeError) as exc:
+        raise UploadError('Backend returned invalid JSON') from exc

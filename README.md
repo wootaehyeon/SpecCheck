@@ -1,5 +1,8 @@
 # 🖥️ SpecCheck — AI 기반 PC Lifecycle Platform
 
+Agent M5–M9(Sysmon·상관 분석·이상 신호·추세·안정화) 업데이트는
+[구현 및 검증 문서](docs/ADVANCED_SCAN.md)를 참고하세요.
+
 > 현재 PC의 **Hardware / Performance / System·Security telemetry**를 분석하여 문제의 원인을 진단하고,
 > **현재 상태 유지**와 **Hardware/Software 변경**에 따른 예상 결과를 비교하여
 > 최적의 **PC 관리 및 구매 의사결정**을 지원하는 AI 기반 PC Lifecycle Platform.
