@@ -30,10 +30,12 @@ class SecurityCollector(Collector):
         try:
             result = events.query_events()
             sysmon = {'status': result.get('status', 'skipped'), **events.aggregate(result)}
+            if sysmon['status'] != 'ok':
+                code = result.get('reason', 'query_failed')
+                sysmon['reason_code'] = code if code in events.SYSMON_REASONS else 'query_failed'
+                sysmon['reason'] = events.SYSMON_REASONS[sysmon['reason_code']]
         except cim.CimError:
-            sysmon = {'status': 'skipped'}
-        if sysmon['status'] == 'skipped':
-            sysmon['reason'] = 'Sysmon log unavailable; check installation and event-log read permission.'
+            sysmon = {'status': 'error', 'reason_code': 'query_failed', 'reason': events.SYSMON_REASONS['query_failed']}
         incomplete = (sysmon['status'] != 'ok' or sysmon.get('truncated') or sysmon.get('rejected_events')
                       or any(state.get(k) is None for k in ('tpm_enabled', 'secure_boot'))
                       or any(v is None for v in state.get('defender', {'missing': None}).values()))

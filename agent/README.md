@@ -94,3 +94,8 @@ python -m speccheck_agent scan
 python -m speccheck_agent analyze
 python -m speccheck_agent prune --keep 200
 ```
+
+`doctor`의 Sysmon 항목이 `not_installed`라면 관리자 PowerShell에서 저장소 루트의
+`powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\setup-sysmon.ps1`을
+실행해 설치한 뒤 다시 점검하세요. 미설치·권한 부족 등의 선택 항목은 `[WARN]`으로
+표시합니다. 설치 스크립트는 Microsoft 서명을 확인하고 기존 설치를 덮어쓰지 않습니다.

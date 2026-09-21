@@ -158,7 +158,7 @@ def cmd_profile(args: argparse.Namespace, config: AgentConfig) -> int:
 
 
 def cmd_doctor(args: argparse.Namespace, config: AgentConfig) -> int:
-    checks: list[tuple[str, bool, str]] = []
+    checks: list[tuple[str, bool | None, str]] = []
 
     is_windows = platform.system() == "Windows"
     checks.append(("OS", is_windows, platform.platform()))
@@ -177,19 +177,19 @@ def cmd_doctor(args: argparse.Namespace, config: AgentConfig) -> int:
             detail = str(exc)
     checks.append(("PowerShell/CIM", powershell_ok, detail))
     if powershell_ok:
-        from .collectors.security import SecurityCollector
-        result = SecurityCollector().run()
-        sysmon = result.data.get('sysmon', {})
+        from .win.events import probe_sysmon
+        sysmon = probe_sysmon()
         # Optional checks inform the user without making doctor fail.
-        checks.append(('Sysmon (optional)', True, sysmon.get('status', result.status) + ': ' + sysmon.get('reason', 'event log readable')))
+        checks.append(('Sysmon (optional)', True if sysmon['status'] == 'ok' else None,
+                       sysmon['status'] + ': ' + sysmon['reason']))
         import ctypes
         admin = bool(ctypes.windll.shell32.IsUserAnAdmin())
-        checks.append(('Admin (optional)', True, 'yes' if admin else 'no; protected counters may be unavailable'))
+        checks.append(('Admin (optional)', True if admin else None, 'yes' if admin else 'no; protected counters may be unavailable'))
         try:
             policy = cim.run_powershell('Get-ExecutionPolicy', timeout=5).strip()
             checks.append(('Execution policy', True, policy))
         except cim.CimError:
-            checks.append(('Execution policy', True, 'unavailable; review PowerShell policy'))
+            checks.append(('Execution policy', None, 'unavailable; review PowerShell policy'))
 
     config.ensure_dirs()
     checks.append(("Agent Home", config.home.exists(), str(config.home)))
@@ -197,9 +197,10 @@ def cmd_doctor(args: argparse.Namespace, config: AgentConfig) -> int:
     checks.append(("Schema", True, SCHEMA_VERSION))
 
     for label, ok, detail in checks:
-        print("{0} {1:<16}{2}".format("[OK]  " if ok else "[FAIL]", label, detail))
+        badge = '[WARN]' if ok is None else '[OK]' if ok else '[FAIL]'
+        print('{0:<6} {1:<22} {2}'.format(badge, label, detail))
 
-    return 0 if all(ok for _, ok, _ in checks) else 1
+    return 0 if all(ok is not False for _, ok, _ in checks) else 1
 
 
 # --- 파서 ----------------------------------------------------------------

@@ -34,6 +34,54 @@ python -m speccheck_agent prune --keep 200
 
 ## 결과 해석
 
+### doctor에서 Sysmon을 사용할 수 없다고 나올 때
+
+`doctor`는 Sysmon 서비스·로그 활성화·읽기 접근을 별도로 확인한다. 준비되지
+않은 선택 항목은 `[WARN]`으로 표시하며 Basic Scan의 종료 코드는 실패로 만들지
+않는다. `not_installed`, `log_missing`, `log_disabled`, `access_denied`,
+`service_stopped`, `query_failed`를 구분해 조치 방법을 표시한다.
+
+미설치라면 **관리자 PowerShell을 열어 저장소 루트에서** 다음 명령을 실행한다.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\setup-sysmon.ps1
+cd agent
+python -m speccheck_agent doctor
+python -m speccheck_agent scan --collectors security --no-save
+```
+
+설치 스크립트는 Microsoft 공식 Sysinternals 배포본을 다운로드하고 Microsoft
+Authenticode 서명을 검증한 뒤 `agent/sysmon-config.xml`을 적용한다. 다운로드와
+설치 로그는 Git에서 제외되는 `agent/var/`에 저장한다. 기존 Sysmon 서비스나
+Windows 내장 Sysmon 바이너리가 있으면 덮어쓰지 않고 종료한다. 설치에는 관리자
+권한이 필요하지만 설치 후에는 일반 사용자 터미널에서 `doctor`를 다시 실행해
+읽기 권한을 확인할 수 있다. 로그 접근 실패를 숨기거나 전체 사용자에게 권한을
+추가하는 처리는 하지 않는다.
+
+Windows 내장 버전은 [Microsoft의 내장 Sysmon 활성화 절차](https://learn.microsoft.com/en-us/windows/security/operating-system-security/sysmon/how-to-enable-sysmon)를 따른다.
+이미 설치된 서비스의 중지·로그 비활성·접근 거부는 재설치보다 해당 항목 점검이 먼저다.
+Sysmon OS 로그에는 원문이 기록된다. 제거는 관리자 PowerShell에서 설치에 사용한
+`& "$env:ProgramData\SpecCheck\Sysmon\Sysmon64.exe" -u`로 서비스/드라이버를 제거한다
+(ARM64는 Sysmon64a.exe). 한글 경로에서 Sysmon XML 로더가 실패할 수 있으므로,
+설치 스크립트는 검증한 실행 파일과 설정을 `%ProgramData%\SpecCheck\Sysmon`에
+복사한 뒤 실행한다. 프로젝트를 영문 경로로 옮길 필요는 없다.
+
+설치 후 `access_denied`라면 **일반 사용자 터미널**에서 `whoami /user`로 해당
+사용자의 SID를 확인한다. 관리자 PowerShell을 저장소 루트에서 열어 다음 명령의
+SID를 확인한 값으로 바꿔 실행한다.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\grant-sysmon-read.ps1 -UserSid S-1-5-21-111-222-333-1001
+```
+
+이 명령은 지정한 사용자에게 **Sysmon 채널 읽기(0x1)**만 추가한다. 기존 채널
+권한은 보존하며 전체 이벤트 로그 그룹 가입이나 쓰기·삭제 권한을 부여하지 않는다.
+변경 전 권한은 `%ProgramData%\SpecCheck\Sysmon\channel-access-before.sddl`에
+백업된다. 이후 일반 사용자 터미널에서 `doctor`와 보안 스캔을 다시 실행한다.
+Sysmon 읽기 권한에는 OS 로그의 원문 열람이 포함된다.
+
+### 수집·분석 결과
+
 - `security.data.sysmon.status=skipped`: Sysmon 미설치, 로그 비활성 또는 읽기 권한
   부족. 다른 보안 상태를 살리기 위해 전체 security 섹션은 `partial`이다.
 - 잘린 이벤트 목록은 `truncated=true`. 건수는 전체가 아닌 관측한 건수의 하한이다.
@@ -72,6 +120,15 @@ Windows 이벤트 원문·명령줄·사용자명·파일/레지스트리 경로
 
 ## 검증
 
+2026-09-21 Sysmon 미설치 문제를 실제 기기에서 해결했다. Microsoft 서명을 확인한
+Sysmon 15.22 설치와 현재 사용자의 Sysmon 채널 읽기 권한 추가 후, **일반 사용자**
+`doctor`에서 Sysmon `[OK]`를 확인했다. 한글 경로의 XML 로더 문제는 ProgramData
+경로로 스테이징해 해결했다. 시간 조건은 UTC XPath로 명시하며 EventLogReader로
+스트리밍한다. 실측에서 Event 1/3/11/13/22 합계 **2,000건을 2.78초**에 수집했다.
+상한 초과는 `truncated=true`로 표시한다. 최신 Agent 회귀 테스트는 **57개 통과**.
+일반 사용자에게는 TPM/Secure Boot 등의 추가 제한이 있어 전체 security 섹션이
+`partial`일 수 있으나, `security.data.sysmon.status=ok`와 구분한다.
+
 2026-09-20 Windows 11 / Python 3.13.12에서 Agent **41개**, Backend **28개**
 테스트 통과. Backend에는 기존 Starlette/httpx 사용 중단 예정 경고 1개가 있다.
 일반 사용자 권한의 실제 스캔은 **11.36초**에 완료되었고 hardware/performance/
@@ -87,6 +144,6 @@ python -m pytest -q
 ```
 
 새 섹션은 optional인 계약 1.1.0이며 Backend major 지원은 1을 유지한다.
-Sysmon 설치 기기에서 이벤트 발생→집계 확인과 장기 실제 시계열의 예측 품질 평가는
-합성 테스트와 별개의 운영 검증이다. 실제 이벤트를 만들거나 Sysmon을 설치하는
-작업은 이 변경에서 자동으로 수행하지 않는다.
+Sysmon 설치 기기의 이벤트→집계 경로는 위 실측으로 확인했다. 장기 실제 시계열의
+예측 품질 평가는 별개의 운영 검증으로 남는다. `scan`과 `doctor` 자체는 Sysmon
+설치나 로그 접근 권한을 변경하지 않으며, 명시적으로 실행한 관리자 스크립트만 변경한다.

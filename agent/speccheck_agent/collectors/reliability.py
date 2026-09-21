@@ -1,6 +1,6 @@
 ﻿"""System event aggregates for WHEA and disk retries; no event messages."""
 from .base import Collector, register
-from ..win import events
+from ..win import events, cim
 
 @register
 class ReliabilityCollector(Collector):
@@ -10,6 +10,8 @@ class ReliabilityCollector(Collector):
 
     def collect(self):
         raw = events.query_events(False)
+        if raw.get('status') == 'error':
+            raise cim.CimError('System event query failed')
         result = events.aggregate(raw)
         result['_skipped'] = raw.get('status') == 'skipped'
         if result['_skipped']:
