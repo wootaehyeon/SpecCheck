@@ -80,6 +80,12 @@ class Source(UiModel):
     name: Literal["wmi", "cim", "whea", "storage", "performance", "sysmon"]
     status: SourceStatus
     collected_at: str | None = Field(alias="collectedAt")
+    requirements: list["SourceRequirement"] = Field(default_factory=list)
+
+
+class SourceRequirement(UiModel):
+    title: str
+    detail: str
 
 
 class AiDiagnosis(UiModel):
@@ -88,6 +94,62 @@ class AiDiagnosis(UiModel):
     status: Literal["generated", "fallback", "unavailable"]
     overview: str
     action_plan: list[str] = Field(alias="actionPlan")
+
+
+class RootCauseCandidate(UiModel):
+    """Bounded M6 correlation result; never exposes raw Sysmon fields."""
+
+    id: Literal["background_load", "hardware_instability"]
+    rank: int = Field(ge=1, le=3)
+    confidence: float = Field(ge=0.0, le=1.0)
+    action: ActionType
+    title: str
+    summary: str
+    evidence: list[str]
+    limitation: str
+
+
+class AnomalySignal(UiModel):
+    """M7 state change signal; it remains separate from deterministic findings."""
+
+    metric: str
+    label: str
+    direction: Literal["above_baseline", "below_baseline"]
+    z_score: float = Field(alias="zScore")
+    value: float
+    baseline_mean: float = Field(alias="baselineMean")
+    samples: int = Field(ge=3)
+
+
+class AnomalyAnalysis(UiModel):
+    status: Literal["no_signal", "signal_detected", "insufficient", "unavailable"]
+    method: Literal["z_score"] | None = None
+    evaluated_metrics: int = Field(default=0, alias="evaluatedMetrics", ge=0)
+    required_baseline_samples: int = Field(default=3, alias="requiredBaselineSamples", ge=3)
+    signals: list[AnomalySignal] = Field(default_factory=list)
+    limitation: str
+
+
+class TrajectoryTrend(UiModel):
+    """M8 linear trend summary; dates are exploratory estimates, not failure dates."""
+
+    metric: str
+    label: str
+    direction: Literal["improving", "stable", "worsening"]
+    samples: int = Field(ge=3)
+    slope_per_day: float = Field(alias="slopePerDay")
+    threshold: float | None = None
+    threshold_at: str | None = Field(default=None, alias="thresholdAt")
+    threshold_range: list[str] | None = Field(default=None, alias="thresholdRange")
+
+
+class TrajectoryAnalysis(UiModel):
+    status: Literal["ready", "insufficient", "unavailable"]
+    method: Literal["linear_regression"] | None = None
+    required_samples: int = Field(default=3, alias="requiredSamples", ge=3)
+    minimum_span_days: int = Field(default=1, alias="minimumSpanDays", ge=1)
+    trends: list[TrajectoryTrend] = Field(default_factory=list)
+    limitation: str
 
 
 class Decision(UiModel):
@@ -160,6 +222,9 @@ class UiDiagnosis(UiModel):
     findings: list[UiFinding]
     inventory: list[InventoryItem]
     sources: list[Source]
+    root_cause_candidates: list[RootCauseCandidate] = Field(default_factory=list, alias="rootCauseCandidates")
+    anomaly_analysis: AnomalyAnalysis = Field(alias="anomalyAnalysis")
+    trajectory_analysis: TrajectoryAnalysis = Field(alias="trajectoryAnalysis")
     ai: AiDiagnosis
     decision: Decision
     recommendations: list[Recommendation] = Field(default_factory=list)

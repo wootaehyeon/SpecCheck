@@ -87,4 +87,4 @@ Python Local Agent
 - `recommendedAction`: 각 Finding에 `keep | fix | purchase` 보존
 - `decision`: 최상위 권고와 이를 유발한 Rule ID 보존
 - FastAPI 포트: 기존 Backend와 합쳐 `8000`
-- Gemma 기본 모델: `gemma3:4b`, loopback endpoint만 허용
+- Gemma 기본 모델: `gemma4:e2b`, loopback endpoint만 허용. 미설치 시 설치된 `gemma3:4b`로 폴백

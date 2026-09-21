@@ -280,11 +280,14 @@ copy backend\.env.example backend\.env    # API 키 입력 (없어도 진단은 
 ### Local LLM (선택)
 
 ```powershell
-ollama pull gemma2:2b
+ollama pull gemma4:e2b
 # backend/.env 에서 LLM_ENABLED=true
 ```
 
-꺼져 있어도 진단과 교체 후보 선택은 동작하며, 설명만 규칙 템플릿으로 대체된다.
+Gemma 4 E2B는 약 7.2GB의 모델 파일을 사용한다. 진단과 추천은 8,192 토큰으로
+제한해 로컬 메모리 사용량을 제어한다. 기본 모델이 아직 없고 `gemma3:4b`가 설치되어
+있으면 자동으로 해당 모델을 임시 사용한다. 어느 로컬 모델도 없거나 LLM이 꺼져 있어도
+진단과 교체 후보 선택은 동작하며, 설명만 규칙 템플릿으로 대체된다.
 
 ### 네이버 쇼핑 최저가 (선택)
 

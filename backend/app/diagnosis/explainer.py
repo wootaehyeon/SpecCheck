@@ -24,7 +24,9 @@ _ACTION_LABEL = {
 SYSTEM_PROMPT = (
     "당신은 PC 진단 결과를 초보자에게 설명하는 전문가입니다. "
     "주어진 진단 항목만 사용해 설명하고, 주어지지 않은 원인이나 부품을 추측해 말하지 마세요. "
-    "사용자가 돈을 쓰지 않아도 되는 경우라면 그 점을 분명히 알려주세요."
+    "사용자가 돈을 쓰지 않아도 되는 경우라면 그 점을 분명히 알려주세요. "
+    "telemetry, baseline, z-score, schema 같은 내부 용어와 영문 약어는 쓰지 말고, "
+    "필요한 경우에도 사용자가 이해할 수 있는 한국어 표현으로 바꿔 설명하세요."
 )
 
 RECOMMENDATION_SYSTEM_PROMPT = (
@@ -42,33 +44,49 @@ def explain(result: DiagnosisResult) -> str:
     settings = get_settings()
     if not settings.llm_enabled:
         return render_template(result)
+    status = ollama_status()
+    if not status["available"] or not status["installed"]:
+        return render_template(result)
     try:
         return _ask_ollama(
             build_prompt(result),
             base_url=settings.ollama_url,
-            model=settings.llm_model,
+            model=status["model"],
             timeout=settings.llm_timeout,
+            context_tokens=settings.llm_context_tokens,
+            keep_alive=settings.llm_keep_alive,
         )
     except Exception:
         return render_template(result)
 
 
 def ollama_status() -> dict:
-    """Return local model availability without allowing a remote endpoint."""
+    """Return the usable local model, preferring Gemma 4 over the fallback."""
     settings = get_settings()
     try:
-        base_url = _safe_local_url(settings.ollama_url)
-        request = urllib.request.Request(base_url + "/api/tags", method="GET")
-        with urllib.request.urlopen(request, timeout=settings.llm_status_timeout) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-        models = [item.get("name", "") for item in payload.get("models", [])]
-        installed = any(
-            name == settings.llm_model or name.startswith(settings.llm_model + ":")
-            for name in models
+        models = _list_ollama_models(settings.ollama_url, settings.llm_status_timeout)
+        selected = _select_installed_model(
+            models,
+            requested=settings.llm_model,
+            fallback=settings.llm_fallback_model,
         )
-        return {"available": True, "model": settings.llm_model, "installed": installed}
+        return {
+            "available": True,
+            "model": selected or settings.llm_model,
+            "installed": selected is not None,
+            "requestedModel": settings.llm_model,
+            "fallbackModel": settings.llm_fallback_model if selected == settings.llm_fallback_model else None,
+            "usingFallback": selected == settings.llm_fallback_model,
+        }
     except Exception:
-        return {"available": False, "model": settings.llm_model, "installed": False}
+        return {
+            "available": False,
+            "model": settings.llm_model,
+            "installed": False,
+            "requestedModel": settings.llm_model,
+            "fallbackModel": None,
+            "usingFallback": False,
+        }
 
 
 def explain_for_ui(result: DiagnosisResult) -> dict:
@@ -85,12 +103,14 @@ def explain_for_ui(result: DiagnosisResult) -> dict:
         generated = _ask_ollama_json(
             build_prompt(result),
             base_url=settings.ollama_url,
-            model=settings.llm_model,
+            model=status["model"],
             timeout=settings.llm_timeout,
+            context_tokens=settings.llm_context_tokens,
+            keep_alive=settings.llm_keep_alive,
         )
         return {
             "provider": "ollama",
-            "model": settings.llm_model,
+            "model": status["model"],
             "status": "generated",
             "overview": generated["overview"],
             "actionPlan": generated["actionPlan"],
@@ -125,8 +145,10 @@ def explain_for_ui_bundle(
             build_prompt(result),
             recommendations,
             base_url=settings.ollama_url,
-            model=settings.llm_model,
+            model=status["model"],
             timeout=settings.llm_timeout,
+            context_tokens=settings.llm_context_tokens,
+            keep_alive=settings.llm_keep_alive,
         )
         insights = {item["id"]: item for item in generated["recommendations"]}
         enriched: list[Recommendation] = []
@@ -143,7 +165,7 @@ def explain_for_ui_bundle(
                 "candidates": [selected],
                 "ai_insight": RecommendationAiInsight(
                     provider="ollama",
-                    model=settings.llm_model,
+                    model=status["model"],
                     status="generated",
                     rationale=item["rationale"],
                     cautions=item["cautions"],
@@ -151,7 +173,7 @@ def explain_for_ui_bundle(
             }))
         return {
             "provider": "ollama",
-            "model": settings.llm_model,
+            "model": status["model"],
             "status": "generated",
             "overview": generated["overview"],
             "actionPlan": generated["actionPlan"],
@@ -298,6 +320,21 @@ def _safe_local_url(raw: str) -> str:
     return raw.rstrip("/")
 
 
+def _list_ollama_models(base_url: str, timeout: float) -> list[str]:
+    """Read only Ollama's local tag list; network endpoints are never allowed."""
+    request = urllib.request.Request(_safe_local_url(base_url) + "/api/tags", method="GET")
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    return [str(item.get("name") or "") for item in payload.get("models", [])]
+
+
+def _select_installed_model(models: list[str], *, requested: str, fallback: str) -> str | None:
+    for model in (requested, fallback):
+        if model and any(name == model or name.startswith(model + ":") for name in models):
+            return model
+    return None
+
+
 def _request_ollama(body: dict, base_url: str, timeout: float) -> str:
     request = urllib.request.Request(
         _safe_local_url(base_url) + "/api/generate",
@@ -313,21 +350,38 @@ def _request_ollama(body: dict, base_url: str, timeout: float) -> str:
     return text
 
 
-def _ask_ollama(prompt: str, base_url: str, model: str, timeout: float) -> str:
+def _ask_ollama(
+    prompt: str,
+    base_url: str,
+    model: str,
+    timeout: float,
+    context_tokens: int,
+    keep_alive: str,
+) -> str:
     return _request_ollama(
         {
             "model": model,
             "system": SYSTEM_PROMPT,
             "prompt": prompt,
             "stream": False,
-            "options": {"temperature": 0.3},
+            # 판정은 규칙 엔진이 끝냈으므로, 사용자용 설명에는 장황한 추론 모드가 필요 없다.
+            "think": False,
+            "keep_alive": keep_alive,
+            "options": {"temperature": 0.3, "num_ctx": context_tokens},
         },
         base_url,
         timeout,
     )
 
 
-def _ask_ollama_json(prompt: str, base_url: str, model: str, timeout: float) -> dict:
+def _ask_ollama_json(
+    prompt: str,
+    base_url: str,
+    model: str,
+    timeout: float,
+    context_tokens: int,
+    keep_alive: str,
+) -> dict:
     text = _request_ollama(
         {
             "model": model,
@@ -335,7 +389,9 @@ def _ask_ollama_json(prompt: str, base_url: str, model: str, timeout: float) -> 
             "prompt": prompt + "\nJSON으로만 답하세요: {\"overview\": \"...\", \"actionPlan\": [\"...\"]}",
             "stream": False,
             "format": "json",
-            "options": {"temperature": 0.1, "num_predict": 350},
+            "think": False,
+            "keep_alive": keep_alive,
+            "options": {"temperature": 0.1, "num_predict": 350, "num_ctx": context_tokens},
         },
         base_url,
         timeout,
@@ -354,6 +410,8 @@ def _ask_ollama_bundle_json(
     base_url: str,
     model: str,
     timeout: float,
+    context_tokens: int,
+    keep_alive: str,
 ) -> dict:
     response_shape = (
         '{"overview":"...","actionPlan":["..."],'
@@ -371,7 +429,9 @@ def _ask_ollama_bundle_json(
             ),
             "stream": False,
             "format": "json",
-            "options": {"temperature": 0.1, "num_predict": 700},
+            "think": False,
+            "keep_alive": keep_alive,
+            "options": {"temperature": 0.1, "num_predict": 700, "num_ctx": context_tokens},
         },
         base_url,
         timeout,

@@ -402,7 +402,7 @@ def test_section_summaries_include_unusable_sections():
         [
             CollectorResult(name="hardware", status="ok", data={"cpu": [], "memory": {}, "storage": []}),
             CollectorResult(name="storage_health", status="error", error="CIM 실패"),
-            CollectorResult(name="security", status="planned", milestone="M6"),
+            CollectorResult(name="security", status="planned", milestone="M5"),
         ]
     )
     summaries = {item["name"]: item for item in section_summaries(snapshot)}

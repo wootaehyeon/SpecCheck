@@ -48,7 +48,7 @@ def test_snapshot_has_required_fields():
 def test_snapshot_sections_keyed_by_collector_name():
     results = [
         CollectorResult(name="hardware", status="ok", milestone="M1", data={"cpu": []}),
-        CollectorResult(name="security", status="planned", milestone="M6"),
+        CollectorResult(name="security", status="planned", milestone="M5"),
     ]
     sections = build_snapshot(results)["sections"]
     assert sections["hardware"]["status"] == "ok"

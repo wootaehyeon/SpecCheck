@@ -86,7 +86,7 @@ def decide(findings: list[Finding]) -> ActionDecision:
     if not findings:
         return ActionDecision(
             action=ActionType.KEEP,
-            reason="확보된 telemetry에서 조치가 필요한 이상 징후를 찾지 못했습니다. 지금 구매할 이유가 없습니다.",
+            reason="수집된 정보에서 조치가 필요한 이상 징후를 찾지 못했습니다. 지금 구매할 이유가 없습니다.",
         )
 
     strongest = max(findings, key=lambda f: ACTION_WEIGHT[f.recommended_action])

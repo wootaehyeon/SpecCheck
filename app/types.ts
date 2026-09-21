@@ -46,10 +46,54 @@ export type Diagnosis = {
     recommendedAction: RecommendedAction;
   }>;
   inventory: Array<{ kind: string; name: string; detail: string; status: HealthStatus }>;
+  rootCauseCandidates: Array<{
+    id: 'background_load' | 'hardware_instability';
+    rank: number;
+    confidence: number;
+    action: RecommendedAction;
+    title: string;
+    summary: string;
+    evidence: string[];
+    limitation: string;
+  }>;
+  anomalyAnalysis: {
+    status: 'no_signal' | 'signal_detected' | 'insufficient' | 'unavailable';
+    method: 'z_score' | null;
+    evaluatedMetrics: number;
+    requiredBaselineSamples: number;
+    signals: Array<{
+      metric: string;
+      label: string;
+      direction: 'above_baseline' | 'below_baseline';
+      zScore: number;
+      value: number;
+      baselineMean: number;
+      samples: number;
+    }>;
+    limitation: string;
+  };
+  trajectoryAnalysis: {
+    status: 'ready' | 'insufficient' | 'unavailable';
+    method: 'linear_regression' | null;
+    requiredSamples: number;
+    minimumSpanDays: number;
+    trends: Array<{
+      metric: string;
+      label: string;
+      direction: 'improving' | 'stable' | 'worsening';
+      samples: number;
+      slopePerDay: number;
+      threshold: number | null;
+      thresholdAt: string | null;
+      thresholdRange: string[] | null;
+    }>;
+    limitation: string;
+  };
   sources: Array<{
     name: 'wmi' | 'cim' | 'whea' | 'storage' | 'performance' | 'sysmon';
     status: 'collected' | 'unavailable' | 'permission_required' | 'not_in_scope';
     collectedAt: string | null;
+    requirements?: Array<{ title: string; detail: string }>;
   }>;
   ai: {
     provider: 'ollama' | 'template';

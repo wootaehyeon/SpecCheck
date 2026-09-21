@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     # --- 앱 ---
     app_name: str = "SpecCheck AI"
     app_version: str = "1.2.0"
-    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://[::1]:3000"
 
     # --- 경로 ---
     data_dir: Path = BACKEND_DIR / "data"
@@ -47,13 +47,20 @@ class Settings(BaseSettings):
     quality_eval_enabled: bool = False
     quality_model_dir: str = ""
 
-    # --- Local LLM (M5) ---
+    # --- Local LLM (Gemma 4, Ollama) ---
     #: 기본은 비활성. 활성화하면 Ollama의 Gemma로 진단 설명을 생성한다.
     llm_enabled: bool = False
-    llm_model: str = "gemma3:4b"
+    #: 진단/추천 설명의 기본 모델. E2B는 일반 데스크톱에서 쓸 수 있는 Gemma 4 양자화 태그다.
+    llm_model: str = "gemma4:e2b"
+    #: 기본 모델이 아직 설치되지 않았을 때만 사용하는 이전 로컬 모델.
+    llm_fallback_model: str = "gemma3:4b"
     ollama_url: str = "http://127.0.0.1:11434"
-    llm_timeout: float = 12.0
+    #: Gemma 4의 첫 추론과 구조화된 추천 응답을 위한 제한 시간.
+    llm_timeout: float = 60.0
     llm_status_timeout: float = 1.5
+    #: 진단 프롬프트는 작으므로 로컬 메모리를 보존하는 컨텍스트 상한을 둔다.
+    llm_context_tokens: int = 8192
+    llm_keep_alive: str = "10m"
 
     @property
     def cors_origin_list(self) -> list[str]:

@@ -69,6 +69,7 @@ def _run_agent(status_file: Path) -> None:
     environment = os.environ.copy()
     backend_url = get_settings().local_agent_backend_url.rstrip("/")
     environment["SPECCHECK_BACKEND_URL"] = backend_url
+    environment["SPECCHECK_SYSMON_AUTO_SETUP"] = "1"
 
     if _is_elevated():
         process = subprocess.run(
@@ -88,7 +89,9 @@ def _run_agent(status_file: Path) -> None:
     script = (
         "$ErrorActionPreference = 'Stop'; "
         "$env:SPECCHECK_BACKEND_URL = '{backend_url}'; "
-        "$process = Start-Process -FilePath '{python}' -Verb RunAs -WindowStyle Hidden "
+        "$env:SPECCHECK_SYSMON_AUTO_SETUP = '1'; "
+        # UAC 동의 창은 사용자가 확인해야 하므로 관리자 Agent 창을 숨기지 않는다.
+        "$process = Start-Process -FilePath '{python}' -Verb RunAs "
         "-WorkingDirectory '{agent}' -ArgumentList @({arguments}) -Wait -PassThru; "
         "exit $process.ExitCode"
     ).format(

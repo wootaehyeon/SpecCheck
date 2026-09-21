@@ -6,7 +6,7 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "dev": "vinext dev",
+    "dev": "vinext dev --host 127.0.0.1",
     "dev:all": "node scripts/dev-all.mjs",
     "backend": "node scripts/run-python.mjs backend -m uvicorn app.main:app --host 127.0.0.1 --port 8000",
     "build": "vinext build",

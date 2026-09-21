@@ -12,6 +12,6 @@ from . import hardware  # noqa: F401  M1
 from . import storage_health  # noqa: F401  M2
 from . import reliability  # noqa: F401  M2
 from . import performance  # noqa: F401  M2
-from . import security  # noqa: F401  M6
+from . import security  # noqa: F401  M5
 
 __all__ = ["Collector", "CollectorResult", "iter_collectors", "register", "registry"]

@@ -43,10 +43,10 @@ import type { AgentHealth, Diagnosis, LocalScanStatus, MarketPrice } from './typ
 type ConnectionState = 'checking' | 'live' | 'empty' | 'offline' | 'demo' | 'error';
 
 const riskTone = {
-  low: { badge: 'bg-emerald-300 text-emerald-950', bar: '[&_[data-slot=progress-indicator]]:bg-emerald-300', label: 'LOW' },
-  medium: { badge: 'bg-amber-300 text-amber-950', bar: '[&_[data-slot=progress-indicator]]:bg-amber-300', label: 'MEDIUM' },
-  high: { badge: 'bg-orange-400 text-orange-950', bar: '[&_[data-slot=progress-indicator]]:bg-orange-400', label: 'HIGH' },
-  critical: { badge: 'bg-red-400 text-red-950', bar: '[&_[data-slot=progress-indicator]]:bg-red-400', label: 'CRITICAL' },
+  low: { badge: 'bg-emerald-300 text-emerald-950', bar: '[&_[data-slot=progress-indicator]]:bg-emerald-300', label: '낮음' },
+  medium: { badge: 'bg-amber-300 text-amber-950', bar: '[&_[data-slot=progress-indicator]]:bg-amber-300', label: '보통' },
+  high: { badge: 'bg-orange-400 text-orange-950', bar: '[&_[data-slot=progress-indicator]]:bg-orange-400', label: '높음' },
+  critical: { badge: 'bg-red-400 text-red-950', bar: '[&_[data-slot=progress-indicator]]:bg-red-400', label: '매우 높음' },
 };
 
 const severityTone = {
@@ -69,12 +69,14 @@ const recommendationTone = {
   high: 'border-orange-400/20 text-orange-300',
   urgent: 'border-red-400/20 text-red-300',
 } as const;
+const priorityLabels = { normal: '일반', high: '우선', urgent: '긴급' } as const;
+const severityLabels = { info: '정보', low: '낮음', medium: '보통', high: '높음', critical: '매우 높음' } as const;
 
 const sourceStatus = {
   collected: { label: '수집 완료', detail: '진단에 반영됨', tone: 'text-emerald-300' },
   permission_required: { label: '관리자 권한 필요', detail: '관리자로 다시 실행하면 확인 가능', tone: 'text-amber-300' },
   unavailable: { label: '확인하지 못함', detail: '미지원 또는 수집 실패', tone: 'text-red-300' },
-  not_in_scope: { label: '기본 진단 미포함', detail: 'Advanced Scan에서 확인', tone: 'text-muted-foreground' },
+  not_in_scope: { label: '이번 진단 미포함', detail: '확장 진단에서 확인', tone: 'text-muted-foreground' },
 } as const;
 
 function ResourceIcon({ resourceKey }: { resourceKey: string }) {
@@ -87,8 +89,36 @@ function formatTime(value: string) {
   return new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 }
 
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium' }).format(new Date(value));
+}
+
 function formatPrice(value: number) {
   return new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW', maximumFractionDigits: 0 }).format(value);
+}
+
+function formatMetricValue(value: number, metric: string) {
+  const digits = Number.isInteger(value) ? 0 : 1;
+  const unit = metric.includes('percent') ? '%' : metric.includes('count') ? '건' : '';
+  return `${value.toFixed(digits)}${unit}`;
+}
+
+function anomalyDirectionLabel(direction: 'above_baseline' | 'below_baseline') {
+  return direction === 'above_baseline' ? '평소보다 높음' : '평소보다 낮음';
+}
+
+function trendDirectionLabel(direction: 'worsening' | 'improving' | 'stable') {
+  if (direction === 'worsening') return '주의할 변화';
+  if (direction === 'improving') return '개선 방향';
+  return '변화 없음';
+}
+
+function trendSummary(metric: string, direction: 'worsening' | 'improving' | 'stable', samples: number) {
+  const observations = `최근 ${samples}회 기록`;
+  if (direction === 'stable') return `${observations}에서 뚜렷한 변화가 없습니다.`;
+  if (metric === 'storage.free_percent') return direction === 'worsening' ? `${observations}에서 여유 공간이 줄어드는 흐름입니다.` : `${observations}에서 여유 공간이 늘어나는 흐름입니다.`;
+  if (metric.endsWith('wear_percent')) return direction === 'worsening' ? `${observations}에서 수명 소모가 늘어나는 흐름입니다.` : `${observations}에서 수명 소모가 줄어드는 흐름입니다.`;
+  return direction === 'worsening' ? `${observations}에서 증가하는 흐름입니다.` : `${observations}에서 감소하는 흐름입니다.`;
 }
 
 function delay(milliseconds: number) {
@@ -116,7 +146,7 @@ function CandidateComparison({ diagnosis, marketPrices, marketLoading }: {
               <div className="font-medium">{recommendation.title}</div>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">{recommendation.description}</p>
             </div>
-            <Badge variant="outline" className={recommendationTone[recommendation.priority]}>{recommendation.priority.toUpperCase()}</Badge>
+            <Badge variant="outline" className={recommendationTone[recommendation.priority]}>{priorityLabels[recommendation.priority]}</Badge>
           </div>
           <div className="mb-4 border-l-2 border-primary/35 pl-3">
             <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold">
@@ -124,10 +154,10 @@ function CandidateComparison({ diagnosis, marketPrices, marketLoading }: {
               <span>교체 추천 AI</span>
               <Badge variant="outline" className="text-[9px]">
                 {recommendation.aiInsight.status === 'generated'
-                  ? 'LOCAL GEMMA'
+                  ? '로컬 Gemma'
                   : recommendation.aiInsight.status === 'unavailable'
-                    ? 'GEMMA UNAVAILABLE'
-                    : 'RULE FALLBACK'}
+                    ? 'Gemma 연결 안 됨'
+                    : '규칙 기반 안내'}
               </Badge>
             </div>
             <p className="mt-2 text-xs leading-5 text-muted-foreground">{recommendation.aiInsight.rationale}</p>
@@ -226,6 +256,15 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<'findings' | 'inventory' | 'sources'>('findings');
 
   useEffect(() => {
+    const isLocalPreview = ['localhost', '127.0.0.1', '[::1]', '::1'].includes(window.location.hostname);
+    const preview = new URLSearchParams(window.location.search).get('preview');
+    const isAnalysisPreview = isLocalPreview && (preview === 'analysis' || preview === 'm6' || preview === 'm7' || preview === 'm8');
+    if (isAnalysisPreview) {
+      setDiagnosis(demoDiagnosis);
+      setDiagnosisSource('demo');
+      setConnectionState('demo');
+      return;
+    }
     let active = true;
     async function hydrate() {
       try {
@@ -311,7 +350,7 @@ export default function Home() {
       const nextHealth = await getAgentHealth().catch(() => null);
       if (nextHealth) setHealth(nextHealth);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'SpecCheck Backend에 연결할 수 없습니다.');
+      setError(cause instanceof Error ? cause.message : '진단 서비스에 연결할 수 없습니다.');
       if (!diagnosis) setConnectionState('error');
     } finally {
       setRunning(false);
@@ -321,6 +360,7 @@ export default function Home() {
   const tone = diagnosis ? riskTone[diagnosis.risk.level] : riskTone.low;
   const primaryFinding = diagnosis?.findings[0];
   const hasIncompleteSources = diagnosis?.sources.some((source) => source.status !== 'collected' && source.status !== 'not_in_scope') ?? false;
+  const blockedSources = diagnosis?.sources.filter((source) => (source.requirements?.length ?? 0) > 0) ?? [];
   const categoryItems = [
     { key: 'hardware' as const, label: '하드웨어', icon: <Cpu className="size-4" /> },
     { key: 'software' as const, label: '소프트웨어', icon: <Activity className="size-4" /> },
@@ -336,14 +376,14 @@ export default function Home() {
               <Radar className="size-5" />
             </span>
             <div>
-              <div className="text-sm font-semibold tracking-[0.02em]">SpecCheck</div>
-              <div className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">Diagnostics Agent</div>
+              <div className="text-sm font-semibold">SpecCheck</div>
+              <div className="text-[10px] font-medium text-muted-foreground">내 PC 진단</div>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <span className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
               <span className={`size-1.5 rounded-full ${connectionState === 'live' ? 'bg-emerald-400 shadow-[0_0_10px_#34d399]' : connectionState === 'empty' ? 'bg-amber-300' : connectionState === 'error' || connectionState === 'offline' ? 'bg-red-400' : 'bg-zinc-500'}`} />
-              {connectionState === 'checking' ? 'Backend 확인 중' : connectionState === 'live' && health ? health.agentVersion === 'not-connected' ? `Backend v${health.backendVersion}` : `Agent v${health.agentVersion}` : connectionState === 'empty' && health ? `Backend v${health.backendVersion} · 데이터 없음` : connectionState === 'error' || connectionState === 'offline' ? 'Backend 연결 오류' : 'Demo mode'}
+              {connectionState === 'checking' ? '진단 서비스 확인 중' : connectionState === 'live' && health ? health.agentVersion === 'not-connected' ? '진단 서비스 연결됨' : '수집기 연결됨' : connectionState === 'empty' && health ? '진단 기록 없음' : connectionState === 'error' || connectionState === 'offline' ? '진단 서비스 연결 오류' : '예시 데이터'}
             </span>
             <Button onClick={runScan} disabled={running} size="lg" className="rounded-xl px-4">
               {running ? <RefreshCw className="animate-spin" data-icon="inline-start" /> : <ScanLine data-icon="inline-start" />}
@@ -365,7 +405,7 @@ export default function Home() {
         {running && scanStatus && (
           <Alert className="mb-5 border-primary/20 bg-primary/5">
             <RefreshCw className="animate-spin text-primary" />
-            <AlertTitle>관리자 Basic Scan 실행 중</AlertTitle>
+            <AlertTitle>관리자 진단 실행 중</AlertTitle>
             <AlertDescription className="space-y-2">
               <span className="block">{scanStatus.message}</span>
               <Progress value={scanStatus.progress} className="[&_[data-slot=progress-indicator]]:bg-primary" />
@@ -382,10 +422,10 @@ export default function Home() {
               <h1 className="mt-5 text-2xl font-semibold">{connectionState === 'checking' ? '진단 데이터 확인 중' : '진단 데이터가 없습니다'}</h1>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
                 {connectionState === 'checking'
-                  ? 'Local Backend와 저장된 Snapshot을 확인하고 있습니다.'
+                  ? '진단 서비스와 저장된 기록을 확인하고 있습니다.'
                   : connectionState === 'offline' || connectionState === 'error'
-                    ? 'Backend에 연결되지 않았습니다. 서버를 실행한 뒤 다시 확인하세요.'
-                    : '고정된 예시 대신 Local Agent가 수집한 실제 Snapshot만 표시합니다.'}
+                    ? '진단 서비스에 연결되지 않았습니다. 서버를 실행한 뒤 다시 확인하세요.'
+                    : '예시가 아닌 이 PC에서 수집한 실제 정보만 표시합니다.'}
               </p>
               {connectionState !== 'checking' && (
                 <Button onClick={runScan} disabled={running} className="mt-6">
@@ -400,12 +440,12 @@ export default function Home() {
           <section className="space-y-6">
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
               <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-primary">Local diagnostics</p>
-                <h1 className="text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">현재 PC 상태</h1>
+                <p className="mb-2 text-xs font-semibold text-primary">로컬 진단 결과</p>
+                <h1 className="text-3xl font-semibold sm:text-4xl">현재 PC 상태</h1>
                 <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                   <span>{formatTime(diagnosis.generatedAt)} · {diagnosis.machine.name}</span>
                   <Badge variant="outline" className={diagnosisSource === 'agent' ? 'border-emerald-400/20 text-emerald-300' : 'border-white/10 text-muted-foreground'}>
-                    {diagnosisSource === 'agent' ? 'AGENT DATA' : 'DEMO DATA'}
+                    {diagnosisSource === 'agent' ? '실제 수집 정보' : '예시 정보'}
                   </Badge>
                 </p>
               </div>
@@ -414,6 +454,21 @@ export default function Home() {
                 {diagnosis.risk.score >= 40 ? '주의 필요' : '정상'}
               </Badge>
             </div>
+
+            {blockedSources.length > 0 && <Alert className="border-amber-400/20 bg-amber-400/5">
+              <TriangleAlert className="text-amber-300" />
+              <AlertTitle>추가 수집 조건</AlertTitle>
+              <AlertDescription className="mt-2 space-y-3">
+                {blockedSources.map((source) => (
+                  <div key={source.name} className="border-l-2 border-amber-300/35 pl-3">
+                    <div className="font-mono text-[10px] uppercase text-amber-200">{source.name}</div>
+                    <ul className="mt-1 space-y-1 text-xs leading-5 text-muted-foreground">
+                      {(source.requirements ?? []).map((requirement) => <li key={requirement.title}>· <span className="font-medium text-foreground">{requirement.title}</span>: {requirement.detail}</li>)}
+                    </ul>
+                  </div>
+                ))}
+              </AlertDescription>
+            </Alert>}
 
             <Card className="border border-white/6 bg-card/75 shadow-2xl shadow-black/15">
               <CardHeader className="border-b border-white/6 pb-4">
@@ -431,7 +486,7 @@ export default function Home() {
                       <span className="truncate font-mono text-[11px] text-muted-foreground">{resource.detail}</span>
                     </div>
                     <div className="flex items-end justify-between">
-                      <strong className="text-2xl font-semibold tracking-tight">{resource.value}{resource.unit}</strong>
+                      <strong className="text-2xl font-semibold">{resource.value}{resource.unit}</strong>
                       <span className={`text-[11px] ${resource.status === 'normal' ? 'text-emerald-300' : 'text-amber-300'}`}>
                         {resource.status === 'normal' ? '정상 범위' : '추적 필요'}
                       </span>
@@ -476,11 +531,64 @@ export default function Home() {
                 ))}
               </div>
               {activeTab === 'findings' && <div role="tabpanel" className="space-y-3">
+                {(diagnosis.rootCauseCandidates.length > 0 || diagnosis.anomalyAnalysis.status !== 'unavailable' || diagnosis.trajectoryAnalysis.status !== 'unavailable') && <Card className="border border-sky-400/15 bg-card/60">
+                  <CardHeader>
+                    <CardDescription className="flex items-center gap-2"><Radar className="size-4 text-sky-300" />상태 분석</CardDescription>
+                    <CardTitle className="text-base">최근 상태와 변화</CardTitle>
+                    <CardDescription>현재 측정값과 누적된 기록을 함께 확인해 먼저 살펴볼 대상을 알려드립니다.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-5">
+                    <div className="grid gap-6 lg:grid-cols-3">
+                      <section className="space-y-3">
+                        <div>
+                          <div className="text-sm font-medium">원인 후보</div>
+                          <p className="mt-1 text-xs leading-5 text-muted-foreground">같은 시간대에 함께 나타난 신호를 비교합니다.</p>
+                        </div>
+                        {diagnosis.rootCauseCandidates.length > 0 ? diagnosis.rootCauseCandidates.map((candidate) => (
+                          <div key={`${candidate.id}-${candidate.rank}`} className="space-y-2 border-t border-white/8 pt-3 first:border-t-0 first:pt-0">
+                            <div className="flex items-center justify-between gap-2"><span className="text-sm font-medium">{candidate.title}</span><Badge variant="outline" className={actionTone[candidate.action]}>근거 {Math.round(candidate.confidence * 100)}%</Badge></div>
+                            <p className="text-xs leading-5 text-muted-foreground">{candidate.summary}</p>
+                            <ul className="space-y-1 text-xs leading-5 text-muted-foreground">{candidate.evidence.map((item) => <li key={item}>· {item}</li>)}</ul>
+                          </div>
+                        )) : <p className="text-xs leading-5 text-muted-foreground">현재 수집 범위에서 특정 원인으로 이어지는 신호는 없습니다.</p>}
+                      </section>
+
+                      {diagnosis.anomalyAnalysis.status !== 'unavailable' && <section className="space-y-3 border-t border-white/8 pt-5 lg:border-t-0 lg:border-l lg:pl-6 lg:pt-0">
+                        <div>
+                          <div className="text-sm font-medium">평소와 다른 변화</div>
+                          <p className="mt-1 text-xs leading-5 text-muted-foreground">이전 측정값을 기준으로 현재 상태를 비교합니다.</p>
+                        </div>
+                        {diagnosis.anomalyAnalysis.signals.length > 0 ? diagnosis.anomalyAnalysis.signals.map((signal) => (
+                          <div key={signal.metric} className="space-y-1 border-t border-white/8 pt-3 first:border-t-0 first:pt-0">
+                            <div className="flex items-center justify-between gap-2"><span className="text-sm font-medium">{signal.label}</span><Badge variant="outline" className="border-violet-400/20 text-violet-300">{anomalyDirectionLabel(signal.direction)}</Badge></div>
+                            <p className="text-xs leading-5 text-muted-foreground">현재 {formatMetricValue(signal.value, signal.metric)} · 평소 {formatMetricValue(signal.baselineMean, signal.metric)} 수준</p>
+                            <p className="text-[11px] text-muted-foreground">이전 {signal.samples}회 측정을 기준으로 비교</p>
+                          </div>
+                        )) : diagnosis.anomalyAnalysis.status === 'no_signal' ? <p className="text-xs leading-5 text-muted-foreground">최근 {diagnosis.anomalyAnalysis.evaluatedMetrics}개 지표가 평소 변동 범위 안에 있습니다.</p> : <p className="text-xs leading-5 text-muted-foreground">기준선 데이터를 모으는 중입니다. 최소 {diagnosis.anomalyAnalysis.requiredBaselineSamples}회 측정 후 비교할 수 있습니다.</p>}
+                      </section>}
+
+                      {diagnosis.trajectoryAnalysis.status !== 'unavailable' && <section className="space-y-3 border-t border-white/8 pt-5 lg:border-t-0 lg:border-l lg:pl-6 lg:pt-0">
+                        <div>
+                          <div className="text-sm font-medium">장기 변화</div>
+                          <p className="mt-1 text-xs leading-5 text-muted-foreground">시간에 따라 상태가 어떻게 움직이는지 살펴봅니다.</p>
+                        </div>
+                        {diagnosis.trajectoryAnalysis.trends.length > 0 ? diagnosis.trajectoryAnalysis.trends.map((trend) => (
+                          <div key={trend.metric} className="space-y-1 border-t border-white/8 pt-3 first:border-t-0 first:pt-0">
+                            <div className="flex items-center justify-between gap-2"><span className="text-sm font-medium">{trend.label}</span><Badge variant="outline" className={trend.direction === 'worsening' ? 'border-amber-400/20 text-amber-300' : trend.direction === 'improving' ? 'border-emerald-400/20 text-emerald-300' : 'border-white/15 text-muted-foreground'}>{trendDirectionLabel(trend.direction)}</Badge></div>
+                            <p className="text-xs leading-5 text-muted-foreground">{trendSummary(trend.metric, trend.direction, trend.samples)}</p>
+                            {trend.thresholdAt && <p className="text-[11px] leading-4 text-muted-foreground">현재 흐름이 이어질 때 참고 시점: {formatDate(trend.thresholdAt)}</p>}
+                          </div>
+                        )) : <p className="text-xs leading-5 text-muted-foreground">최소 {diagnosis.trajectoryAnalysis.requiredSamples}회, {diagnosis.trajectoryAnalysis.minimumSpanDays}일 이상의 기록이 쌓이면 변화 흐름을 보여드립니다.</p>}
+                      </section>}
+                    </div>
+                    <p className="border-t border-white/8 pt-3 text-[11px] leading-4 text-muted-foreground">상태 분석은 관측값의 연관성과 변화 흐름을 보여주는 참고 정보이며, 원인·고장 시점·교체 필요를 확정하지 않습니다.</p>
+                  </CardContent>
+                </Card>}
                 {diagnosis.findings.length === 0 ? (
                   <Alert className={hasIncompleteSources ? 'border-amber-400/15 bg-amber-400/5' : 'border-emerald-400/15 bg-emerald-400/5'}>
                     {hasIncompleteSources ? <Info /> : <Check />}
                     <AlertTitle>{hasIncompleteSources ? '확인된 범위에서 이상 없음' : '이상 징후 없음'}</AlertTitle>
-                    <AlertDescription>{hasIncompleteSources ? '일부 항목은 수집되지 않아 정상 여부를 판단하지 않았습니다.' : '현재 Basic Scan 범위에서 Finding이 생성되지 않았습니다.'}</AlertDescription>
+                    <AlertDescription>{hasIncompleteSources ? '일부 항목은 수집되지 않아 정상 여부를 판단하지 않았습니다.' : '이번 진단에서 이상 항목이 발견되지 않았습니다.'}</AlertDescription>
                   </Alert>
                 ) : diagnosis.findings.map((finding) => (
                   <Card key={finding.id} className="border border-white/6 bg-card/60">
@@ -489,7 +597,7 @@ export default function Home() {
                       <CardDescription>{finding.summary}</CardDescription>
                       <CardAction className="flex items-center gap-2">
                         <Badge variant="outline" className={actionTone[finding.recommendedAction]}>{actionLabels[finding.recommendedAction]}</Badge>
-                        <Badge variant="outline" className={severityTone[finding.severity]}>{finding.severity.toUpperCase()} · {Math.round(finding.confidence * 100)}%</Badge>
+                        <Badge variant="outline" className={severityTone[finding.severity]}>{severityLabels[finding.severity]} · 근거 {Math.round(finding.confidence * 100)}%</Badge>
                       </CardAction>
                     </CardHeader>
                     <CardContent className="grid gap-4 sm:grid-cols-3">
@@ -545,6 +653,12 @@ export default function Home() {
                           {sourceStatus[source.status].label}
                         </CardTitle>
                         <CardDescription>{sourceStatus[source.status].detail}</CardDescription>
+                        {(source.requirements?.length ?? 0) > 0 && <div className="mt-2 border-t border-white/6 pt-2">
+                          <div className="text-[10px] font-semibold text-amber-200">수집 조건</div>
+                          <ul className="mt-1 space-y-1 text-[10px] leading-4 text-muted-foreground">
+                            {source.requirements?.map((requirement) => <li key={requirement.title}>· {requirement.title}</li>)}
+                          </ul>
+                        </div>}
                       </CardHeader>
                     </Card>
                   ))}
@@ -557,7 +671,7 @@ export default function Home() {
             <Card className="border border-amber-300/15 bg-card/80">
               <CardHeader>
                 <CardDescription className="flex items-center gap-2">통합 위험도 <Badge variant="outline" className={actionTone[diagnosis.decision.action]}>{actionLabels[diagnosis.decision.action]}</Badge></CardDescription>
-                <CardTitle className="text-5xl font-semibold tracking-[-0.05em]">{diagnosis.risk.score}<span className="ml-1 text-lg text-muted-foreground">/100</span></CardTitle>
+                <CardTitle className="text-5xl font-semibold">{diagnosis.risk.score}<span className="ml-1 text-lg text-muted-foreground">/100</span></CardTitle>
                 <CardAction><Badge className={tone.badge}>{tone.label}</Badge></CardAction>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -572,7 +686,7 @@ export default function Home() {
                 <CardTitle className="text-base">{diagnosis.ai.provider === 'ollama' ? 'Gemma 진단 설명' : '규칙 기반 진단 설명'}</CardTitle>
                 <CardAction>
                   <Badge variant="outline" className={diagnosis.ai.provider === 'ollama' ? 'border-primary/25 text-primary' : 'border-white/10 text-muted-foreground'}>
-                    {diagnosis.ai.provider === 'ollama' ? 'LOCAL AI' : 'SAFE FALLBACK'}
+                    {diagnosis.ai.provider === 'ollama' ? '로컬 Gemma' : '규칙 기반 안내'}
                   </Badge>
                 </CardAction>
               </CardHeader>
@@ -609,8 +723,7 @@ export default function Home() {
             )}
 
             <div className="flex items-center justify-between px-1 text-[10px] text-muted-foreground">
-              <span className="flex items-center gap-1.5"><Database className="size-3" />SQLite local history</span>
-              <span>Schema {diagnosis.schemaVersion}</span>
+              <span className="flex items-center gap-1.5"><Database className="size-3" />이 PC에 진단 이력 저장</span>
             </div>
           </aside>
         </div>

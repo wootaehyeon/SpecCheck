@@ -128,6 +128,38 @@ def test_local_gemma_only_enriches_recommendation_explanation(monkeypatch):
     assert enriched[0].candidates[0].compatibility_score == original_score
 
 
+def test_ollama_status_prefers_gemma4_when_both_models_are_installed(monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "llm_model", "gemma4:e2b")
+    monkeypatch.setattr(settings, "llm_fallback_model", "gemma3:4b")
+    monkeypatch.setattr(
+        explainer,
+        "_list_ollama_models",
+        lambda *_: ["gemma3:4b", "gemma4:e2b"],
+    )
+
+    status = explainer.ollama_status()
+
+    assert status["available"] is True
+    assert status["installed"] is True
+    assert status["model"] == "gemma4:e2b"
+    assert status["usingFallback"] is False
+
+
+def test_ollama_status_uses_legacy_model_until_gemma4_is_downloaded(monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "llm_model", "gemma4:e2b")
+    monkeypatch.setattr(settings, "llm_fallback_model", "gemma3:4b")
+    monkeypatch.setattr(explainer, "_list_ollama_models", lambda *_: ["gemma3:4b"])
+
+    status = explainer.ollama_status()
+
+    assert status["installed"] is True
+    assert status["model"] == "gemma3:4b"
+    assert status["fallbackModel"] == "gemma3:4b"
+    assert status["usingFallback"] is True
+
+
 def test_permission_limited_section_is_not_reported_as_collected():
     snapshot = make_snapshot(
         storage_status="partial",
@@ -137,3 +169,166 @@ def test_permission_limited_section_is_not_reported_as_collected():
     storage = next(source for source in payload["sources"] if source["name"] == "storage")
     assert storage["status"] == "permission_required"
     assert storage["collectedAt"] is None
+
+
+def test_missing_sysmon_is_not_reported_as_a_collected_security_source():
+    raw = make_snapshot().model_dump(mode="json")
+    raw["sections"]["security"] = {
+        "status": "partial",
+        "milestone": "M5",
+        "data": {"sysmon": {"status": "skipped", "reason": "sysmon_channel_unavailable"}},
+    }
+    snapshot = TelemetrySnapshot.model_validate(raw)
+
+    payload = to_ui_diagnosis(snapshot, diagnose(snapshot), fallback_ai()).model_dump(by_alias=True)
+    sysmon = next(source for source in payload["sources"] if source["name"] == "sysmon")
+
+    assert sysmon["status"] == "unavailable"
+    assert sysmon["collectedAt"] is None
+    assert [item["title"] for item in sysmon["requirements"]] == [
+        "Sysmon 설치 및 Operational 로그 활성화",
+        "관리자 권한으로 재검사",
+    ]
+
+
+def test_collected_sysmon_without_a_finding_is_described_as_checked():
+    raw = make_snapshot().model_dump(mode="json")
+    raw["sections"]["security"] = {
+        "status": "ok",
+        "data": {"sysmon": {"status": "ok", "events": []}},
+    }
+    snapshot = TelemetrySnapshot.model_validate(raw)
+
+    payload = to_ui_diagnosis(snapshot, diagnose(snapshot), fallback_ai()).model_dump(by_alias=True)
+
+    assert payload["categories"]["security"]["summary"] == "보안 이벤트를 수집했지만 확정된 이상은 없습니다"
+
+
+def test_pending_builtin_sysmon_feature_requires_a_restart():
+    raw = make_snapshot().model_dump(mode="json")
+    raw["sections"]["security"] = {
+        "status": "partial",
+        "milestone": "M5",
+        "data": {"sysmon": {"status": "skipped", "reason": "sysmon_setup_restart_required"}},
+    }
+    snapshot = TelemetrySnapshot.model_validate(raw)
+
+    payload = to_ui_diagnosis(snapshot, diagnose(snapshot), fallback_ai()).model_dump(by_alias=True)
+    sysmon = next(source for source in payload["sources"] if source["name"] == "sysmon")
+
+    assert sysmon["requirements"] == [{
+        "title": "Windows 다시 시작 필요",
+        "detail": "내장 Sysmon 기능을 활성화했습니다. 재시작 후 다시 진단하면 이벤트 수집을 자동으로 완료합니다.",
+    }]
+
+
+def test_adapter_exposes_bounded_correlation_candidates_without_process_identifier():
+    raw = make_snapshot().model_dump(mode="json")
+    raw["sections"]["correlation"] = {
+        "status": "ok",
+        "milestone": "M6",
+        "data": {
+            "candidates": [{
+                "id": "background_load",
+                "rank": 1,
+                "confidence": 0.65,
+                "process_key": "a" * 64,
+                "evidence": {
+                    "cpu_percent": 95,
+                    "event_ids": [1, 3, 22],
+                    "window_seconds": 120,
+                },
+            }],
+        },
+    }
+    snapshot = TelemetrySnapshot.model_validate(raw)
+
+    payload = to_ui_diagnosis(snapshot, diagnose(snapshot), fallback_ai()).model_dump(by_alias=True)
+
+    candidate = payload["rootCauseCandidates"][0]
+    assert candidate["id"] == "background_load"
+    assert candidate["action"] == "fix"
+    assert candidate["evidence"] == [
+        "CPU 사용률 95%",
+        "동일 프로세스의 프로세스 생성·네트워크 연결·DNS 조회 활동",
+        "120초 시간 창에서 상관됨",
+    ]
+    assert "a" * 64 not in str(payload)
+
+
+def test_adapter_exposes_anomaly_as_context_without_creating_a_finding():
+    raw = make_snapshot().model_dump(mode="json")
+    raw["sections"]["anomaly"] = {
+        "status": "ok",
+        "milestone": "M7",
+        "data": {
+            "method": "z_score",
+            "required_baseline_samples": 3,
+            "evaluated_metrics": 5,
+            "signals": [{
+                "metric": "performance.cpu.usage_percent",
+                "z_score": 15.0,
+                "value": 95.0,
+                "baseline_mean": 20.0,
+                "samples": 3,
+            }],
+        },
+    }
+    snapshot = TelemetrySnapshot.model_validate(raw)
+    baseline = diagnose(snapshot)
+
+    payload = to_ui_diagnosis(snapshot, baseline, fallback_ai()).model_dump(by_alias=True)
+
+    analysis = payload["anomalyAnalysis"]
+    assert analysis["status"] == "signal_detected"
+    assert analysis["signals"] == [{
+        "metric": "performance.cpu.usage_percent",
+        "label": "CPU 사용률",
+        "direction": "above_baseline",
+        "zScore": 15.0,
+        "value": 95.0,
+        "baselineMean": 20.0,
+        "samples": 3,
+    }]
+    assert all(item["code"] != "M7-ANOMALY" for item in payload["findings"])
+
+
+def test_adapter_exposes_trajectory_as_an_approximate_context_only():
+    raw = make_snapshot().model_dump(mode="json")
+    raw["sections"]["trajectory"] = {
+        "status": "ok",
+        "milestone": "M8",
+        "data": {
+            "method": "linear_regression",
+            "required_samples": 3,
+            "minimum_span_days": 1,
+            "trends": [{
+                "metric": "storage.free_percent",
+                "samples": 7,
+                "slope_per_day": -0.9,
+                "threshold": 10,
+                "threshold_at": "2026-12-18T00:00:00+00:00",
+                "threshold_at_interval_approx": [
+                    "2026-12-02T00:00:00+00:00",
+                    "2027-01-10T00:00:00+00:00",
+                ],
+            }],
+        },
+    }
+    snapshot = TelemetrySnapshot.model_validate(raw)
+
+    payload = to_ui_diagnosis(snapshot, diagnose(snapshot), fallback_ai()).model_dump(by_alias=True)
+
+    analysis = payload["trajectoryAnalysis"]
+    assert analysis["status"] == "ready"
+    assert analysis["trends"] == [{
+        "metric": "storage.free_percent",
+        "label": "시스템 드라이브 여유 공간",
+        "direction": "worsening",
+        "samples": 7,
+        "slopePerDay": -0.9,
+        "threshold": 10.0,
+        "thresholdAt": "2026-12-18T00:00:00+00:00",
+        "thresholdRange": ["2026-12-02T00:00:00+00:00", "2027-01-10T00:00:00+00:00"],
+    }]
+    assert "고장 시점" in analysis["limitation"]

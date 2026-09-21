@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from . import __version__
+from .analysis import analyze_snapshot
 from .collectors import iter_collectors, registry
 from .config import AgentConfig
 from .pipeline import (
@@ -79,6 +80,15 @@ def _load(store: SnapshotStore, snapshot_id: str | None) -> dict[str, Any] | Non
     return store.get(snapshot_id) if snapshot_id else store.latest()
 
 
+def _attach_advanced_analysis(snapshot: dict[str, Any], config: AgentConfig) -> None:
+    """Add later local-only analysis before a snapshot is saved or uploaded."""
+    history: list[dict[str, Any]] = []
+    if config.db_path.exists():
+        with SnapshotStore(config.db_path) as store:
+            history = store.history(snapshot.get("device_id") or "", limit=200)
+    analyze_snapshot(snapshot, history)
+
+
 def _print_sections(snapshot: dict[str, Any]) -> None:
     """섹션별 상태와 한 줄 요약. 못 본 항목도 반드시 함께 보여준다."""
     for summary in section_summaries(snapshot):
@@ -133,6 +143,8 @@ def cmd_scan(args: argparse.Namespace, config: AgentConfig) -> int:
         device_id=config.device_id,
         notes=args.note,
     )
+
+    _attach_advanced_analysis(snapshot, config)
 
     if args.out:
         with open(args.out, "w", encoding="utf-8") as handle:
@@ -313,6 +325,19 @@ def cmd_history(args: argparse.Namespace, config: AgentConfig) -> int:
     return 0
 
 
+def cmd_analyze(args: argparse.Namespace, config: AgentConfig) -> int:
+    """Re-run local correlation/anomaly/trajectory analysis without overwriting history."""
+    with SnapshotStore(config.db_path) as store:
+        snapshot = _load(store, args.snapshot_id)
+        if snapshot is None:
+            print("스냅샷을 찾을 수 없습니다.", file=sys.stderr)
+            return 1
+        history = store.history(snapshot.get("device_id") or "", limit=200)
+    analyze_snapshot(snapshot, history)
+    print(_dump({name: snapshot["sections"][name] for name in ("correlation", "anomaly", "trajectory")}))
+    return 0
+
+
 def cmd_prune(args: argparse.Namespace, config: AgentConfig) -> int:
     """보관 정책 적용. 두 조건을 모두 만족하는 스냅샷만 지운다."""
     with SnapshotStore(config.db_path) as store:
@@ -354,6 +379,18 @@ def cmd_doctor(args: argparse.Namespace, config: AgentConfig) -> int:
                 "있음 (SMART 수집 가능)" if elevated else "없음 - SMART/온도 항목은 건너뜁니다",
             )
         )
+
+        from .win import events
+
+        sysmon = events.sysmon_status()
+        if sysmon["status"] == "ok" and sysmon.get("enabled"):
+            detail = "활성 · 이벤트 {0}건".format(sysmon.get("record_count") or 0)
+        elif sysmon["status"] == "ok":
+            detail = "채널은 있으나 비활성 - M5 보안 이벤트를 수집하지 않습니다"
+        else:
+            detail = "미설치·로그 비활성·읽기 권한 부족 - M5 보안 이벤트를 건너뜁니다"
+        # Sysmon은 선택 기능이다. 없다고 doctor 전체를 실패시키지 않는다.
+        checks.append(("Sysmon (M5)", True, detail))
 
     config.ensure_dirs()
     checks.append(("Agent Home", config.home.exists(), str(config.home)))
@@ -425,6 +462,10 @@ def build_parser() -> argparse.ArgumentParser:
     history.add_argument("--device", help="생략 시 현재 기기")
     history.add_argument("--limit", type=int, default=50)
     history.set_defaults(func=cmd_history)
+
+    analyze = subparsers.add_parser("analyze", help="저장된 스냅샷의 고급 로컬 분석")
+    analyze.add_argument("snapshot_id", nargs="?")
+    analyze.set_defaults(func=cmd_analyze)
 
     prune = subparsers.add_parser("prune", help="오래된 스냅샷 정리")
     prune.add_argument("--keep", type=int, default=50, help="최근 N개는 남긴다 (기본 50)")
