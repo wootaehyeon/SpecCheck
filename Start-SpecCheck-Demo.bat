@@ -21,7 +21,7 @@ if not exist "demo\recommendation-snapshot.json" (
   goto :fail
 )
 
-powershell.exe -NoProfile -Command "try { $response = Invoke-WebRequest -UseBasicParsing 'http://127.0.0.1:8000/api/health' -TimeoutSec 2; if ($response.StatusCode -lt 500) { exit 0 }; exit 1 } catch { exit 1 }" >nul 2>nul
+powershell.exe -NoProfile -Command "try { $ui = Invoke-WebRequest -UseBasicParsing 'http://localhost:3000/' -TimeoutSec 2; $api = Invoke-WebRequest -UseBasicParsing 'http://127.0.0.1:8000/api/health' -TimeoutSec 2; if ($ui.StatusCode -lt 500 -and $api.StatusCode -lt 500) { exit 0 }; exit 1 } catch { exit 1 }" >nul 2>nul
 if errorlevel 1 (
   echo [1/3] Starting SpecCheck in a separate window...
   set "SPECCHECK_NO_BROWSER=1"
