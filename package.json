@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "vinext dev --host 127.0.0.1",
     "dev:all": "node scripts/dev-all.mjs",
+    "start:local": "node scripts/start-local.mjs",
     "backend": "node scripts/run-python.mjs backend -m uvicorn app.main:app --host 127.0.0.1 --port 8000",
     "build": "vinext build",
     "start": "wrangler dev --config dist/server/wrangler.json",

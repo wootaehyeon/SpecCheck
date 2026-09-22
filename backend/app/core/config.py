@@ -25,7 +25,10 @@ class Settings(BaseSettings):
     # --- 앱 ---
     app_name: str = "SpecCheck AI"
     app_version: str = "1.2.0"
-    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://[::1]:3000"
+    cors_origins: str = (
+        "http://localhost:3000,http://127.0.0.1:3000,http://[::1]:3000,"
+        "http://localhost:8787,http://127.0.0.1:8787,http://[::1]:8787"
+    )
 
     # --- 경로 ---
     data_dir: Path = BACKEND_DIR / "data"

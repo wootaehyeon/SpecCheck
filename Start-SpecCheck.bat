@@ -42,6 +42,7 @@ if exist ".vinext\dev\lock.json" (
 )
 
 set "NODE_EXE="
+if exist "%CD%\.tools\node-v22.23.0-win-x64\node.exe" set "NODE_EXE=%CD%\.tools\node-v22.23.0-win-x64\node.exe"
 for /f "delims=" %%I in ('where node.exe 2^>nul') do if not defined NODE_EXE set "NODE_EXE=%%I"
 if not defined NODE_EXE if exist "%ProgramFiles%\nodejs\node.exe" set "NODE_EXE=%ProgramFiles%\nodejs\node.exe"
 if not defined NODE_EXE if exist "%LOCALAPPDATA%\Programs\nodejs\node.exe" set "NODE_EXE=%LOCALAPPDATA%\Programs\nodejs\node.exe"
@@ -152,9 +153,9 @@ echo.
 
 if /i not "%SPECCHECK_NO_BROWSER%"=="1" start "" /b powershell.exe -NoProfile -WindowStyle Hidden -Command "$deadline = (Get-Date).AddMinutes(5); do { try { $r = Invoke-WebRequest -UseBasicParsing 'http://localhost:3000/' -TimeoutSec 2; if ($r.StatusCode -lt 500) { Start-Process 'http://localhost:3000/'; exit 0 } } catch {}; Start-Sleep -Seconds 1 } while ((Get-Date) -lt $deadline)"
 
-if "%PNPM_KIND%"=="direct" call "%PNPM_CMD%" dev:all
-if "%PNPM_KIND%"=="corepack" call "%PNPM_CMD%" pnpm dev:all
-if "%PNPM_KIND%"=="npx" call "%PNPM_CMD%" --yes pnpm@11.19.0 dev:all
+if "%PNPM_KIND%"=="direct" call "%PNPM_CMD%" start:local
+if "%PNPM_KIND%"=="corepack" call "%PNPM_CMD%" pnpm start:local
+if "%PNPM_KIND%"=="npx" call "%PNPM_CMD%" --yes pnpm@11.19.0 start:local
 set "DEV_EXIT=%ERRORLEVEL%"
 
 if not "%DEV_EXIT%"=="0" (

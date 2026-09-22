@@ -11,6 +11,11 @@ const { d1, r2 } = hostingConfig;
 
 // macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === 'seatbelt';
+// The Cloudflare worker environment is needed for deployment builds, but its
+// Windows dev bootstrap can stall before Vite opens a browser port.  The local
+// launcher opts into this lightweight mode; SpecCheck's diagnostic API still
+// runs separately on localhost:8000.
+const isSimpleLocalDev = process.env.SPECCHECK_SIMPLE_DEV === '1';
 
 const localBindingConfig = {
   main: 'vinext/server/fetch-handler',
@@ -52,10 +57,14 @@ export default defineConfig(async () => {
     plugins: [
       vinext(),
       sites(),
-      cloudflare({
-        viteEnvironment: { name: 'rsc', childEnvironments: ['ssr'] },
-        config: localBindingConfig,
-      }),
+      ...(!isSimpleLocalDev
+        ? [
+            cloudflare({
+              viteEnvironment: { name: 'rsc', childEnvironments: ['ssr'] },
+              config: localBindingConfig,
+            }),
+          ]
+        : []),
     ],
   };
 });

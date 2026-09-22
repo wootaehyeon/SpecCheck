@@ -39,6 +39,7 @@ node_modules/
 .wrangler/
 out/
 .cache/
+.tools/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
