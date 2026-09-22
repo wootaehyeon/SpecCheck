@@ -11,6 +11,7 @@ PowerShell 프로세스 기동 비용이 조회당 약 2초다. 조회가 여러
 from __future__ import annotations
 
 import json
+import os
 import platform
 import subprocess
 from typing import Any
@@ -24,6 +25,26 @@ _PREAMBLE = (
 
 DEFAULT_TIMEOUT = 30.0
 BATCH_TIMEOUT = 60.0
+
+
+def _powershell_executable() -> str:
+    """Prefer Windows PowerShell so an elevated Agent keeps its log permissions.
+
+    Development environments can place another ``powershell`` shim ahead of
+    the Windows executable in PATH. That shim may not inherit the elevated
+    token needed to read protected Event Log channels such as Sysmon.
+    """
+    if os.name == "nt":
+        executable = os.path.join(
+            os.environ.get("SystemRoot", r"C:\\Windows"),
+            "System32",
+            "WindowsPowerShell",
+            "v1.0",
+            "powershell.exe",
+        )
+        if os.path.exists(executable):
+            return executable
+    return "powershell"
 
 
 class CimError(RuntimeError):
@@ -59,7 +80,7 @@ def run_powershell(script: str, timeout: float = DEFAULT_TIMEOUT) -> str:
     try:
         proc = subprocess.run(
             [
-                "powershell",
+                _powershell_executable(),
                 "-NoProfile",
                 "-NonInteractive",
                 "-ExecutionPolicy",

@@ -62,6 +62,12 @@ try {
 $result | ConvertTo-Json -Depth 5 -Compress
 """
 
+# ``Get-WinEvent`` must locate matching records before the bounded 2,000-row
+# result can be anonymised.  Busy endpoints can have tens of thousands of
+# Sysmon records, so the generic 10-second CIM timeout is too short even
+# though the data retained by SpecCheck remains strictly bounded.
+EVENT_QUERY_TIMEOUT = 45
+
 SYSMON_STATUS_SCRIPT = r"""
 $result = @{status='skipped'; reason='sysmon_channel_unavailable'; enabled=$null; record_count=$null}
 try {
@@ -101,7 +107,7 @@ def provision_sysmon() -> dict:
     try:
         process = subprocess.run(
             [
-                "powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+                cim._powershell_executable(), "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
                 "-File", str(script), "-ConfigPath", str(config),
             ],
             capture_output=True,
@@ -135,7 +141,10 @@ def query_events(security: bool = True) -> dict:
             }
     channel = 'Microsoft-Windows-Sysmon/Operational' if security else 'System'
     ids = '1,3,11,13,22' if security else '7,17,18,19,20,46,47,51,129,153'
-    raw = cim.run_powershell(EVENT_SCRIPT.replace('__CHANNEL__', channel).replace('__IDS__', ids), timeout=10)
+    raw = cim.run_powershell(
+        EVENT_SCRIPT.replace('__CHANNEL__', channel).replace('__IDS__', ids),
+        timeout=EVENT_QUERY_TIMEOUT,
+    )
     try:
         result = json.loads(raw.lstrip('\ufeff'))
         if not isinstance(result, dict) or not isinstance(result.get('events'), list):
