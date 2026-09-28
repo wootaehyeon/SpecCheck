@@ -162,7 +162,7 @@ def explain_for_ui_bundle(
                 enriched.append(_select_fallback_candidates([recommendation])[0])
                 continue
             enriched.append(recommendation.model_copy(update={
-                "candidates": [selected],
+                "candidates": [candidate.model_copy(update={"recommended": candidate.id == selected.id}) for candidate in recommendation.candidates],
                 "ai_insight": RecommendationAiInsight(
                     provider="ollama",
                     model=status["model"],
@@ -206,6 +206,7 @@ def build_recommendation_prompt(recommendations: list[Recommendation]) -> str:
         "",
         "각 추천 ID마다 candidateId 하나를 선택하고, 선택 이유와 구매 전 주의사항을 작성하세요.",
         "카탈로그 밖 부품을 추가하거나 입력의 확인 조건을 확정된 사실처럼 바꾸지 마세요.",
+        "판매 정보는 eBay API의 조회 시점 정보입니다. 재고는 추정치입니다. 재고 없음/미확인, 배송비 미확인, 세금 누락을 명시하세요. 통화가 다른 금액은 환율 없이 비교 금지. 가격이 없으면 기술적 근거만으로 추천하고 가격을 만들지 마세요.",
     ]
     return "\n".join(lines)
 
@@ -308,7 +309,7 @@ def _select_fallback_candidates(recommendations: list[Recommendation]) -> list[R
     for recommendation in recommendations:
         candidate = recommendation.candidates[0] if recommendation.candidates else None
         selected.append(recommendation.model_copy(update={
-            "candidates": [_select_candidate(recommendation, candidate.id)] if candidate else [],
+            "candidates": [item.model_copy(update={"recommended": item.id == candidate.id}) for item in recommendation.candidates] if candidate else [],
         }))
     return selected
 

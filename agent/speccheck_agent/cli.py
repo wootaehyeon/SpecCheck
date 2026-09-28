@@ -142,6 +142,7 @@ def cmd_scan(args: argparse.Namespace, config: AgentConfig) -> int:
         scan_mode=args.mode,
         device_id=config.device_id,
         notes=args.note,
+        snapshot_id=getattr(args, "snapshot_id", None),
     )
 
     _attach_advanced_analysis(snapshot, config)
@@ -434,6 +435,7 @@ def build_parser() -> argparse.ArgumentParser:
     scan.add_argument("--note", help="스냅샷에 남길 메모 (예: 'RAM 교체 전')")
     scan.add_argument("--quiet", action="store_true")
     scan.add_argument("--status-file", help=argparse.SUPPRESS)
+    scan.add_argument("--snapshot-id", help=argparse.SUPPRESS)
     scan.set_defaults(func=cmd_scan)
 
     collectors = subparsers.add_parser("collectors", help="등록된 collector 목록")

@@ -162,4 +162,6 @@ export type LocalScanStatus = {
   startedAt: string | null;
   finishedAt: string | null;
   started?: boolean;
+  errorCode?: string | null;
+  retryAllowed?: boolean;
 };

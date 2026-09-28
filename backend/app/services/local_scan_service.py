@@ -30,7 +30,15 @@ _STATE: dict[str, Any] = {
     "scanId": None,
     "startedAt": None,
     "finishedAt": None,
+    "errorCode": None,
+    "retryAllowed": True,
 }
+
+
+class ScanFailure(RuntimeError):
+    def __init__(self, code: str, message: str):
+        super().__init__(message)
+        self.code = code
 
 
 def _now() -> str:
@@ -54,7 +62,7 @@ def _is_elevated() -> bool:
 
 def _run_agent(status_file: Path) -> None:
     if os.name != "nt":
-        raise RuntimeError("로컬 관리자 스캔은 Windows에서만 실행할 수 있습니다.")
+        raise ScanFailure("UNSUPPORTED_PLATFORM", "로컬 관리자 스캔은 Windows에서만 실행할 수 있습니다.")
 
     agent_dir = PROJECT_ROOT / "agent"
     arguments = [
@@ -65,6 +73,8 @@ def _run_agent(status_file: Path) -> None:
         "--quiet",
         "--status-file",
         str(status_file),
+        "--snapshot-id",
+        status_file.stem,
     ]
     environment = os.environ.copy()
     backend_url = get_settings().local_agent_backend_url.rstrip("/")
@@ -117,7 +127,8 @@ def _run_agent(status_file: Path) -> None:
     if process.returncode != 0:
         detail = process.stderr.decode("utf-8", errors="replace").strip()
         LOGGER.warning("Elevated Agent launch failed: %s", detail or process.returncode)
-        raise RuntimeError(
+        raise ScanFailure(
+            "ADMIN_LAUNCH_FAILED",
             "Windows가 관리자 Agent를 시작하지 못했습니다. Backend를 관리자 권한으로 실행한 뒤 다시 시도하세요."
         )
 
@@ -127,13 +138,13 @@ def _set_state(**values: Any) -> None:
         _STATE.update(values)
 
 
-def _worker(status_file: Path, previous_scan_id: str | None) -> None:
+def _worker(status_file: Path) -> None:
     try:
         _run_agent(status_file)
 
-        latest = scan_service.latest_snapshot_any()
-        if latest is None or latest.snapshot_id == previous_scan_id:
-            raise RuntimeError("Agent는 종료됐지만 새 Snapshot이 업로드되지 않았습니다.")
+        snapshot = scan_service.get_snapshot(status_file.stem)
+        if snapshot is None:
+            raise ScanFailure("UPLOAD_MISSING", "Agent는 종료됐지만 해당 실행의 Snapshot이 업로드되지 않았습니다. Backend 연결 상태를 확인한 뒤 다시 스캔하세요.")
 
         _set_state(
             status="completed",
@@ -141,15 +152,20 @@ def _worker(status_file: Path, previous_scan_id: str | None) -> None:
             progress=100,
             currentCollector=None,
             message="수집과 진단 데이터 업로드가 완료됐습니다.",
-            scanId=latest.snapshot_id,
+            scanId=snapshot.snapshot_id,
             finishedAt=_now(),
+            errorCode=None,
+            retryAllowed=True,
         )
     except subprocess.TimeoutExpired:
         _set_state(
             status="failed",
             phase="failed",
-            message="스캔 제한 시간 5분을 초과했습니다.",
+            message=("스캔 제한 시간 5분을 초과했습니다. 다시 스캔할 수 있습니다." if _is_elevated() else
+                     "스캔 제한 시간 5분을 초과했습니다. 관리자 Agent가 계속 실행될 수 있어 재실행을 차단했습니다. 해당 Agent의 종료를 확인하고 Backend를 다시 시작하세요."),
             finishedAt=_now(),
+            errorCode="SCAN_TIMEOUT",
+            retryAllowed=_is_elevated(),
         )
     except Exception as exc:
         _set_state(
@@ -157,6 +173,8 @@ def _worker(status_file: Path, previous_scan_id: str | None) -> None:
             phase="failed",
             message=str(exc),
             finishedAt=_now(),
+            errorCode=exc.code if isinstance(exc, ScanFailure) else "AGENT_FAILED",
+            retryAllowed=True,
         )
 
 
@@ -164,10 +182,13 @@ def start_scan() -> tuple[dict[str, Any], bool]:
     """Start one scan, returning the current state and whether it was newly started."""
     with _LOCK:
         if _STATE["status"] in _ACTIVE_STATES:
-            return dict(_STATE), False
+            state = dict(_STATE)
+            state.pop("_status_file", None)
+            return state, False
+        if not _STATE.get("retryAllowed", True):
+            raise ScanFailure("SCAN_CLEANUP_REQUIRED", _STATE["message"])
 
         run_id = str(uuid.uuid4())
-        previous = scan_service.latest_snapshot_any()
         status_dir = PROJECT_ROOT / "backend" / "data" / "scan-runs"
         status_dir.mkdir(parents=True, exist_ok=True)
         status_file = status_dir / "{0}.json".format(run_id)
@@ -181,12 +202,14 @@ def start_scan() -> tuple[dict[str, Any], bool]:
             scanId=None,
             startedAt=_now(),
             finishedAt=None,
+            errorCode=None,
+            retryAllowed=True,
             _status_file=str(status_file),
         )
 
     thread = threading.Thread(
         target=_worker,
-        args=(status_file, previous.snapshot_id if previous else None),
+        args=(status_file,),
         daemon=True,
         name="speccheck-local-scan",
     )
@@ -225,5 +248,7 @@ def _reset_for_tests() -> None:
         scanId=None,
         startedAt=None,
         finishedAt=None,
+        errorCode=None,
+        retryAllowed=True,
         _status_file=None,
     )

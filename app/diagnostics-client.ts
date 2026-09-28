@@ -1,25 +1,10 @@
 import { diagnosticsConfig } from './config';
 import type { AgentHealth, Diagnosis, LocalScanStatus, MarketPricesResponse } from './types';
-
-type ErrorPayload = { error?: string; message?: string; detail?: string };
-
-export class DiagnosticsApiError extends Error {
-  constructor(message: string, readonly status: number, readonly code?: string) {
-    super(message);
-    this.name = 'DiagnosticsApiError';
-  }
-}
+import { DiagnosticsApiError, requestJson } from './diagnostics-request';
+export { DiagnosticsApiError } from './diagnostics-request';
 
 async function request<T>(path: string, init?: RequestInit, timeoutMs = diagnosticsConfig.requestTimeoutMs): Promise<T> {
-  const response = await fetch(`${diagnosticsConfig.agentUrl}${path}`, {
-    ...init,
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-  const payload = await response.json().catch(() => ({})) as T & ErrorPayload;
-  if (!response.ok) {
-    throw new DiagnosticsApiError(payload.message ?? payload.detail ?? 'SpecCheck Backend 요청에 실패했습니다.', response.status, payload.error);
-  }
-  return payload;
+  return requestJson<T>(`${diagnosticsConfig.agentUrl}${path}`, init, timeoutMs);
 }
 
 export function getAgentHealth() {
@@ -41,8 +26,12 @@ export function startBasicScan() {
   });
 }
 
+export function getDiagnosis(scanId: string) {
+  return request<Diagnosis>(`/api/scans/${encodeURIComponent(scanId)}`);
+}
+
 export function getBasicScanStatus() {
-  return request<LocalScanStatus>('/api/scans/status');
+  return request<LocalScanStatus>('/api/scans/status', undefined, 5_000);
 }
 
 export function getMarketPrices(recommendations: Diagnosis['recommendations']) {

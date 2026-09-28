@@ -39,6 +39,7 @@ def build_snapshot(
     scan_mode: str = "actual",
     device_id: str | None = None,
     notes: str | None = None,
+    snapshot_id: str | None = None,
 ) -> dict[str, Any]:
     """collector 결과들을 계약 형식의 dict 하나로 합친다."""
     sections: dict[str, Any] = {}
@@ -47,7 +48,7 @@ def build_snapshot(
 
     return {
         "schema_version": SCHEMA_VERSION,
-        "snapshot_id": str(uuid.uuid4()),
+        "snapshot_id": str(uuid.UUID(snapshot_id)) if snapshot_id else str(uuid.uuid4()),
         "collected_at": _now_iso(),
         "scan_mode": scan_mode,
         "device_id": device_id or default_device_id(),

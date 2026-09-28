@@ -18,6 +18,7 @@ from typing import Iterator
 
 from app.core.config import get_settings
 from app.schemas.telemetry import SnapshotSummary, TelemetrySnapshot
+from app.schemas.ui_diagnosis import UiDiagnosis
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS snapshots (
@@ -33,6 +34,13 @@ CREATE TABLE IF NOT EXISTS snapshots (
 
 CREATE INDEX IF NOT EXISTS idx_snapshots_device
     ON snapshots (device_id, collected_at DESC);
+
+CREATE TABLE IF NOT EXISTS ui_diagnoses (
+    snapshot_id TEXT NOT NULL,
+    input_key TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    PRIMARY KEY (snapshot_id, input_key)
+);
 """
 
 
@@ -90,6 +98,23 @@ def latest_snapshot(device_id: str) -> TelemetrySnapshot | None:
     if row is None:
         return None
     return TelemetrySnapshot.model_validate_json(row["payload"])
+
+
+def get_ui_diagnosis(snapshot_id: str, input_key: str) -> UiDiagnosis | None:
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT payload FROM ui_diagnoses WHERE snapshot_id = ? AND input_key = ?",
+            (snapshot_id, input_key),
+        ).fetchone()
+    return UiDiagnosis.model_validate_json(row["payload"]) if row else None
+
+
+def save_ui_diagnosis(snapshot_id: str, input_key: str, diagnosis: UiDiagnosis) -> None:
+    with _connect() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO ui_diagnoses (snapshot_id, input_key, payload) VALUES (?, ?, ?)",
+            (snapshot_id, input_key, diagnosis.model_dump_json(by_alias=True)),
+        )
 
 
 def latest_snapshot_any() -> TelemetrySnapshot | None:

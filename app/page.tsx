@@ -5,6 +5,7 @@ import {
   Activity,
   Bot,
   Check,
+  ChevronDown,
   Cpu,
   Database,
   ExternalLink,
@@ -36,9 +37,12 @@ import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 import { diagnosticsConfig } from './config';
-import { getAgentHealth, getBasicScanStatus, getLatestDiagnosis, getMarketPrices, startBasicScan } from './diagnostics-client';
+import { getAgentHealth, getBasicScanStatus, getDiagnosis, getLatestDiagnosis, startBasicScan } from './diagnostics-client';
+import { PurchaseOffers } from './purchase-offers';
 import { demoDiagnosis } from './fixtures/demo-diagnosis';
-import type { AgentHealth, Diagnosis, LocalScanStatus, MarketPrice } from './types';
+import { purchaseDiagnosis } from './fixtures/purchase-diagnosis';
+import { loadScanResult, monitorScan } from './scan-monitor';
+import type { AgentHealth, Diagnosis, LocalScanStatus } from './types';
 
 type ConnectionState = 'checking' | 'live' | 'empty' | 'offline' | 'demo' | 'error';
 
@@ -93,10 +97,6 @@ function formatDate(value: string) {
   return new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium' }).format(new Date(value));
 }
 
-function formatPrice(value: number) {
-  return new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW', maximumFractionDigits: 0 }).format(value);
-}
-
 function formatMetricValue(value: number, metric: string) {
   const digits = Number.isInteger(value) ? 0 : 1;
   const unit = metric.includes('percent') ? '%' : metric.includes('count') ? '건' : '';
@@ -121,15 +121,11 @@ function trendSummary(metric: string, direction: 'worsening' | 'improving' | 'st
   return direction === 'worsening' ? `${observations}에서 증가하는 흐름입니다.` : `${observations}에서 감소하는 흐름입니다.`;
 }
 
-function delay(milliseconds: number) {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
-}
-
-function CandidateComparison({ diagnosis, marketPrices, marketLoading }: {
+function CandidateComparison({ diagnosis, onUpdated }: {
   diagnosis: Diagnosis;
-  marketPrices: Record<string, MarketPrice>;
-  marketLoading: boolean;
+  onUpdated: () => Promise<void>;
 }) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   if (diagnosis.recommendations.length === 0) return null;
 
   return <Card className="border border-orange-400/15 bg-card/65">
@@ -167,11 +163,7 @@ function CandidateComparison({ diagnosis, marketPrices, marketLoading }: {
             <div className="mt-2 font-mono text-[9px] text-muted-foreground">{recommendation.aiInsight.model} · PC 외부 전송 없음</div>
           </div>
           <div className="grid gap-4 xl:grid-cols-2">
-            {(recommendation.candidates ?? []).map((candidate) => {
-              const priced = candidate.parts.map((part) => marketPrices[part.key]).filter(Boolean);
-              const completePrice = candidate.parts.length > 0 && priced.length === candidate.parts.length && priced.every((item) => !item.error && item.averagePrice > 0);
-              const lowestTotal = completePrice ? priced.reduce((sum, item) => sum + item.lowestPrice, 0) : null;
-              const marketError = priced.find((item) => item.error)?.error;
+            {(recommendation.candidates ?? []).filter(candidate => candidate.recommended || expanded.has(recommendation.id)).map((candidate) => {
               return <div key={candidate.id} className={`rounded-lg border p-4 ${candidate.recommended ? 'border-primary/25 bg-primary/[.04]' : 'border-white/8 bg-white/[.02]'}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -189,8 +181,6 @@ function CandidateComparison({ diagnosis, marketPrices, marketLoading }: {
                 <div className="mt-4 space-y-2">
                   <div className="text-[11px] font-semibold">교체 부품</div>
                   {candidate.parts.map((part) => {
-                    const price = marketPrices[part.key];
-                    const hasPrice = price && !price.error && price.lowestPrice > 0;
                     return <div key={part.key} className="rounded-md border border-white/6 bg-black/10 p-3">
                       <div className="flex items-start justify-between gap-3">
                         <div>
@@ -200,21 +190,12 @@ function CandidateComparison({ diagnosis, marketPrices, marketLoading }: {
                             {part.specifications.map((specification) => <Badge key={specification} variant="outline" className="text-[9px] font-normal text-muted-foreground">{specification}</Badge>)}
                           </div>}
                         </div>
-                        {hasPrice && <div className="shrink-0 text-xs font-semibold text-primary">최저 {formatPrice(price.lowestPrice)}</div>}
                       </div>
-                      {hasPrice && <div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground">
-                        <span>{price.mall} · {price.listingCount}건 비교 · 평균 {formatPrice(price.averagePrice)}</span>
-                        {price.purchaseLink && <a href={price.purchaseLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary">최저가 상품 <ExternalLink className="size-3" /></a>}
-                      </div>}
                       {part.sourceUrl && <a href={part.sourceUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-[10px] text-primary">
                         {part.sourceLabel ?? '제조사 사양'} <ExternalLink className="size-3" />
                       </a>}
                     </div>;
                   })}
-                  {marketLoading && <div className="flex items-center gap-2 text-[10px] text-muted-foreground"><RefreshCw className="size-3 animate-spin" />부품별 시세 확인 중</div>}
-                  {!marketLoading && marketError && <div className="text-[10px] leading-4 text-amber-300">{marketError}</div>}
-                  {!marketLoading && !completePrice && !marketError && <div className="text-[10px] leading-4 text-muted-foreground">동일 모델의 네이버 쇼핑 최저가를 확인하지 못했습니다.</div>}
-                  {lowestTotal !== null && <div className="flex items-center justify-between border-t border-white/8 pt-3 text-sm"><span>예상 최저 합계</span><strong>{formatPrice(lowestTotal)}</strong></div>}
                 </div>
 
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -236,9 +217,15 @@ function CandidateComparison({ diagnosis, marketPrices, marketLoading }: {
               </div>;
             })}
           </div>
+          {recommendation.candidates.length > 1 && <Button variant="ghost" size="sm" className="mt-2" onClick={() => setExpanded(current => {
+            const next = new Set(current);
+            if (next.has(recommendation.id)) next.delete(recommendation.id); else next.add(recommendation.id);
+            return next;
+          })}><ChevronDown className="size-4" />{expanded.has(recommendation.id) ? '다른 후보 접기' : `다른 후보 ${recommendation.candidates.length - 1}개 비교`}</Button>}
           <div className="mt-3 font-mono text-[10px] text-muted-foreground">판정 근거: {recommendation.findingIds.join(', ')}</div>
         </section>
       ))}
+      <PurchaseOffers key={diagnosis.scanId} diagnosis={diagnosis} onUpdated={onUpdated} />
     </CardContent>
   </Card>;
 }
@@ -248,29 +235,105 @@ export default function Home() {
   const [diagnosisSource, setDiagnosisSource] = useState<'demo' | 'agent'>('demo');
   const [health, setHealth] = useState<AgentHealth | null>(null);
   const [connectionState, setConnectionState] = useState<ConnectionState>('checking');
-  const [running, setRunning] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [scanChecking, setScanChecking] = useState(true);
+  const [scanDisconnected, setScanDisconnected] = useState(false);
+  const [scanMonitoring, setScanMonitoring] = useState(false);
+  const [loadingScanResult, setLoadingScanResult] = useState(false);
   const [scanStatus, setScanStatus] = useState<LocalScanStatus | null>(null);
+  const running = starting || scanChecking || loadingScanResult || scanStatus?.status === 'running';
   const [error, setError] = useState('');
-  const [marketPrices, setMarketPrices] = useState<Record<string, MarketPrice>>({});
-  const [marketLoading, setMarketLoading] = useState(false);
+  const [resultFailed, setResultFailed] = useState(false);
+  const [resultRetry, setResultRetry] = useState(0);
   const [activeTab, setActiveTab] = useState<'findings' | 'inventory' | 'sources'>('findings');
 
   useEffect(() => {
     const isLocalPreview = ['localhost', '127.0.0.1', '[::1]', '::1'].includes(window.location.hostname);
     const preview = new URLSearchParams(window.location.search).get('preview');
-    const isAnalysisPreview = isLocalPreview && (preview === 'analysis' || preview === 'm6' || preview === 'm7' || preview === 'm8');
-    if (isAnalysisPreview) {
-      setDiagnosis(demoDiagnosis);
+    const isAnalysisPreview = isLocalPreview && (preview === 'analysis' || preview === 'purchase' || preview === 'm6' || preview === 'm7' || preview === 'm8');
+    if (isAnalysisPreview && !scanMonitoring) {
+      setDiagnosis(preview === 'purchase' ? purchaseDiagnosis : demoDiagnosis);
       setDiagnosisSource('demo');
       setConnectionState('demo');
+      setScanChecking(false);
       return;
     }
     let active = true;
-    async function hydrate() {
+    let connectedBefore = false;
+    let needsHydration = false;
+    let latestRequest = 0;
+    const controller = new AbortController();
+    void monitorScan({
+      signal: controller.signal,
+      readStatus: getBasicScanStatus,
+      onStatus: (status) => {
+        setScanStatus(status);
+        setScanChecking(false);
+        if (status.status !== 'completed') setLoadingScanResult(false);
+        if (status.status === 'running') {
+          setResultFailed(false);
+          setLoadingScanResult(false);
+          setError('');
+        }
+        if (needsHydration) {
+          needsHydration = false;
+          void hydrate(status);
+        }
+      },
+      onConnection: (connected) => {
+        setScanDisconnected(!connected);
+        if (!connected) {
+          setScanChecking(true);
+          setConnectionState('offline');
+        } else if (!connectedBefore) {
+          needsHydration = true;
+          setConnectionState('live');
+        }
+        connectedBefore = connected;
+      },
+      onFinished: async (status) => {
+        if (status.status === 'failed') {
+          if (active) {
+            setError(status.message);
+            setLoadingScanResult(false);
+            setResultFailed(false);
+          }
+          return;
+        }
+        setLoadingScanResult(true);
+        setResultFailed(false);
+        const requestId = ++latestRequest;
+        const { current, diagnosis: latest } = await loadScanResult(status, getDiagnosis, getBasicScanStatus);
+        if (!active) return;
+        if (requestId !== latestRequest) return;
+        setScanStatus(current);
+        setLoadingScanResult(false);
+        if (!latest) return;
+        setDiagnosis(latest);
+        setDiagnosisSource('agent');
+        setConnectionState('live');
+        setError('');
+        setLoadingScanResult(false);
+      },
+      onResultError: (cause, _status, attempt, willRetry) => {
+        if (!active) return;
+        const message = cause instanceof Error ? cause.message : '진단 결과를 불러오지 못했습니다.';
+        setError(`${message} ${willRetry ? `자동 재시도 중 (${attempt}/3)` : '자동 재시도를 중단했습니다. 저장된 결과를 다시 불러올 수 있습니다.'}`);
+        setLoadingScanResult(willRetry);
+        setResultFailed(!willRetry);
+      },
+    });
+    async function hydrate(status: LocalScanStatus) {
+      const requestId = ++latestRequest;
       try {
-        const [nextHealth, latest] = await Promise.all([getAgentHealth(), getLatestDiagnosis()]);
+        const [nextHealth, latest] = await Promise.all([
+          getAgentHealth(),
+          status.status === 'completed' ? Promise.resolve(null) : getLatestDiagnosis(),
+        ]);
         if (!active) return;
         setHealth(nextHealth);
+        if (requestId !== latestRequest) return;
+        if (status.status === 'completed') return;
         if (latest) {
           setDiagnosis(latest);
           setDiagnosisSource('agent');
@@ -283,77 +346,37 @@ export default function Home() {
           setDiagnosis(null);
           setConnectionState('empty');
         }
-      } catch {
-        if (!active) return;
+      } catch (cause) {
+        if (!active || requestId !== latestRequest) return;
         setHealth(null);
         if (diagnosticsConfig.demoMode) {
           setDiagnosis(demoDiagnosis);
           setDiagnosisSource('demo');
           setConnectionState('demo');
         } else {
-          setDiagnosis(null);
-          setConnectionState('offline');
+          setError(cause instanceof Error ? cause.message : '저장된 진단 결과를 불러오지 못했습니다.');
+          setConnectionState('error');
         }
       }
     }
 
-    void hydrate();
-
-    return () => { active = false; };
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-    const recommendations = diagnosis?.recommendations ?? [];
-    if (recommendations.length === 0) {
-      setMarketPrices({});
-      setMarketLoading(false);
-      return () => { active = false; };
-    }
-
-    setMarketLoading(true);
-    void getMarketPrices(recommendations)
-      .then((response) => {
-        if (!active) return;
-        setMarketPrices(Object.fromEntries(response.prices.map((item) => [item.key, item])));
-      })
-      .catch(() => {
-        if (active) setMarketPrices({});
-      })
-      .finally(() => {
-        if (active) setMarketLoading(false);
-      });
-
-    return () => { active = false; };
-  }, [diagnosis?.scanId]);
+    return () => { active = false; controller.abort(); };
+  }, [scanMonitoring, resultRetry]);
 
   async function runScan() {
-    setRunning(true);
+    if (connectionState === 'demo') setScanMonitoring(true);
+    setStarting(true);
     setError('');
+    setResultFailed(false);
     try {
-      let status = await startBasicScan();
+      const status = await startBasicScan();
       setScanStatus(status);
-      const deadline = Date.now() + 5 * 60_000;
-      while (status.status === 'running') {
-        if (Date.now() >= deadline) throw new Error('스캔 대기 시간 5분을 초과했습니다.');
-        await delay(750);
-        status = await getBasicScanStatus();
-        setScanStatus(status);
-      }
-      if (status.status === 'failed') throw new Error(status.message);
-
-      const value = await getLatestDiagnosis();
-      if (!value) throw new Error('스캔은 끝났지만 새 진단 결과를 찾지 못했습니다.');
-      setDiagnosis(value);
-      setDiagnosisSource('agent');
-      setConnectionState('live');
-      const nextHealth = await getAgentHealth().catch(() => null);
-      if (nextHealth) setHealth(nextHealth);
+      setScanChecking(false);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '진단 서비스에 연결할 수 없습니다.');
       if (!diagnosis) setConnectionState('error');
     } finally {
-      setRunning(false);
+      setStarting(false);
     }
   }
 
@@ -383,11 +406,11 @@ export default function Home() {
           <div className="flex items-center gap-3">
             <span className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
               <span className={`size-1.5 rounded-full ${connectionState === 'live' ? 'bg-emerald-400 shadow-[0_0_10px_#34d399]' : connectionState === 'empty' ? 'bg-amber-300' : connectionState === 'error' || connectionState === 'offline' ? 'bg-red-400' : 'bg-zinc-500'}`} />
-              {connectionState === 'checking' ? '진단 서비스 확인 중' : connectionState === 'live' && health ? health.agentVersion === 'not-connected' ? '진단 서비스 연결됨' : '수집기 연결됨' : connectionState === 'empty' && health ? '진단 기록 없음' : connectionState === 'error' || connectionState === 'offline' ? '진단 서비스 연결 오류' : '예시 데이터'}
+              {connectionState === 'checking' ? '진단 서비스 확인 중' : connectionState === 'live' ? !health || health.agentVersion === 'not-connected' ? '진단 서비스 연결됨' : '수집기 연결됨' : connectionState === 'empty' ? '진단 기록 없음' : connectionState === 'error' || connectionState === 'offline' ? '진단 서비스 연결 오류' : '예시 데이터'}
             </span>
-            <Button onClick={runScan} disabled={running} size="lg" className="rounded-xl px-4">
+            <Button onClick={runScan} disabled={running || scanStatus?.retryAllowed === false} size="lg" className="rounded-xl px-4">
               {running ? <RefreshCw className="animate-spin" data-icon="inline-start" /> : <ScanLine data-icon="inline-start" />}
-              {running ? `${scanStatus?.progress ?? 0}%` : diagnosis ? '다시 스캔' : '기본 진단 시작'}
+              {scanDisconnected ? '연결 복구 중' : scanChecking ? '스캔 확인 중' : loadingScanResult ? '결과 불러오는 중' : running ? `${scanStatus?.progress ?? 0}%` : scanStatus?.retryAllowed === false ? '관리자 실행 확인 필요' : diagnosis ? '다시 스캔' : '기본 진단 시작'}
             </Button>
           </div>
         </div>
@@ -397,12 +420,26 @@ export default function Home() {
         {error && (
           <Alert variant="destructive" className="mb-5 border-red-400/20 bg-red-400/5">
             <WifiOff />
-            <AlertTitle>기본 진단 실행 실패</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
+            <AlertTitle>{resultFailed || loadingScanResult ? '진단 결과 조회 오류' : '기본 진단 실행 실패'}</AlertTitle>
+            <AlertDescription>
+              <span>{error}</span>
+              {resultFailed && <Button variant="outline" disabled={scanDisconnected || scanChecking} onClick={() => {
+                setError('');
+                setResultFailed(false);
+                setLoadingScanResult(true);
+                setResultRetry((value) => value + 1);
+              }}><RefreshCw />결과 다시 불러오기</Button>}
+            </AlertDescription>
           </Alert>
         )}
 
-        {running && scanStatus && (
+        {scanDisconnected && <Alert className="mb-5 border-amber-400/20 bg-amber-400/5">
+          <WifiOff />
+          <AlertTitle>진단 서비스 연결 복구 중</AlertTitle>
+          <AlertDescription>연결되면 스캔 진행 상태를 다시 확인합니다. 연결이 끊긴 동안 수집 완료 여부는 확인할 수 없습니다.</AlertDescription>
+        </Alert>}
+
+        {scanStatus?.status === 'running' && (
           <Alert className="mb-5 border-primary/20 bg-primary/5">
             <RefreshCw className="animate-spin text-primary" />
             <AlertTitle>관리자 진단 실행 중</AlertTitle>
@@ -428,7 +465,7 @@ export default function Home() {
                     : '예시가 아닌 이 PC에서 수집한 실제 정보만 표시합니다.'}
               </p>
               {connectionState !== 'checking' && (
-                <Button onClick={runScan} disabled={running} className="mt-6">
+                <Button onClick={runScan} disabled={running || scanStatus?.retryAllowed === false} className="mt-6">
                   {running ? <RefreshCw className="animate-spin" data-icon="inline-start" /> : <ScanLine data-icon="inline-start" />}
                   {running ? `${scanStatus?.progress ?? 0}% 수집 중` : '관리자 스캔 시작'}
                 </Button>
@@ -440,7 +477,7 @@ export default function Home() {
           <section className="space-y-6">
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
               <div>
-                <p className="mb-2 text-xs font-semibold text-primary">로컬 진단 결과</p>
+                <p className="mb-2 text-xs font-semibold text-primary">{scanStatus?.status === 'running' || loadingScanResult ? '이전 진단 결과' : '로컬 진단 결과'}</p>
                 <h1 className="text-3xl font-semibold sm:text-4xl">현재 PC 상태</h1>
                 <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                   <span>{formatTime(diagnosis.generatedAt)} · {diagnosis.machine.name}</span>
@@ -509,7 +546,11 @@ export default function Home() {
               ))}
             </div>
 
-            <CandidateComparison diagnosis={diagnosis} marketPrices={marketPrices} marketLoading={marketLoading} />
+            <CandidateComparison diagnosis={diagnosis} onUpdated={async () => {
+              const scanId = diagnosis.scanId;
+              const updated = await getDiagnosis(scanId);
+              setDiagnosis(current => current?.scanId === scanId ? updated : current);
+            }} />
 
             <div className="space-y-4">
               <div role="tablist" aria-label="진단 상세" className="flex w-fit gap-1 border-b border-white/8 text-sm">

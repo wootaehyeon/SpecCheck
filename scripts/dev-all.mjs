@@ -20,7 +20,7 @@ const children = [
     env: environment,
     stdio: 'inherit',
   }),
-  spawn(process.execPath, [packageManagerCli, 'dev'], { env: environment, stdio: 'inherit' }),
+  spawn(process.execPath, [packageManagerCli, 'run', 'dev'], { env: environment, stdio: 'inherit' }),
 ];
 
 let stopping = false;

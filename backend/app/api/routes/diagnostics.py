@@ -19,6 +19,7 @@ router = APIRouter()
 
 class ScanRequest(BaseModel):
     snapshot: TelemetrySnapshot | None = None
+    refresh: bool = False
 
 
 def _validate_scan_origin(request: Request) -> None:
@@ -64,13 +65,24 @@ def latest_diagnosis() -> UiDiagnosis:
 @router.post("/scans/start", status_code=status.HTTP_202_ACCEPTED)
 def start_local_scan(request: Request) -> dict:
     _validate_scan_origin(request)
-    state, started = local_scan_service.start_scan()
+    try:
+        state, started = local_scan_service.start_scan()
+    except local_scan_service.ScanFailure as exc:
+        return JSONResponse(status_code=409, content={"error": exc.code, "message": str(exc)})
     return {**state, "started": started}
 
 
 @router.get("/scans/status")
 def local_scan_status() -> dict:
     return local_scan_service.get_status()
+
+
+@router.get("/scans/{scan_id}", response_model=UiDiagnosis)
+def scan_diagnosis(scan_id: str) -> UiDiagnosis:
+    snapshot = scan_service.get_snapshot(scan_id)
+    if snapshot is None:
+        raise HTTPException(status_code=404, detail="해당 스캔의 Snapshot이 없습니다.")
+    return diagnosis_service.diagnose_for_ui(snapshot)
 
 
 @router.post("/scans", response_model=UiDiagnosis)
@@ -80,4 +92,4 @@ def run_basic_scan(request: ScanRequest) -> UiDiagnosis:
         scan_service.save_snapshot(snapshot)
     else:
         snapshot = _latest_or_404()
-    return diagnosis_service.diagnose_for_ui(snapshot)
+    return diagnosis_service.diagnose_for_ui(snapshot, refresh=request.refresh)

@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     #: Agent가 업로드한 스냅샷 저장소 (M3)
     snapshot_db: Path = BACKEND_DIR / "data" / "snapshots.db"
     local_agent_backend_url: str = "http://127.0.0.1:8000"
+    component_catalog_file: Path | None = None
+    catalog_review_max_age_days: int = 365
 
     # --- 외부 API ---
     openai_api_key: str = ""
@@ -44,6 +46,10 @@ class Settings(BaseSettings):
     #: 동일 모델의 가격 조회 결과를 짧게 보관해 API 호출량과 화면 대기 시간을 줄인다.
     naver_price_cache_ttl_seconds: int = 900
     ebay_app_id: str = ""
+    ebay_client_id: str = ""
+    ebay_client_secret: str = ""
+    ebay_oauth_token: str = ""
+    ebay_quote_ttl_seconds: int = 300
 
     # --- 게시글 품질 평가 (GPT-2 perplexity) ---
     #: 기본은 비활성. 모델을 저장소에 포함하지 않으므로 경로를 지정해야 동작한다.

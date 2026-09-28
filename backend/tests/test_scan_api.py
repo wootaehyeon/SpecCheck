@@ -64,6 +64,17 @@ def test_health(client):
     assert response.json()["status"] == "ok"
 
 
+def test_launcher_health_identifies_project_and_connection_settings(client):
+    import hashlib
+    from app.core.config import PROJECT_ROOT
+
+    health = client.get("/health").json()
+    expected = hashlib.sha256(str(PROJECT_ROOT.resolve()).replace("\\", "/").lower().encode()).hexdigest()[:16]
+    assert health["projectId"] == expected
+    assert health["localAgentBackendUrl"] == get_settings().local_agent_backend_url
+    assert health["corsOrigins"] == get_settings().cors_origin_list
+
+
 def test_upload_and_fetch_snapshot(client):
     response = client.post("/api/scan/snapshots", json=make_payload())
     assert response.status_code == 201
@@ -136,7 +147,8 @@ def test_ui_scan_alias_returns_diagnosis_1_1(client):
     assert all("recommendedAction" in finding for finding in result["findings"])
     assert result["recommendations"][0]["aiInsight"]["status"] == "fallback"
     candidates = result["recommendations"][0]["candidates"]
-    assert len(candidates) == 1
+    assert len(candidates) >= 2
+    assert sum(candidate["recommended"] for candidate in candidates) == 1
     assert candidates[0]["strategy"] == "minimal"
 
     latest = client.get("/api/scans/latest")
@@ -232,3 +244,86 @@ def test_price_routes_still_mounted(client):
     paths = {route.path for route in app.routes}
     assert "/api/price-check" in paths
     assert "/api/optimize-estimate" in paths
+
+
+def test_ui_result_by_id_does_not_follow_latest_upload(client):
+    first = make_payload()
+    second = make_payload("aaaaaaaa-0000-0000-0000-000000000002")
+    first["collected_at"] = "2026-09-27T10:00:00+00:00"
+    second["collected_at"] = "2026-09-27T10:01:00+00:00"
+    client.post("/api/scan/snapshots", json=first)
+    client.post("/api/scan/snapshots", json=second)
+    assert client.get("/api/scans/latest").json()["scanId"] == second["snapshot_id"]
+    result = client.get("/api/scans/" + first["snapshot_id"])
+    assert result.status_code == 200
+    assert result.json()["scanId"] == first["snapshot_id"]
+    assert client.get("/api/scans/missing").status_code == 404
+
+
+@pytest.mark.parametrize("upload_expected", [True, False])
+def test_local_worker_requires_its_own_upload(client, tmp_path, monkeypatch, upload_expected):
+    expected_id = "11111111-2222-3333-4444-555555555555"
+    unrelated_id = "aaaaaaaa-0000-0000-0000-000000000002"
+
+    def run_agent(status_file):
+        assert status_file.stem == expected_id
+        if upload_expected:
+            client.post("/api/scan/snapshots", json=make_payload(expected_id))
+        client.post("/api/scan/snapshots", json=make_payload(unrelated_id))
+
+    monkeypatch.setattr(local_scan_service, "_run_agent", run_agent)
+    local_scan_service._worker(tmp_path / (expected_id + ".json"))
+    state = local_scan_service.get_status()
+    assert state["status"] == ("completed" if upload_expected else "failed")
+    assert state["scanId"] == (expected_id if upload_expected else None)
+
+
+def test_agent_launch_passes_reserved_snapshot_id(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    expected_id = "11111111-2222-3333-4444-555555555555"
+    monkeypatch.setattr(local_scan_service.os, "name", "nt")
+    monkeypatch.setattr(local_scan_service, "_is_elevated", lambda: True)
+    calls = []
+
+    def run(arguments, **kwargs):
+        calls.append(arguments)
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(local_scan_service.subprocess, "run", run)
+    local_scan_service._run_agent(tmp_path / (expected_id + ".json"))
+    arguments = calls[0]
+    assert arguments[arguments.index("--snapshot-id") + 1] == expected_id
+
+
+@pytest.mark.parametrize("elevated", [True, False])
+def test_scan_timeout_reports_safe_retry_policy(client, tmp_path, monkeypatch, elevated):
+    import subprocess
+
+    def run_agent(_status_file):
+        raise subprocess.TimeoutExpired("agent", 300)
+
+    monkeypatch.setattr(local_scan_service, "_is_elevated", lambda: elevated)
+    monkeypatch.setattr(local_scan_service, "_run_agent", run_agent)
+    local_scan_service._worker(tmp_path / "scan.json")
+    result = client.get("/api/scans/status").json()
+    assert result["status"] == "failed"
+    assert result["errorCode"] == "SCAN_TIMEOUT"
+    assert result["retryAllowed"] is elevated
+    assert result["finishedAt"] is not None
+    if not elevated:
+        response = client.post("/api/scans/start")
+        assert response.status_code == 409
+        assert response.json()["error"] == "SCAN_CLEANUP_REQUIRED"
+
+
+def test_permission_failure_is_actionable(tmp_path, monkeypatch):
+    def run_agent(_status_file):
+        raise local_scan_service.ScanFailure("ADMIN_LAUNCH_FAILED", "관리자 실행을 승인해 주세요.")
+
+    monkeypatch.setattr(local_scan_service, "_run_agent", run_agent)
+    local_scan_service._worker(tmp_path / "scan.json")
+    state = local_scan_service.get_status()
+    assert state["errorCode"] == "ADMIN_LAUNCH_FAILED"
+    assert state["retryAllowed"] is True
+    assert "승인" in state["message"]

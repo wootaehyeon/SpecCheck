@@ -68,6 +68,7 @@ Thumbs.db
 backend/.env
 backend/data/price_cache.json
 backend/data/used_price_cache.json
+backend/data/catalog/
 
 # Local Claude Code config
 .claude/

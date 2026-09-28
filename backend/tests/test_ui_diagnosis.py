@@ -87,10 +87,10 @@ def test_adapter_preserves_action_decision_and_aliases():
     recommendation = payload["recommendations"][0]
     assert recommendation["findingIds"] == ["HW-RAM-002"]
     assert recommendation["title"] == "호환 메모리 증설 제안"
-    assert [candidate["strategy"] for candidate in recommendation["candidates"]] == ["minimal"]
+    assert [candidate["strategy"] for candidate in recommendation["candidates"]] == ["minimal", "minimal"]
     minimal = recommendation["candidates"][0]
     assert minimal["recommended"] is True
-    assert minimal["compatibilityStatus"] == "passed"
+    assert minimal["compatibilityStatus"] == "conditional"
     assert minimal["parts"][0]["name"] == "Kingston FURY Beast DDR4 32GB 3200MT/s Kit"
     assert minimal["parts"][0]["sourceLabel"] == "Kingston FURY Beast DDR4 제품 정보"
     assert recommendation["aiInsight"]["status"] == "fallback"
