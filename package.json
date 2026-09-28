@@ -13,7 +13,7 @@
     "build": "vinext build",
     "start": "wrangler dev --config dist/server/wrangler.json",
     "test": "pnpm test:agent && pnpm test:backend && pnpm test:ui",
-    "test:ui": "node --experimental-strip-types --test scripts/test-scan-monitor.mjs scripts/test-diagnostics-request.mjs scripts/test-launcher.mjs",
+    "test:ui": "node --experimental-strip-types --test scripts/test-scan-monitor.mjs scripts/test-diagnostics-request.mjs scripts/test-launcher.mjs scripts/test-purchase-comparison.mjs",
     "test:agent": "node scripts/run-python.mjs agent -m pytest -q",
     "test:backend": "node scripts/run-python.mjs backend -m pytest -q",
     "check": "pnpm test && pnpm build",

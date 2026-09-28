@@ -6,12 +6,10 @@ import { Button } from '@/components/ui/button';
 import { requestJson } from './diagnostics-request';
 import { diagnosticsConfig } from './config';
 import type { Diagnosis } from './types';
+import { PurchaseComparison } from './purchase-comparison-view';
+import type { PurchaseQuote } from './purchase-comparison';
 
-type Offer = {
-  id: string; product_id: string; title: string; url: string; amount: string;
-  currency: string; shipping: string | null; total: string | null;
-  availability: 'in_stock' | 'unknown'; observed_at: string;
-};
+type Offer = PurchaseQuote;
 type State = { mode: string; offers: Offer[]; best: Offer[]; products: Array<{product_id: string; message: string}> };
 const money = (amount: string, currency: string) => new Intl.NumberFormat('ko-KR', { style: 'currency', currency }).format(Number(amount));
 
@@ -42,11 +40,13 @@ export function PurchaseOffers({ diagnosis, onUpdated }: { diagnosis: Diagnosis;
     finally { setRevision(value => value + 1); setBusy(false); }
   }
   return <section className="space-y-4 border-t border-white/10 pt-5">
-    <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-sm font-semibold">구매 가격 비교</h3>
+    <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-sm font-semibold">교체 견적 비교</h3>
       <Button size="sm" variant="outline" disabled={busy || diagnosis.scanId === 'demo-purchase'} onClick={() => void refresh()}><RefreshCw className={`size-4 ${busy ? 'animate-spin' : ''}`} />{busy ? '갱신 중' : '추천 갱신'}</Button>
     </div>
     {error && <p role="alert" className="text-xs text-amber-300">가격 미확인 · {error}</p>}
     {!state && !error && <p className="text-xs text-muted-foreground">후보 판매 정보 확인 중</p>}
+    <PurchaseComparison diagnosis={diagnosis} offers={state?.offers ?? []} />
+    <details className="space-y-3"><summary className="cursor-pointer text-xs font-medium">판매 상품 상세</summary>
     {parts.filter(part => recommendedIds.has(part.key) || state?.offers.some(o => o.product_id === part.key)).map(part => {
       const offers = state?.offers.filter(o => o.product_id === part.key) ?? [];
       return <div key={part.key} className="space-y-2 border-b border-white/10 pb-3 text-xs">
@@ -62,6 +62,7 @@ export function PurchaseOffers({ diagnosis, onUpdated }: { diagnosis: Diagnosis;
         </div>)}
       </div>;
     })}
+    </details>
     {state?.mode === 'technical_only' && <p className="text-xs text-muted-foreground">현재는 사양·호환성 기반 교체 제안입니다. 가격과 재고는 확인되지 않았습니다.</p>}
     <p className="text-[11px] text-muted-foreground">새 상품 · 한국 배송 기준 · 관세·부가세 제외 · 통화별 비교 · 시장 전체 최저가가 아님</p>
   </section>;

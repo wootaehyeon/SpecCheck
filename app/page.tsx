@@ -474,7 +474,7 @@ export default function Home() {
           </section>
         ) : (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_350px]">
-          <section className="space-y-6">
+          <section className="min-w-0 space-y-6">
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
               <div>
                 <p className="mb-2 text-xs font-semibold text-primary">{scanStatus?.status === 'running' || loadingScanResult ? '이전 진단 결과' : '로컬 진단 결과'}</p>
