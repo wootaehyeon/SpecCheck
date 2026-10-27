@@ -87,6 +87,16 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+.service-notice {
+  margin-bottom: var(--space_lg);
+  padding: var(--space_md);
+  border: 1px solid var(--bt_hairline);
+  border-radius: var(--radius_md);
+  background: var(--bt_surface);
+  color: var(--bt_body);
+  line-height: 1.7;
+}
+
 /* Faint warm bronze glow at top — structural depth, not a drop shadow.
    Fixed pseudo-layer keeps it cheap to paint and out of scroll repaint. */
 body::before {

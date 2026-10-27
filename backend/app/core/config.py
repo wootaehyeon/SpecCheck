@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     app_name: str = "SpecCheck AI"
     app_version: str = "1.0.0"
     cors_origins: str = "*"
+    # 로컬 개발 기본값. 공개 웹 배포에서는 telemetry API를 반드시 끈다.
+    serve_frontend: bool = False
+    telemetry_api_enabled: bool = True
 
     # --- 경로 ---
     data_dir: Path = BACKEND_DIR / "data"

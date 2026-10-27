@@ -1,6 +1,13 @@
-const OPEN_MARKET_API_URL = 'http://localhost:8000/api/market-prices';
-const CRAWL_API_URL = 'http://localhost:8000/api/crawl';
-const OPTIMIZE_API_URL = 'http://localhost:8000/api/optimize-estimate';
+// 공개 서버는 웹과 API를 같은 HTTPS 주소로 제공한다.
+// 기존 dev-frontend.ps1(5599)로 실행할 때만 로컬 Backend(8000)를 사용한다.
+const API_BASE_URL = ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname)
+  && window.location.port === '5599'
+  ? `${window.location.protocol}//${window.location.hostname}:8000`
+  : '';
+const OPEN_MARKET_API_URL = `${API_BASE_URL}/api/market-prices`;
+const CRAWL_API_URL = `${API_BASE_URL}/api/crawl`;
+const OPTIMIZE_API_URL = `${API_BASE_URL}/api/optimize-estimate`;
+const MARKET_INTELLIGENCE_API_URL = `${API_BASE_URL}/api/market-intelligence`;
 const PAGE_URLS = {
   main: 'index.html',
   input: 'input.html',
@@ -410,7 +417,7 @@ async function fetchMarketIntelligence(estimate) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 25000); // 실제 크롤링은 부품당 1~2초 소요되어 여유 있게 설정
 
-    const response = await fetch('http://localhost:8000/api/market-intelligence', {
+    const response = await fetch(MARKET_INTELLIGENCE_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -1094,6 +1101,13 @@ function highlightNav(currentPage) {
 }
 
 function initPage() {
+  const main = document.querySelector('main');
+  if (main) {
+    const notice = document.createElement('p');
+    notice.className = 'service-notice';
+    notice.textContent = '시범 서비스 · 성능·호환성 점수와 교체 추천은 예시 결과입니다. 가격·시장 정보도 조회 실패 시 예시 데이터가 표시될 수 있습니다.';
+    main.prepend(notice);
+  }
   const currentPage = getCurrentPageName();
   highlightNav(currentPage);
   if (currentPage === 'input') {

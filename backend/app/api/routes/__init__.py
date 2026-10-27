@@ -13,12 +13,19 @@
 
 from fastapi import APIRouter
 
-from . import diagnosis, evaluation, price, scan
+from . import evaluation, price
 
-router = APIRouter()
-router.include_router(price.router, tags=["price"])
-router.include_router(evaluation.router, tags=["evaluation"])
-router.include_router(scan.router, prefix="/scan", tags=["scan"])
-router.include_router(diagnosis.router, prefix="/diagnosis", tags=["diagnosis"])
 
-__all__ = ["router"]
+def create_router(*, telemetry_enabled: bool = True) -> APIRouter:
+    router = APIRouter()
+    router.include_router(price.router, tags=["price"])
+    router.include_router(evaluation.router, tags=["evaluation"])
+    if telemetry_enabled:
+        from . import diagnosis, scan
+
+        router.include_router(scan.router, prefix="/scan", tags=["scan"])
+        router.include_router(diagnosis.router, prefix="/diagnosis", tags=["diagnosis"])
+    return router
+
+
+__all__ = ["create_router"]
