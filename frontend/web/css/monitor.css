@@ -30,6 +30,7 @@ header nav [aria-current] { color: var(--bt_foreground); border-bottom: 2px soli
 .monitor-legend span + span { color: #e1b68b; }
 .monitor-finding { padding: 16px 0; border-bottom: 1px solid var(--bt_hairline); line-height: 1.8; }
 .monitor-finding p { margin-top: 8px; }
+.monitor-finding .btn { margin-top: 16px; }
 [hidden] { display: none !important; }
 @media (max-width: 760px) {
   .monitor-heading, .monitor-toolbar { align-items: flex-start; flex-direction: column; }

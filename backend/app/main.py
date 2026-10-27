@@ -41,7 +41,7 @@ def create_app() -> FastAPI:
             response = JSONResponse(status_code=503, content={"detail": "모니터링 DB 연결을 확인해주세요."})
         if private:
             response.headers["Cache-Control"] = "no-store"
-        if request.url.path == "/monitor.html":
+        if request.url.path in {"/monitor.html", "/purchase.html"}:
             response.headers["Referrer-Policy"] = "no-referrer"
             response.headers["Content-Security-Policy"] = (
                 "default-src 'self'; script-src 'self'; style-src 'self' https://cdn.jsdelivr.net; "

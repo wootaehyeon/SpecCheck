@@ -45,6 +45,8 @@ jobs:
           node-version: "22"
       - run: node --check frontend/web/js/script.js
       - run: node --check frontend/web/js/monitor.js
+      - run: node --check frontend/web/js/purchase-context.js
+      - run: node --check frontend/web/js/purchase.js
       - run: npm ci
         working-directory: frontend/tests
       - run: npx playwright install --with-deps chromium

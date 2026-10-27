@@ -132,7 +132,16 @@
       const title = document.createElement('strong'); title.textContent = `${finding.title} · ${finding.severity}`;
       const summary = document.createElement('p'); summary.textContent = finding.summary;
       const action = document.createElement('p'); action.textContent = finding.action_detail || '';
-      item.append(title, summary, action); findings.append(item);
+      item.append(title, summary, action);
+      if (finding.recommended_action === 'purchase') {
+        const purchase = document.createElement('a');
+        purchase.className = 'btn btn-primary';
+        purchase.href = `purchase.html?rule=${encodeURIComponent(finding.rule_id)}`;
+        purchase.textContent = window.SpecCheckPurchase.profile(finding.rule_id).label;
+        purchase.addEventListener('click', () => window.SpecCheckPurchase.remember(finding, hardware));
+        item.append(purchase);
+      }
+      findings.append(item);
     }
     if (!findings.childElementCount) findings.textContent = diagnosis.unavailable ? '일부 자료의 형식 때문에 진단을 계산하지 못했습니다.' : '확보된 수집 항목에서 규칙이 감지한 이상 징후가 없습니다. 수집하지 못한 항목의 정상 여부는 판단하지 않습니다.';
     const security = snapshot.sections?.security;
