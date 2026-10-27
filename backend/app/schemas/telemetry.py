@@ -12,7 +12,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+from app.schemas.security import SecurityData
 
 #: Backend가 수용하는 스냅샷 스키마 MAJOR 버전.
 #: 이보다 높은 MAJOR가 오면 Agent 업데이트 없이는 해석할 수 없으므로 거절한다.
@@ -56,6 +57,14 @@ class TelemetrySnapshot(BaseModel):
     agent: AgentInfo
     sections: dict[str, Section] = Field(default_factory=dict)
     notes: str | None = None
+
+    @field_validator("sections")
+    @classmethod
+    def validate_security_data(cls, sections):
+        security = sections.get("security")
+        if security and security.data:
+            security.data = SecurityData.model_validate(security.data).model_dump(mode="json")
+        return sections
 
     @property
     def schema_major(self) -> int:

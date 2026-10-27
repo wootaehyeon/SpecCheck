@@ -6,6 +6,7 @@ Agent(``speccheck-agent scan --upload``)가 이 엔드포인트로 telemetry를 
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import AwareDatetime
 
 from app.schemas.telemetry import (
     SUPPORTED_SCHEMA_MAJOR,
@@ -16,6 +17,18 @@ from app.schemas.telemetry import (
 from app.services import scan_service
 
 router = APIRouter()
+
+
+@router.get("/process-events")
+def process_events(
+    device_id: str, start: AwareDatetime, end: AwareDatetime,
+    process_guid: str | None = None,
+    limit: int = Query(default=500, ge=1, le=2000),
+    offset: int = Query(default=0, ge=0),
+) -> list[dict]:
+    if start >= end:
+        raise HTTPException(status_code=422, detail="start must precede end")
+    return scan_service.process_timeline(device_id, start, end, process_guid, limit, offset)
 
 
 @router.post("/snapshots", response_model=SnapshotAccepted, status_code=201)

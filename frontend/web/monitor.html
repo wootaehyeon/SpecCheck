@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>내 PC 모니터링 · SpecCheck</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/monitor.css" />
+</head>
+<body>
+  <header><a class="logo" href="index.html">SpecCheck</a><nav>
+    <a href="index.html">메인</a><a href="input.html">견적 분석</a><a href="monitor.html" aria-current="page">내 PC 모니터링</a>
+  </nav></header>
+  <main class="monitor-main">
+    <section class="monitor-heading"><div><p class="monitor-eyebrow">MY PC / ACTUAL TELEMETRY</p>
+      <h1>내 PC 모니터링</h1><p>Windows Agent가 수집한 실제 상태를 확인하세요.</p></div>
+      <span id="connectionStatus" class="monitor-status">연결 확인 중</span>
+    </section>
+    <p id="monitorMessage" class="service-notice" role="status" aria-live="polite">서버 설정을 확인하고 있습니다.</p>
+
+    <section id="setupPanel" class="card monitor-setup">
+      <div class="section-title"><h2>내 PC 연결</h2><p>웹페이지는 PC 정보를 직접 읽지 않습니다. 본인의 Windows PC에서 Agent를 실행하면 여기에 표시됩니다.</p></div>
+      <ol class="monitor-steps"><li><strong>연결 설정 저장</strong><span>아래 항목에 동의하고 내 PC 연결을 누르세요.</span></li>
+        <li><strong>Agent 다운로드</strong><span>ZIP 압축을 풀고 연결 설정 파일을 같은 폴더에 넣으세요.</span></li>
+        <li><strong>PC에서 실행</strong><span>Python 3.10 이상이 필요합니다. Start-SpecCheck.cmd를 실행하고 Y를 눌러 시작하세요.</span></li></ol>
+      <label class="monitor-field" for="deviceName">PC 이름<input id="deviceName" maxlength="64" value="내 PC" autocomplete="off" /></label>
+      <label class="monitor-consent"><input id="basicConsent" type="checkbox" />
+        <span>하드웨어 사양, CPU·메모리·디스크 부하, 지원되는 온도, 상위 점유 프로세스 이름을 수집하고 이 서버에 전송하는 데 동의합니다.</span></label>
+      <label class="monitor-consent"><input id="securityConsent" type="checkbox" />
+        <span><strong>선택:</strong> Sysmon 프로세스 시작·종료 이력도 수집·전송합니다. Sysmon 사전 설치와 관리자 권한이 필요하며, 실행 파일명·이벤트 시각만 전송합니다. 명령줄·전체 경로·사용자 이름은 제외합니다.</span></label>
+      <p class="monitor-help">서버 이력은 7일, 연결키는 90일 동안 유지됩니다. 브라우저에 조회키를 저장하며, 연결 해제로 서버 이력과 키를 삭제할 수 있습니다. Agent를 중단해도 로컬 원본은 PC에 남습니다.</p>
+      <div class="button-row"><button id="pairButton" class="btn btn-primary" disabled>내 PC 연결하고 설정 저장</button>
+        <a class="btn btn-secondary" href="/api/monitor/agent.zip" download>Agent ZIP 다운로드</a>
+        <label class="btn btn-secondary" for="restoreReader">조회키 불러오기</label><input id="restoreReader" type="file" accept=".json" hidden /></div>
+    </section>
+
+    <section id="dashboardPanel" hidden>
+      <div class="monitor-toolbar"><div><h2 id="connectedName">내 PC</h2><p id="lastSeen">아직 Agent가 연결되지 않았습니다.</p></div>
+        <div class="button-row"><button id="refreshButton" class="btn btn-secondary">새로고침</button>
+          <button id="configButton" class="btn btn-secondary">연결 설정 다시 저장</button>
+          <button id="backupButton" class="btn btn-secondary">조회키 백업</button>
+          <button id="disconnectButton" class="btn btn-secondary">연결 해제·서버 이력 삭제</button></div></div>
+      <p class="monitor-help">Agent ZIP 압축을 푼 폴더에 speccheck-monitor.json을 넣고 Start-SpecCheck.cmd를 실행하세요. 프로세스 이력을 선택했다면 우클릭 → 관리자 권한으로 실행하세요. Ctrl+C로 수집과 전송을 중단할 수 있습니다.</p>
+      <div class="monitor-metrics">
+        <article class="summary-card"><span>CPU 사용률 · 샘플 평균</span><strong id="cpuMetric">—</strong></article>
+        <article class="summary-card"><span>사용 가능한 메모리</span><strong id="memoryMetric">—</strong></article>
+        <article class="summary-card"><span>디스크 대기열</span><strong id="diskMetric">—</strong></article>
+        <article class="summary-card"><span>지원되는 온도 센서</span><strong id="temperatureMetric">—</strong></article>
+      </div>
+      <section class="card"><h2>사용률 추이</h2><p class="monitor-help">최근 240회 수신 · CPU 사용률과 메모리 커밋 사용률 · 수집하지 못한 값은 그래프에서 제외합니다.</p>
+        <div class="monitor-legend"><span>● CPU</span><span>● 메모리 커밋</span></div>
+        <svg id="usageChart" viewBox="0 0 900 200" role="img" aria-label="CPU와 메모리 커밋 사용률 추이"></svg>
+        <p id="chartRange" class="monitor-help">Agent 연결 후 실측 그래프가 표시됩니다.</p></section>
+      <div class="monitor-columns"><section class="card"><h2>하드웨어</h2><dl id="hardwareList" class="monitor-hardware"></dl></section>
+        <section class="card"><h2>상위 점유 프로세스</h2><p class="monitor-help">샘플 시점의 프로세스 이름과 자원 사용량입니다. 전경 앱 사용 시간과는 다릅니다.</p>
+          <p class="monitor-help">프로세스 CPU 카운터는 코어별 사용률 합계로 100%를 넘을 수 있습니다.</p>
+          <div class="table-wrap"><table><thead><tr><th>프로세스</th><th>CPU 코어 합계</th><th>메모리</th></tr></thead><tbody id="processBody"></tbody></table></div></section></div>
+      <section class="card"><h2>실측 기반 진단</h2><p id="coverageText" class="monitor-help">아직 수집된 자료가 없습니다.</p><div id="findingsList"></div></section>
+      <section class="card"><h2>프로세스 이벤트 이력</h2><p id="securityState" class="monitor-help">선택적으로 동의한 Sysmon 이벤트만 표시합니다.</p>
+        <div class="table-wrap"><table><thead><tr><th>시각</th><th>종류</th><th>프로세스</th><th>부모 프로세스</th></tr></thead><tbody id="eventBody"></tbody></table></div></section>
+    </section>
+  </main>
+  <script src="js/monitor.js" defer></script>
+</body></html>

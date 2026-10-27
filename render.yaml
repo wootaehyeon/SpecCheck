@@ -19,3 +19,7 @@ services:
         value: "false"
       - key: QUALITY_EVAL_ENABLED
         value: "false"
+      - key: MONITORING_ENABLED
+        value: "true"
+      # Neon 등의 PostgreSQL 연결 URL은 Render Environment에 비공개로 추가한다.
+      # MONITORING_DATABASE_URL이 없으면 인증 모니터링 API는 닫힌 상태로 유지된다.

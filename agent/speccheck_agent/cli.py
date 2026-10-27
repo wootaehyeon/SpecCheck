@@ -18,11 +18,14 @@ import argparse
 import json
 import platform
 import sys
+import time
+from datetime import datetime, timezone
 from typing import Any
 
 from . import __version__
 from .collectors import iter_collectors, registry
 from .config import AgentConfig
+from .collectors.security import SecurityCollector
 from .pipeline import (
     DB_SCHEMA_VERSION,
     SnapshotStore,
@@ -32,6 +35,8 @@ from .pipeline import (
 )
 from .snapshot import SCHEMA_VERSION, build_snapshot, default_device_id, summarize
 from .transport import UploadError, upload_snapshot
+from .win.cim import is_windows, is_elevated
+from .win.elevation import request_monitor_elevation
 
 
 #: 수집하지 못한 값의 표시. "0"이나 "정상"으로 보이면 안 된다 - 확인하지 못한
@@ -67,9 +72,13 @@ def _print_sections(snapshot: dict[str, Any]) -> None:
 
 def cmd_scan(args: argparse.Namespace, config: AgentConfig) -> int:
     names = [name.strip() for name in args.collectors.split(",")] if args.collectors else None
+    if names is None and not args.security_consent:
+        names = [name for name in registry() if name != "security"]
 
     results = []
     for collector in iter_collectors(names):
+        if collector.name == "security":
+            collector = SecurityCollector(consent=args.security_consent)
         if not args.quiet:
             print("  - {0} ...".format(collector.name), end="", flush=True)
         result = collector.run()
@@ -112,6 +121,53 @@ def cmd_scan(args: argparse.Namespace, config: AgentConfig) -> int:
         print(summarize(snapshot))
         if not args.quiet:
             _print_sections(snapshot)
+    return 0
+
+
+def cmd_monitor(args: argparse.Namespace, config: AgentConfig) -> int:
+    """Foreground monitoring; each invocation requires explicit local consent."""
+    if not args.security_consent:
+        print("--security-consent가 필요합니다. 실행 이후 프로세스 이력을 로컬 DB에 저장합니다.", file=sys.stderr)
+        return 2
+    if not 5 <= args.interval <= 3600:
+        print("--interval은 5~3600초입니다.", file=sys.stderr)
+        return 2
+    if is_windows() and not is_elevated():
+        if args.elevated_child:
+            print("관리자 권한을 얻지 못해 수집을 시작하지 않습니다.", file=sys.stderr)
+            return 2
+        print("수집 전에 Windows 관리자 권한 승인(UAC)을 요청합니다. 취소하면 시작하지 않습니다.")
+        if not request_monitor_elevation(config, args.interval, args.upload):
+            print("권한 승인이 취소되었거나 실행에 실패했습니다. 수집을 시작하지 않았습니다.", file=sys.stderr)
+            return 2
+        print("관리자 권한의 새 창에서 수집을 실행합니다. 중단하려면 새 창에서 Ctrl+C를 누르세요.")
+        return 0
+    collector = SecurityCollector(consent=True, since=datetime.now(timezone.utc))
+    print("Sysmon 로그 접근 확인 중. Ctrl+C로 중단합니다. 저장 위치: {0}".format(config.db_path))
+    try:
+        with SnapshotStore(config.db_path) as store:
+            while True:
+                result = collector.run()
+                if collector.failure_code in ("access_denied", "log_unavailable", "log_disabled"):
+                    print("수집 중단: {0}".format(result.error), file=sys.stderr)
+                    return 2
+                snapshot = build_snapshot([result], device_id=config.device_id)
+                store.save(snapshot)
+                if result.status in ("ok", "partial"):
+                    collector.acknowledge(result.data)
+                print(summarize(snapshot), result.status, result.error or "")
+                if args.upload:
+                    # Retry pending monitor uploads on subsequent iterations.
+                    for pending in store.pending_security_uploads():
+                        try:
+                            upload_snapshot(pending, config.backend_url, config.upload_timeout)
+                        except UploadError as exc:
+                            print("업로드 보류: {0}".format(exc), file=sys.stderr)
+                            break
+                        store.mark_uploaded(pending["snapshot_id"])
+                time.sleep(1 if result.data.get("truncated") else args.interval)
+    except KeyboardInterrupt:
+        print("수집을 중단했습니다. 기존 이력은 DB에 남습니다.")
     return 0
 
 
@@ -321,14 +377,30 @@ def build_parser() -> argparse.ArgumentParser:
 
     scan = subparsers.add_parser("scan", help="telemetry 수집")
     scan.add_argument("--mode", choices=["actual", "estimated"], default="actual")
-    scan.add_argument("--collectors", help="쉼표로 구분한 collector 이름 (기본: 전체)")
+    scan.add_argument("--collectors", help="쉼표로 구분한 collector 이름 (기본: 보안 제외, 보안은 별도 동의)")
     scan.add_argument("--out", help="스냅샷 JSON 파일 경로")
     scan.add_argument("--json", action="store_true", help="스냅샷 전체를 표준 출력으로")
     scan.add_argument("--no-save", action="store_true", help="로컬 DB에 저장하지 않음")
     scan.add_argument("--upload", action="store_true", help="Backend로 전송")
     scan.add_argument("--note", help="스냅샷에 남길 메모 (예: 'RAM 교체 전')")
     scan.add_argument("--quiet", action="store_true")
+    scan.add_argument("--security-consent", action="store_true", help="최근 1시간 Sysmon 프로세스 이력 수집에 동의")
     scan.set_defaults(func=cmd_scan)
+
+    monitor = subparsers.add_parser("monitor", help="동의 후 Sysmon 이력을 주기적으로 로컬 저장 (Ctrl+C로 중단)")
+    monitor.add_argument("--security-consent", action="store_true", help="실행 이후 프로세스 이력 로컬 수집·저장에 동의")
+    monitor.add_argument("--interval", type=int, default=30, help="조회 간격(초), 기본 30")
+    monitor.add_argument("--upload", action="store_true", help="수집한 이력을 Backend로 전송 (이전 미전송 이력 포함)")
+    monitor.add_argument("--elevated-child", action="store_true", help=argparse.SUPPRESS)
+    monitor.set_defaults(func=cmd_monitor)
+
+    from .watch import cmd_watch
+    watch = subparsers.add_parser("watch", help="웹에 연결한 내 PC의 실측 상태 모니터링")
+    watch.add_argument("--config", default="speccheck-monitor.json", help="웹에서 내려받은 연결 설정")
+    watch.add_argument("--consent", action="store_true", help="하드웨어·사용률 수집 및 서버 전송에 동의")
+    watch.add_argument("--security-consent", action="store_true", help="설정에서 허용한 Sysmon 이력 수집·전송에 추가 동의")
+    watch.add_argument("--once", action="store_true", help="한 번 수집 후 종료")
+    watch.set_defaults(func=cmd_watch)
 
     collectors = subparsers.add_parser("collectors", help="등록된 collector 목록")
     collectors.set_defaults(func=cmd_collectors)

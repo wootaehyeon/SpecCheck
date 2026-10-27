@@ -78,6 +78,8 @@ backend/data/snapshots.db
 agent/var/
 .speccheck/
 .deployment-tmp/
+frontend/tests/test-results/
+frontend/tests/playwright-report/
 snapshots/
 *.snapshot.json
 

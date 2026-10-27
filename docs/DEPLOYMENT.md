@@ -12,8 +12,8 @@ Render가 발급하는 HTTPS 기본 주소를 공유할 수 있다. 프론트엔
 - `TELEMETRY_API_ENABLED=false`로 `/api/scan/*`, `/api/diagnosis/*`를 등록하지 않는다.
   업로드, 기기 목록, 프로세스 이력, 저장된 진단 결과도 공개되지 않는다.
 - 공개하는 파일은 `frontend/web` 안의 파일뿐이다. 저장소 전체를 정적 서버로 열지 않는다.
-- Agent 배포·PC 정보 업로드는 포함하지 않는다. 사용자 인증과 장치 소유권 검증을
-  구현하기 전까지 공개 서버에서 telemetry API를 활성화하지 않는다.
+- PC 모니터링은 [MONITORING.md](MONITORING.md)의 기기별 인증 API와 PostgreSQL로 연결한다.
+  기존 인증 없는 telemetry API는 활성화하지 않는다. DB 설정 전에는 새 모니터링 API도 닫힌다.
 
 ## Render 배포
 
