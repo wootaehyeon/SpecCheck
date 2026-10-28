@@ -153,6 +153,16 @@ class SnapshotStore:
         )
         conn.commit()
 
+    def pending_security_uploads(self, limit: int = 20) -> list[dict[str, Any]]:
+        """Only monitor snapshots, never silently upload unrelated Basic Scans."""
+        rows = self.connect().execute(
+            "SELECT payload FROM snapshots WHERE uploaded_at IS NULL AND snapshot_id IN "
+            "(SELECT snapshot_id FROM collector_runs GROUP BY snapshot_id "
+            "HAVING COUNT(*) = 1 AND MIN(name) = 'security') "
+            "ORDER BY collected_at ASC LIMIT ?", (limit,)
+        ).fetchall()
+        return [json.loads(row["payload"]) for row in rows]
+
     def prune(self, keep_last: int | None = None, older_than_days: int | None = None) -> int:
         """보관 정책 적용. 삭제된 스냅샷 수를 반환한다.
 

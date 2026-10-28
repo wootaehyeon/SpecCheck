@@ -33,6 +33,31 @@ CREATE TABLE IF NOT EXISTS snapshots (
 
 CREATE INDEX IF NOT EXISTS idx_snapshots_device
     ON snapshots (device_id, collected_at DESC);
+
+CREATE TABLE IF NOT EXISTS process_events (
+    snapshot_id TEXT NOT NULL,
+    device_id TEXT NOT NULL,
+    record_id INTEGER NOT NULL,
+    occurred_at TEXT NOT NULL,
+    event_id INTEGER NOT NULL,
+    process_guid TEXT,
+    payload TEXT NOT NULL,
+    PRIMARY KEY (snapshot_id, record_id, occurred_at)
+);
+CREATE INDEX IF NOT EXISTS idx_process_events_timeline
+    ON process_events (device_id, occurred_at, record_id);
+CREATE INDEX IF NOT EXISTS idx_process_events_guid
+    ON process_events (device_id, process_guid, occurred_at);
+CREATE TABLE IF NOT EXISTS diagnoses (
+    diagnosis_id TEXT PRIMARY KEY,
+    snapshot_id TEXT NOT NULL,
+    generated_at TEXT NOT NULL,
+    rules_version TEXT NOT NULL,
+    input_payload TEXT NOT NULL,
+    payload TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_diagnoses_snapshot
+    ON diagnoses (snapshot_id, generated_at DESC);
 """
 
 
@@ -68,7 +93,31 @@ def save_snapshot(snapshot: TelemetrySnapshot) -> datetime:
                 snapshot.model_dump_json(),
             ),
         )
+        conn.execute("DELETE FROM process_events WHERE snapshot_id = ?", (snapshot.snapshot_id,))
+        if snapshot.scan_mode == "actual" and snapshot.device_id:
+            for event in snapshot.data("security").get("events", []):
+                occurred = datetime.fromisoformat(event["occurred_at"].replace("Z", "+00:00"))
+                event = {**event, "occurred_at": occurred.astimezone(timezone.utc).isoformat()}
+                conn.execute(
+                    "INSERT OR IGNORE INTO process_events VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (snapshot.snapshot_id, snapshot.device_id, event["record_id"], event["occurred_at"],
+                     event["event_id"], event.get("process_guid"), json.dumps(event, ensure_ascii=False)),
+                )
     return received_at
+
+
+def process_timeline(device_id: str, start: datetime, end: datetime,
+                     process_guid: str | None = None, limit: int = 500, offset: int = 0) -> list[dict]:
+    query = "SELECT DISTINCT payload, occurred_at, record_id FROM process_events WHERE device_id = ? AND occurred_at >= ? AND occurred_at < ?"
+    params = [device_id, start.astimezone(timezone.utc).isoformat(), end.astimezone(timezone.utc).isoformat()]
+    if process_guid:
+        query += " AND process_guid = ?"
+        params.append(process_guid)
+    query += " ORDER BY occurred_at, record_id, payload LIMIT ? OFFSET ?"
+    params.extend([limit, offset])
+    with _connect() as conn:
+        rows = conn.execute(query, params).fetchall()
+    return [json.loads(row["payload"]) for row in rows]
 
 
 def get_snapshot(snapshot_id: str) -> TelemetrySnapshot | None:

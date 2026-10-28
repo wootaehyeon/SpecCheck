@@ -1,7 +1,15 @@
-const OPEN_MARKET_API_URL = 'http://localhost:8000/api/market-prices';
-const CRAWL_API_URL = 'http://localhost:8000/api/crawl';
-const OPTIMIZE_API_URL = 'http://localhost:8000/api/optimize-estimate';
+// 공개 서버는 웹과 API를 같은 HTTPS 주소로 제공한다.
+// 기존 dev-frontend.ps1(5599)로 실행할 때만 로컬 Backend(8000)를 사용한다.
+const API_BASE_URL = ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname)
+  && window.location.port === '5599'
+  ? `${window.location.protocol}//${window.location.hostname}:8000`
+  : '';
+const OPEN_MARKET_API_URL = `${API_BASE_URL}/api/market-prices`;
+const CRAWL_API_URL = `${API_BASE_URL}/api/crawl`;
+const OPTIMIZE_API_URL = `${API_BASE_URL}/api/optimize-estimate`;
+const MARKET_INTELLIGENCE_API_URL = `${API_BASE_URL}/api/market-intelligence`;
 const PAGE_URLS = {
+  monitor: 'monitor.html',
   main: 'index.html',
   input: 'input.html',
   analyzing: 'analyzing.html',
@@ -29,6 +37,13 @@ function escapeHtml(value) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function safeHttpUrl(value) {
+  try {
+    const url = new URL(value);
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : '#';
+  } catch { return '#'; }
 }
 
 function formatPrice(price) {
@@ -318,7 +333,7 @@ function renderCrawlData(results, queryText = '입력 견적을 먼저 등록해
   rows.forEach((item) => {
     const score = Number.isFinite(item.sentiment_score) ? (item.sentiment_score * 100).toFixed(0) : '-';
     const sentimentBadge = item.sentiment ? `<span class="sentiment-badge sentiment-${escapeHtml(item.sentiment)}" title="평가 점수: ${score}%">${escapeHtml(item.sentiment)}</span>` : '';
-    const safeUrl = escapeHtml(item.url);
+    const safeUrl = escapeHtml(safeHttpUrl(item.url));
     const row = document.createElement('tr');
     row.innerHTML = `
       <td>${escapeHtml(item.source)}</td>
@@ -410,7 +425,7 @@ async function fetchMarketIntelligence(estimate) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 25000); // 실제 크롤링은 부품당 1~2초 소요되어 여유 있게 설정
 
-    const response = await fetch('http://localhost:8000/api/market-intelligence', {
+    const response = await fetch(MARKET_INTELLIGENCE_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -635,18 +650,18 @@ function renderPriceCompare(priceCompare) {
     const diffText = `${part.diff > 0 ? '+' : ''}${formatWon(part.diff)} (${part.diffRate.toFixed(1)}%)`;
 
     const purchaseInfo = part.purchaseLink
-      ? `<a href="${part.purchaseLink}" target="_blank" rel="noreferrer">구매 링크</a>`
-      : `${part.mall || ''}`;
+      ? `<a href="${escapeHtml(safeHttpUrl(part.purchaseLink))}" target="_blank" rel="noreferrer">구매 링크</a>`
+      : escapeHtml(part.mall || '');
 
     const row = document.createElement('tr');
     row.innerHTML = `
-      <td>${part.category}</td>
-      <td>${part.name}</td>
+      <td>${escapeHtml(part.category)}</td>
+      <td>${escapeHtml(part.name)}</td>
       <td>${formatWon(part.userPrice)}</td>
       <td>${formatWon(part.lowestPrice)}<br><small>${purchaseInfo}</small></td>
       <td>${formatWon(part.averagePrice)}</td>
       <td class="${diffClass}">${diffText}</td>
-      <td><span class="badge ${part.badgeClass}">${part.status}</span></td>
+      <td><span class="badge ${escapeHtml(part.badgeClass)}">${escapeHtml(part.status)}</span></td>
     `;
     tbody.appendChild(row);
   });
@@ -953,7 +968,7 @@ function renderOptimizeSave(save, rate) {
     const savings = item.savings || 0;
     const recommend = item.recommend;
     const link = item.sampleLink
-      ? `<br><small><a href="${escapeHtml(item.sampleLink)}" target="_blank" rel="noreferrer">eBay 매물</a></small>`
+      ? `<br><small><a href="${escapeHtml(safeHttpUrl(item.sampleLink))}" target="_blank" rel="noreferrer">eBay 매물</a></small>`
       : '';
     const badge = recommend
       ? `<span class="badge badge-good">교체 권장</span>`
@@ -1004,11 +1019,11 @@ function renderOptimizeUpgrade(upgrade, rate) {
     let gain = '-';
     if (item.upgradeable) {
       const link = item.sampleLink
-        ? `<br><small><a href="${escapeHtml(item.sampleLink)}" target="_blank" rel="noreferrer">eBay 매물</a></small>`
+        ? `<br><small><a href="${escapeHtml(safeHttpUrl(item.sampleLink))}" target="_blank" rel="noreferrer">eBay 매물</a></small>`
         : '';
       recCell = `${escapeHtml(item.recommendedPart)}<br><small>${formatWon(item.recommendedUsedKRW)}</small>${link}`;
       recScore = (item.recommendedScore || 0).toLocaleString('ko-KR');
-      gain = `<span class="price-up">+${item.scoreGainPct}%</span>`;
+      gain = `<span class="price-up">+${escapeHtml(item.scoreGainPct)}%</span>`;
     }
 
     const row = document.createElement('tr');
@@ -1094,6 +1109,13 @@ function highlightNav(currentPage) {
 }
 
 function initPage() {
+  const main = document.querySelector('main');
+  if (main) {
+    const notice = document.createElement('p');
+    notice.className = 'service-notice';
+    notice.textContent = '시범 서비스 · 성능·호환성 점수와 교체 추천은 예시 결과입니다. 가격·시장 정보도 조회 실패 시 예시 데이터가 표시될 수 있습니다.';
+    main.prepend(notice);
+  }
   const currentPage = getCurrentPageName();
   highlightNav(currentPage);
   if (currentPage === 'input') {

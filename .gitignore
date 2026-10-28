@@ -77,8 +77,17 @@ backend/data/used_price_cache.json
 backend/data/snapshots.db
 agent/var/
 .speccheck/
+.deployment-tmp/
+.poster-build/
+outputs/
+backend/.test-tmp*/
+frontend/tests/test-results/
+frontend/tests/playwright-report/
 snapshots/
 *.snapshot.json
+# Agent 전송키와 브라우저 조회키가 포함된 연결 설정
+speccheck-monitor*.json
+speccheck-reader*.json
 
 # 외부 데이터셋 (e9t/nsmc 클론) - 커밋 대상 아님
 nsmc/

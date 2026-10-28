@@ -4,6 +4,9 @@
 > **현재 상태 유지**와 **Hardware/Software 변경**에 따른 예상 결과를 비교하여
 > 최적의 **PC 관리 및 구매 의사결정**을 지원하는 AI 기반 PC Lifecycle Platform.
 
+Sysmon 수집·DB·진단 이력의 구현 범위와 배포 준비 사항은
+[프로세스 이력 및 보안 진단](docs/SECURITY_TELEMETRY.md)을 참고하세요.
+
 ---
 
 ## 📌 Project Overview
@@ -216,6 +219,18 @@ SpecCheck/
 
 ## 🚀 Quick Start
 
+### Docker Desktop (권장)
+
+Docker Desktop을 실행한 뒤 프로젝트 최상위 폴더에서:
+
+```powershell
+docker compose up --build -d
+```
+
+웹은 http://localhost:8000, API 문서는 http://localhost:8000/docs 에서 확인한다.
+저장 데이터는 Docker 볼륨에 유지된다. Windows Agent는 PC에서 별도로 실행한다.
+설정·로그·중지·Agent 연결은 [Docker 실행 안내](docs/DOCKER.md)를 참고한다.
+
 ### 1. Backend
 
 ```powershell
@@ -273,6 +288,7 @@ ollama pull gemma2:2b
 
 | 문서 | 내용 |
 | --- | --- |
+| [docs/DOCKER.md](docs/DOCKER.md) | Docker Desktop 실행 · 설정 · 데이터 보관 |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 계층 구조 · 데이터 흐름 · 설계 원칙 |
 | [docs/DIRECTORY.md](docs/DIRECTORY.md) | 디렉토리 지도 · 확장 지점 |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Milestone 진행 상황 · 다음 작업 |

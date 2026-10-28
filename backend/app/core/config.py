@@ -9,6 +9,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -26,6 +27,12 @@ class Settings(BaseSettings):
     app_name: str = "SpecCheck AI"
     app_version: str = "1.0.0"
     cors_origins: str = "*"
+    # 로컬 개발 기본값. 공개 웹 배포에서는 telemetry API를 반드시 끈다.
+    serve_frontend: bool = False
+    telemetry_api_enabled: bool = True
+    # 공개 모니터링은 별도 인증 API와 영구 DB를 사용한다.
+    monitoring_enabled: bool = False
+    monitoring_database_url: str = Field(default="", repr=False)
 
     # --- 경로 ---
     data_dir: Path = BACKEND_DIR / "data"

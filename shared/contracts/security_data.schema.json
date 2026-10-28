@@ -1,0 +1,177 @@
+{
+  "$defs": {
+    "CollectionConsent": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": "sysmon-minimal-v1",
+          "title": "Version",
+          "type": "string"
+        },
+        "granted_at": {
+          "format": "date-time",
+          "title": "Granted At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version",
+        "granted_at"
+      ],
+      "title": "CollectionConsent",
+      "type": "object"
+    },
+    "ProcessEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "enum": [
+            1,
+            5,
+            25,
+            255
+          ],
+          "title": "Event Id",
+          "type": "integer"
+        },
+        "record_id": {
+          "minimum": 1,
+          "title": "Record Id",
+          "type": "integer"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "process_guid": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Process Guid"
+        },
+        "process_id": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Process Id"
+        },
+        "image": {
+          "anyOf": [
+            {
+              "maxLength": 260,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Image"
+        },
+        "parent_process_guid": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Process Guid"
+        },
+        "parent_image": {
+          "anyOf": [
+            {
+              "maxLength": 260,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Image"
+        }
+      },
+      "required": [
+        "event_id",
+        "record_id",
+        "occurred_at"
+      ],
+      "title": "ProcessEvent",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "consent": {
+      "$ref": "#/$defs/CollectionConsent"
+    },
+    "window_start": {
+      "format": "date-time",
+      "title": "Window Start",
+      "type": "string"
+    },
+    "window_end": {
+      "format": "date-time",
+      "title": "Window End",
+      "type": "string"
+    },
+    "events": {
+      "items": {
+        "$ref": "#/$defs/ProcessEvent"
+      },
+      "maxItems": 2000,
+      "title": "Events",
+      "type": "array"
+    },
+    "truncated": {
+      "title": "Truncated",
+      "type": "boolean"
+    },
+    "log_gap": {
+      "title": "Log Gap",
+      "type": "boolean"
+    },
+    "log_reset": {
+      "title": "Log Reset",
+      "type": "boolean"
+    },
+    "log_oldest_at": {
+      "format": "date-time",
+      "title": "Log Oldest At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "consent",
+    "window_start",
+    "window_end",
+    "events",
+    "truncated",
+    "log_gap",
+    "log_reset",
+    "log_oldest_at"
+  ],
+  "title": "SecurityData",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://speccheck.local/contracts/security_data.schema.json"
+}
