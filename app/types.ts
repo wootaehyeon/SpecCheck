@@ -1,0 +1,167 @@
+export type Severity = 'info' | 'low' | 'medium' | 'high' | 'critical';
+export type HealthStatus = 'normal' | 'warning' | 'critical' | 'unknown';
+export type RecommendedAction = 'keep' | 'fix' | 'purchase';
+
+export type MarketPrice = {
+  key: string;
+  category: string;
+  name: string;
+  userPrice: number;
+  lowestPrice: number;
+  highestPrice: number;
+  averagePrice: number;
+  purchaseLink: string | null;
+  productTitle: string | null;
+  listingCount: number;
+  mall: string | null;
+  source: string | null;
+  error: string | null;
+  errorCode: string | null;
+  cached: boolean | null;
+};
+
+export type MarketPricesResponse = { prices: MarketPrice[] };
+
+export type Diagnosis = {
+  schemaVersion: '1.2.0';
+  scanId: string;
+  scanType: 'basic';
+  status: 'complete' | 'partial' | 'failed';
+  generatedAt: string;
+  machine: { name: string; os: string; agentVersion: string };
+  risk: { score: number; level: 'low' | 'medium' | 'high' | 'critical'; summary: string };
+  categories: Record<'hardware' | 'software' | 'security', { count: number; highestSeverity: Severity; summary: string }>;
+  resources: Array<{ key: string; label: string; value: number; unit: string; status: HealthStatus; detail: string }>;
+  findings: Array<{
+    id: string;
+    category: 'hardware' | 'software' | 'security';
+    code: string;
+    title: string;
+    severity: Severity;
+    confidence: number;
+    summary: string;
+    evidence: string[];
+    rootCauseCandidates: string[];
+    actions: string[];
+    recommendedAction: RecommendedAction;
+  }>;
+  inventory: Array<{ kind: string; name: string; detail: string; status: HealthStatus }>;
+  rootCauseCandidates: Array<{
+    id: 'background_load' | 'hardware_instability';
+    rank: number;
+    confidence: number;
+    action: RecommendedAction;
+    title: string;
+    summary: string;
+    evidence: string[];
+    limitation: string;
+  }>;
+  anomalyAnalysis: {
+    status: 'no_signal' | 'signal_detected' | 'insufficient' | 'unavailable';
+    method: 'z_score' | null;
+    evaluatedMetrics: number;
+    requiredBaselineSamples: number;
+    signals: Array<{
+      metric: string;
+      label: string;
+      direction: 'above_baseline' | 'below_baseline';
+      zScore: number;
+      value: number;
+      baselineMean: number;
+      samples: number;
+    }>;
+    limitation: string;
+  };
+  trajectoryAnalysis: {
+    status: 'ready' | 'insufficient' | 'unavailable';
+    method: 'linear_regression' | null;
+    requiredSamples: number;
+    minimumSpanDays: number;
+    trends: Array<{
+      metric: string;
+      label: string;
+      direction: 'improving' | 'stable' | 'worsening';
+      samples: number;
+      slopePerDay: number;
+      threshold: number | null;
+      thresholdAt: string | null;
+      thresholdRange: string[] | null;
+    }>;
+    limitation: string;
+  };
+  sources: Array<{
+    name: 'wmi' | 'cim' | 'whea' | 'storage' | 'performance' | 'sysmon';
+    status: 'collected' | 'unavailable' | 'permission_required' | 'not_in_scope';
+    collectedAt: string | null;
+    requirements?: Array<{ title: string; detail: string }>;
+  }>;
+  ai: {
+    provider: 'ollama' | 'template';
+    model: string;
+    status: 'generated' | 'fallback' | 'unavailable';
+    overview: string;
+    actionPlan: string[];
+  };
+  decision: { action: RecommendedAction; reason: string; drivenBy: string[] };
+  recommendations: Array<{
+    id: string;
+    findingIds: string[];
+    priority: 'normal' | 'high' | 'urgent';
+    category: 'storage' | 'memory';
+    title: string;
+    description: string;
+    searchQuery: string;
+    searchUrl: string;
+    aiInsight: {
+      provider: 'ollama' | 'template';
+      model: string;
+      status: 'generated' | 'fallback' | 'unavailable';
+      rationale: string;
+      cautions: string[];
+    };
+    candidates: Array<{
+      id: string;
+      strategy: 'minimal' | 'platform';
+      title: string;
+      summary: string;
+      recommended: boolean;
+      compatibilityStatus: 'passed' | 'conditional';
+      compatibilityScore: number;
+      checks: Array<{ label: string; status: 'passed' | 'conditional' | 'failed'; detail: string }>;
+      parts: Array<{
+        key: string;
+        category: 'cpu' | 'motherboard' | 'memory' | 'storage';
+        name: string;
+        searchQuery: string;
+        reason: string;
+        specifications: string[];
+        sourceLabel: string | null;
+        sourceUrl: string | null;
+      }>;
+      tradeoffs: string[];
+    }>;
+  }>;
+};
+
+export type AgentHealth = {
+  status: 'ok';
+  agentVersion: string;
+  host: string;
+  backendVersion?: string;
+  gemma: { available: boolean; model: string; installed: boolean };
+};
+
+export type LocalScanStatus = {
+  runId: string | null;
+  status: 'idle' | 'running' | 'completed' | 'failed';
+  phase: 'idle' | 'permission' | 'collecting' | 'saving' | 'uploading' | 'completed' | 'failed';
+  progress: number;
+  currentCollector: string | null;
+  message: string;
+  scanId: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  started?: boolean;
+  errorCode?: string | null;
+  retryAllowed?: boolean;
+};

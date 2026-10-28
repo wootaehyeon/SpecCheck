@@ -11,7 +11,7 @@ PowerShell 프로세스 기동 비용이 조회당 약 2초다. 조회가 여러
 from __future__ import annotations
 
 import json
-import base64
+import os
 import platform
 import subprocess
 from typing import Any
@@ -24,7 +24,27 @@ _PREAMBLE = (
 )
 
 DEFAULT_TIMEOUT = 30.0
-BATCH_TIMEOUT = 12.0
+BATCH_TIMEOUT = 60.0
+
+
+def _powershell_executable() -> str:
+    """Prefer Windows PowerShell so an elevated Agent keeps its log permissions.
+
+    Development environments can place another ``powershell`` shim ahead of
+    the Windows executable in PATH. That shim may not inherit the elevated
+    token needed to read protected Event Log channels such as Sysmon.
+    """
+    if os.name == "nt":
+        executable = os.path.join(
+            os.environ.get("SystemRoot", r"C:\\Windows"),
+            "System32",
+            "WindowsPowerShell",
+            "v1.0",
+            "powershell.exe",
+        )
+        if os.path.exists(executable):
+            return executable
+    return "powershell"
 
 
 class CimError(RuntimeError):
@@ -35,6 +55,23 @@ def is_windows() -> bool:
     return platform.system() == "Windows"
 
 
+def is_elevated() -> bool:
+    """관리자 권한으로 실행 중인지.
+
+    SMART(``root/wmi``)와 온도 센서는 관리자 권한이 없으면 "액세스 거부"로
+    막힌다. 오류 메시지는 로케일마다 달라 문자열로 판별할 수 없으므로,
+    권한 자체를 확인해 사용자에게 조치 가능한 사유를 돌려주는 데 쓴다.
+    """
+    if not is_windows():
+        return False
+    try:
+        import ctypes
+
+        return bool(ctypes.windll.shell32.IsUserAnAdmin())
+    except Exception:
+        return False
+
+
 def run_powershell(script: str, timeout: float = DEFAULT_TIMEOUT) -> str:
     """PowerShell 스크립트를 실행하고 stdout을 반환한다."""
     if not is_windows():
@@ -43,18 +80,17 @@ def run_powershell(script: str, timeout: float = DEFAULT_TIMEOUT) -> str:
     try:
         proc = subprocess.run(
             [
-                "powershell",
+                _powershell_executable(),
                 "-NoProfile",
                 "-NonInteractive",
                 "-ExecutionPolicy",
                 "Bypass",
-                "-EncodedCommand",
-                base64.b64encode((_PREAMBLE + script).encode('utf-16-le')).decode('ascii'),
+                "-Command",
+                _PREAMBLE + script,
             ],
             capture_output=True,
             timeout=timeout,
             check=False,
-            creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
         )
     except FileNotFoundError as exc:  # PowerShell 자체가 없는 경우
         raise CimError("powershell 실행 파일을 찾을 수 없습니다") from exc
@@ -62,9 +98,10 @@ def run_powershell(script: str, timeout: float = DEFAULT_TIMEOUT) -> str:
         raise CimError("PowerShell 조회 시간 초과 ({0}s)".format(timeout)) from exc
 
     if proc.returncode != 0:
-        raise CimError("PowerShell 종료 코드 {0}; 권한과 데이터 소스를 확인하세요".format(proc.returncode))
+        stderr = proc.stderr.decode("utf-8", errors="replace").strip()
+        raise CimError(stderr or "PowerShell 종료 코드 {0}".format(proc.returncode))
 
-    return proc.stdout.decode("utf-8-sig", errors="replace")
+    return proc.stdout.decode("utf-8", errors="replace")
 
 
 def _build_query(
@@ -79,6 +116,27 @@ def _build_query(
     if properties:
         script += " | Select-Object " + ", ".join(properties)
     return script
+
+
+def _spec_to_script(spec: dict[str, Any]) -> str:
+    """배치 항목 하나를 PowerShell 표현식으로 바꾼다.
+
+    ``script`` 를 직접 준 항목은 그대로 쓴다. CIM이 아닌 자료원(이벤트 로그의
+    ``Get-WinEvent``, 성능 카운터 샘플링 루프)도 같은 기동 안에서 처리하기
+    위한 통로다. 여러 문장이 필요하면 ``;`` 로 잇되 개행은 넣지 않는다 —
+    배치 스크립트 전체가 한 줄로 합쳐지기 때문이다.
+    """
+    raw = spec.get("script")
+    if raw:
+        if "\n" in raw:
+            raise CimError("배치 script에는 개행을 넣을 수 없습니다")
+        return raw
+    return _build_query(
+        spec["class_name"],
+        spec.get("properties"),
+        spec.get("namespace", "root/cimv2"),
+        spec.get("where"),
+    )
 
 
 def _rows(parsed: Any) -> list[dict[str, Any]]:
@@ -114,7 +172,7 @@ def query(
     try:
         return _rows(json.loads(raw))
     except json.JSONDecodeError as exc:
-        raise CimError("CIM 응답 JSON 파싱 실패") from exc
+        raise CimError("CIM 응답 JSON 파싱 실패: {0}".format(raw[:200])) from exc
 
 
 def query_one(class_name: str, properties: list[str] | None = None, **kwargs: Any) -> dict[str, Any]:
@@ -129,6 +187,7 @@ def query_batch(
 
     Args:
         specs: ``{키: {"class_name":..., "properties":[...], "namespace":..., "where":...}}``
+            또는 CIM이 아닌 자료원을 쓸 때 ``{키: {"script": "Get-WinEvent ..."}}``.
 
     Returns:
         ``(결과, 오류)`` 튜플. 개별 조회가 실패해도 나머지는 정상 반환되며,
@@ -140,19 +199,14 @@ def query_batch(
 
     lines = ["$data = [ordered]@{}", "$errors = [ordered]@{}"]
     for key, spec in specs.items():
-        inner = _build_query(
-            spec["class_name"],
-            spec.get("properties"),
-            spec.get("namespace", "root/cimv2"),
-            spec.get("where"),
-        )
+        inner = _spec_to_script(spec)
         lines.append(
-            "try {{ $data['{0}'] = @({1}) }} catch {{ $errors['{0}'] = 'query_unavailable' }}".format(
+            "try {{ $data['{0}'] = @({1}) }} catch {{ $errors['{0}'] = $_.Exception.Message }}".format(
                 key, inner
             )
         )
     lines.append(
-        "[ordered]@{ data = $data; errors = $errors } | ConvertTo-Json -Depth 5 -Compress"
+        "[ordered]@{ data = $data; errors = $errors } | ConvertTo-Json -Depth 6 -Compress"
     )
 
     raw = run_powershell("; ".join(lines), timeout=timeout).strip()
@@ -162,7 +216,7 @@ def query_batch(
     try:
         parsed = json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise CimError("CIM 배치 응답 JSON 파싱 실패") from exc
+        raise CimError("CIM 배치 응답 JSON 파싱 실패: {0}".format(raw[:200])) from exc
 
     data_block = parsed.get("data") or {}
     error_block = parsed.get("errors") or {}

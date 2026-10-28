@@ -1,21 +1,19 @@
-"""진단 결과의 자연어 설명 (Phase 4 / M5).
+"""Natural-language explanations for confirmed diagnosis findings.
 
-로컬 우선 원칙에 따라 기본 백엔드는 Local Gemma(Ollama)다. 모델이 없으면
-템플릿으로 자동 대체되므로, 설명 기능 때문에 진단이 실패하는 일은 없다.
-
-설계 규약: **LLM은 판정하지 않는다.** 규칙 엔진이 이미 만든 Finding을
-읽기 쉬운 문장으로 옮기기만 한다. 프롬프트에 telemetry 원본을 넣지 않고
-확정된 Finding만 넣는 이유가 이것이다.
+The LLM never decides whether a system is healthy. It only rewrites findings
+already produced by the deterministic rule engine. Failures always fall back
+to a local template.
 """
 
 from __future__ import annotations
 
 import json
-import urllib.error
 import urllib.request
+from urllib.parse import urlparse
 
 from app.core.config import get_settings
 from app.schemas.diagnosis import ActionType, DiagnosisResult
+from app.schemas.ui_diagnosis import Recommendation, RecommendationAiInsight
 
 _ACTION_LABEL = {
     ActionType.KEEP: "유지한다",
@@ -26,26 +24,191 @@ _ACTION_LABEL = {
 SYSTEM_PROMPT = (
     "당신은 PC 진단 결과를 초보자에게 설명하는 전문가입니다. "
     "주어진 진단 항목만 사용해 설명하고, 주어지지 않은 원인이나 부품을 추측해 말하지 마세요. "
-    "사용자가 돈을 쓰지 않아도 되는 경우라면 그 점을 분명히 알려주세요."
+    "사용자가 돈을 쓰지 않아도 되는 경우라면 그 점을 분명히 알려주세요. "
+    "telemetry, baseline, z-score, schema 같은 내부 용어와 영문 약어는 쓰지 말고, "
+    "필요한 경우에도 사용자가 이해할 수 있는 한국어 표현으로 바꿔 설명하세요."
+)
+
+RECOMMENDATION_SYSTEM_PROMPT = (
+    SYSTEM_PROMPT
+    + " 입력의 카탈로그 후보 중에서 각 추천 ID마다 정확히 하나의 candidateId를 선택하세요. "
+      "입력에 없는 모델, 사양, 가격, 호환 조건을 만들지 마세요. "
+      "시스템 디스크의 SMART 실패처럼 긴급한 OS 디스크 교체는 고성능 OS/작업 등급을 우선하세요. "
+      "가성비 일반용 등급은 사용자가 예산 절감을 요구했거나 고성능 후보에 미확인 조건이 더 많은 경우에만 선택하세요. "
+      "제품 사양 출처와 수집된 PC 조건을 근거로 선택 이유와 구매 전 주의사항을 설명하세요."
 )
 
 
 def explain(result: DiagnosisResult) -> str:
-    """진단 결과를 자연어로 설명한다. 실패해도 예외를 던지지 않는다."""
+    """Return the legacy text explanation used by existing diagnosis routes."""
     settings = get_settings()
     if not settings.llm_enabled:
         return render_template(result)
-
+    status = ollama_status()
+    if not status["available"] or not status["installed"]:
+        return render_template(result)
     try:
         return _ask_ollama(
             build_prompt(result),
             base_url=settings.ollama_url,
-            model=settings.llm_model,
+            model=status["model"],
             timeout=settings.llm_timeout,
+            context_tokens=settings.llm_context_tokens,
+            keep_alive=settings.llm_keep_alive,
         )
     except Exception:
-        # 설명은 부가 기능이다. 실패하면 템플릿으로 조용히 내려앉는다.
         return render_template(result)
+
+
+def ollama_status() -> dict:
+    """Return the usable local model, preferring Gemma 4 over the fallback."""
+    settings = get_settings()
+    try:
+        models = _list_ollama_models(settings.ollama_url, settings.llm_status_timeout)
+        selected = _select_installed_model(
+            models,
+            requested=settings.llm_model,
+            fallback=settings.llm_fallback_model,
+        )
+        return {
+            "available": True,
+            "model": selected or settings.llm_model,
+            "installed": selected is not None,
+            "requestedModel": settings.llm_model,
+            "fallbackModel": settings.llm_fallback_model if selected == settings.llm_fallback_model else None,
+            "usingFallback": selected == settings.llm_fallback_model,
+        }
+    except Exception:
+        return {
+            "available": False,
+            "model": settings.llm_model,
+            "installed": False,
+            "requestedModel": settings.llm_model,
+            "fallbackModel": None,
+            "usingFallback": False,
+        }
+
+
+def explain_for_ui(result: DiagnosisResult) -> dict:
+    """Build the structured explanation required by diagnosis 1.2."""
+    settings = get_settings()
+    fallback = _fallback_ui(result, unavailable=settings.llm_enabled)
+    if not settings.llm_enabled:
+        return fallback
+
+    status = ollama_status()
+    if not status["available"] or not status["installed"]:
+        return fallback
+    try:
+        generated = _ask_ollama_json(
+            build_prompt(result),
+            base_url=settings.ollama_url,
+            model=status["model"],
+            timeout=settings.llm_timeout,
+            context_tokens=settings.llm_context_tokens,
+            keep_alive=settings.llm_keep_alive,
+        )
+        return {
+            "provider": "ollama",
+            "model": status["model"],
+            "status": "generated",
+            "overview": generated["overview"],
+            "actionPlan": generated["actionPlan"],
+        }
+    except Exception:
+        return fallback
+
+
+def explain_for_ui_bundle(
+    result: DiagnosisResult,
+    recommendations: list[Recommendation],
+) -> tuple[dict, list[Recommendation]]:
+    """Ask Local Gemma to select a grounded catalog candidate and explain it."""
+    if not recommendations:
+        return explain_for_ui(result), recommendations
+
+    settings = get_settings()
+    unavailable = bool(settings.llm_enabled)
+    fallback_ai = _fallback_ui(result, unavailable=unavailable)
+    fallback_recommendations = _select_fallback_candidates(
+        _set_recommendation_status(recommendations, "unavailable" if unavailable else "fallback")
+    )
+    if not settings.llm_enabled:
+        return fallback_ai, fallback_recommendations
+
+    status = ollama_status()
+    if not status["available"] or not status["installed"]:
+        return fallback_ai, fallback_recommendations
+
+    try:
+        generated = _ask_ollama_bundle_json(
+            build_prompt(result),
+            recommendations,
+            base_url=settings.ollama_url,
+            model=status["model"],
+            timeout=settings.llm_timeout,
+            context_tokens=settings.llm_context_tokens,
+            keep_alive=settings.llm_keep_alive,
+        )
+        insights = {item["id"]: item for item in generated["recommendations"]}
+        enriched: list[Recommendation] = []
+        for recommendation in recommendations:
+            item = insights.get(recommendation.id)
+            if item is None:
+                enriched.append(_select_fallback_candidates([recommendation])[0])
+                continue
+            selected = _select_candidate(recommendation, item["candidateId"])
+            if selected is None:
+                enriched.append(_select_fallback_candidates([recommendation])[0])
+                continue
+            enriched.append(recommendation.model_copy(update={
+                "candidates": [candidate.model_copy(update={"recommended": candidate.id == selected.id}) for candidate in recommendation.candidates],
+                "ai_insight": RecommendationAiInsight(
+                    provider="ollama",
+                    model=status["model"],
+                    status="generated",
+                    rationale=item["rationale"],
+                    cautions=item["cautions"],
+                )
+            }))
+        return {
+            "provider": "ollama",
+            "model": status["model"],
+            "status": "generated",
+            "overview": generated["overview"],
+            "actionPlan": generated["actionPlan"],
+        }, enriched
+    except Exception:
+        return fallback_ai, fallback_recommendations
+
+
+def build_recommendation_prompt(recommendations: list[Recommendation]) -> str:
+    """Expose a bounded local product catalog to the recommendation model."""
+    lines = ["[로컬 카탈로그 후보 - 이 목록 밖의 제품은 선택 금지]"]
+    for recommendation in recommendations:
+        lines.append(f"- 추천 ID: {recommendation.id}")
+        lines.append(f"  문제: {recommendation.description}")
+        for candidate in recommendation.candidates:
+            parts = ", ".join(
+                f"{part.name} ({', '.join(part.specifications)})"
+                for part in candidate.parts
+            )
+            checks = "; ".join(f"{check.status}: {check.detail}" for check in candidate.checks)
+            tradeoffs = "; ".join(candidate.tradeoffs)
+            lines.append(
+                f"  candidateId: {candidate.id} | 제품: {candidate.title} | "
+                f"확인 상태={candidate.compatibility_status}"
+            )
+            lines.append(f"    부품: {parts}")
+            lines.append(f"    검사: {checks}")
+            lines.append(f"    비교: {tradeoffs}")
+    lines += [
+        "",
+        "각 추천 ID마다 candidateId 하나를 선택하고, 선택 이유와 구매 전 주의사항을 작성하세요.",
+        "카탈로그 밖 부품을 추가하거나 입력의 확인 조건을 확정된 사실처럼 바꾸지 마세요.",
+        "판매 정보는 eBay API의 조회 시점 정보입니다. 재고는 추정치입니다. 재고 없음/미확인, 배송비 미확인, 세금 누락을 명시하세요. 통화가 다른 금액은 환율 없이 비교 금지. 가격이 없으면 기술적 근거만으로 추천하고 가격을 만들지 마세요.",
+    ]
+    return "\n".join(lines)
 
 
 def build_prompt(result: DiagnosisResult) -> str:
@@ -67,27 +230,21 @@ def build_prompt(result: DiagnosisResult) -> str:
             lines.append("  원인: {0}".format(finding.root_cause))
         if finding.action_detail:
             lines.append("  조치: {0}".format(finding.action_detail))
-
     lines += [
         "",
         "위 내용을 바탕으로 3~5문장으로 설명해 주세요.",
-        "1) 지금 PC 상태가 어떤지 2) 왜 그런지 3) 무엇을 하면 되는지 순서로 씁니다.",
+        "지금 상태, 근거, 다음 조치 순서로 씁니다.",
     ]
     return "\n".join(lines)
 
 
 def render_template(result: DiagnosisResult) -> str:
-    """LLM 없이 만드는 결정적 설명. 테스트와 폴백 양쪽에 쓴다."""
     action = _ACTION_LABEL[result.decision.action]
-
     if not result.findings:
-        return (
-            "종합 판정: {0}\n{1}\n"
-            "확보한 항목: {2}".format(
-                action,
-                result.decision.reason,
-                ", ".join(result.coverage) or "없음",
-            )
+        return "종합 판정: {0}\n{1}\n확보한 항목: {2}".format(
+            action,
+            result.decision.reason,
+            ", ".join(result.coverage) or "없음",
         )
 
     lines = ["종합 판정: {0}".format(action), result.decision.reason, ""]
@@ -101,29 +258,204 @@ def render_template(result: DiagnosisResult) -> str:
     return "\n".join(lines)
 
 
-def _ask_ollama(prompt: str, base_url: str, model: str, timeout: float) -> str:
-    """Ollama ``/api/generate`` 호출 (스트리밍 없이 한 번에 받는다)."""
-    body = json.dumps(
-        {
-            "model": model,
-            "system": SYSTEM_PROMPT,
-            "prompt": prompt,
-            "stream": False,
-            "options": {"temperature": 0.3},
-        },
-        ensure_ascii=False,
-    ).encode("utf-8")
+def _overview(result: DiagnosisResult) -> str:
+    if not result.findings:
+        return result.decision.reason
+    primary = result.findings[0]
+    return "{0} 항목이 가장 우선입니다. {1}".format(primary.title, primary.summary)
 
+
+def _action_plan(result: DiagnosisResult) -> list[str]:
+    actions: list[str] = []
+    for finding in result.findings:
+        if finding.action_detail and finding.action_detail not in actions:
+            actions.append(finding.action_detail)
+        if len(actions) == 3:
+            break
+    return actions or ["현재 설정을 유지하고 다음 정기 진단에서 상태 변화를 확인하세요."]
+
+
+def _fallback_ui(result: DiagnosisResult, *, unavailable: bool) -> dict:
+    return {
+        "provider": "template",
+        "model": "deterministic-ko-v1",
+        "status": "unavailable" if unavailable else "fallback",
+        "overview": _overview(result),
+        "actionPlan": _action_plan(result),
+    }
+
+
+def _set_recommendation_status(
+    recommendations: list[Recommendation], status: str
+) -> list[Recommendation]:
+    return [
+        recommendation.model_copy(update={
+            "ai_insight": recommendation.ai_insight.model_copy(update={"status": status})
+        })
+        for recommendation in recommendations
+    ]
+
+
+def _select_candidate(recommendation: Recommendation, candidate_id: str):
+    candidate = next((item for item in recommendation.candidates if item.id == candidate_id), None)
+    if candidate is None:
+        return None
+    return candidate.model_copy(update={"recommended": True})
+
+
+def _select_fallback_candidates(recommendations: list[Recommendation]) -> list[Recommendation]:
+    """Keep a deterministic catalog fallback for unavailable Local Gemma."""
+    selected: list[Recommendation] = []
+    for recommendation in recommendations:
+        candidate = recommendation.candidates[0] if recommendation.candidates else None
+        selected.append(recommendation.model_copy(update={
+            "candidates": [item.model_copy(update={"recommended": item.id == candidate.id}) for item in recommendation.candidates] if candidate else [],
+        }))
+    return selected
+
+
+def _safe_local_url(raw: str) -> str:
+    parsed = urlparse(raw)
+    if parsed.scheme != "http" or parsed.hostname not in {"127.0.0.1", "localhost", "::1"}:
+        raise ValueError("Ollama endpoint must be loopback-only")
+    return raw.rstrip("/")
+
+
+def _list_ollama_models(base_url: str, timeout: float) -> list[str]:
+    """Read only Ollama's local tag list; network endpoints are never allowed."""
+    request = urllib.request.Request(_safe_local_url(base_url) + "/api/tags", method="GET")
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    return [str(item.get("name") or "") for item in payload.get("models", [])]
+
+
+def _select_installed_model(models: list[str], *, requested: str, fallback: str) -> str | None:
+    for model in (requested, fallback):
+        if model and any(name == model or name.startswith(model + ":") for name in models):
+            return model
+    return None
+
+
+def _request_ollama(body: dict, base_url: str, timeout: float) -> str:
     request = urllib.request.Request(
-        base_url.rstrip("/") + "/api/generate",
-        data=body,
+        _safe_local_url(base_url) + "/api/generate",
+        data=json.dumps(body, ensure_ascii=False).encode("utf-8"),
         headers={"Content-Type": "application/json"},
         method="POST",
     )
     with urllib.request.urlopen(request, timeout=timeout) as response:
         payload = json.loads(response.read().decode("utf-8"))
-
     text = (payload.get("response") or "").strip()
     if not text:
         raise RuntimeError("LLM이 빈 응답을 반환했습니다")
     return text
+
+
+def _ask_ollama(
+    prompt: str,
+    base_url: str,
+    model: str,
+    timeout: float,
+    context_tokens: int,
+    keep_alive: str,
+) -> str:
+    return _request_ollama(
+        {
+            "model": model,
+            "system": SYSTEM_PROMPT,
+            "prompt": prompt,
+            "stream": False,
+            # 판정은 규칙 엔진이 끝냈으므로, 사용자용 설명에는 장황한 추론 모드가 필요 없다.
+            "think": False,
+            "keep_alive": keep_alive,
+            "options": {"temperature": 0.3, "num_ctx": context_tokens},
+        },
+        base_url,
+        timeout,
+    )
+
+
+def _ask_ollama_json(
+    prompt: str,
+    base_url: str,
+    model: str,
+    timeout: float,
+    context_tokens: int,
+    keep_alive: str,
+) -> dict:
+    text = _request_ollama(
+        {
+            "model": model,
+            "system": SYSTEM_PROMPT,
+            "prompt": prompt + "\nJSON으로만 답하세요: {\"overview\": \"...\", \"actionPlan\": [\"...\"]}",
+            "stream": False,
+            "format": "json",
+            "think": False,
+            "keep_alive": keep_alive,
+            "options": {"temperature": 0.1, "num_predict": 350, "num_ctx": context_tokens},
+        },
+        base_url,
+        timeout,
+    )
+    value = json.loads(text)
+    overview = str(value.get("overview") or "").strip()
+    actions = [str(item).strip() for item in value.get("actionPlan", []) if str(item).strip()]
+    if not overview or not actions:
+        raise RuntimeError("LLM returned an incomplete diagnosis payload")
+    return {"overview": overview, "actionPlan": actions[:3]}
+
+
+def _ask_ollama_bundle_json(
+    diagnosis_prompt: str,
+    recommendations: list[Recommendation],
+    base_url: str,
+    model: str,
+    timeout: float,
+    context_tokens: int,
+    keep_alive: str,
+) -> dict:
+    response_shape = (
+        '{"overview":"...","actionPlan":["..."],'
+        '"recommendations":[{"id":"...","candidateId":"...","rationale":"...","cautions":["..."]}]}'
+    )
+    text = _request_ollama(
+        {
+            "model": model,
+            "system": RECOMMENDATION_SYSTEM_PROMPT,
+            "prompt": (
+                diagnosis_prompt
+                + "\n\n"
+                + build_recommendation_prompt(recommendations)
+                + f"\nJSON으로만 답하세요: {response_shape}"
+            ),
+            "stream": False,
+            "format": "json",
+            "think": False,
+            "keep_alive": keep_alive,
+            "options": {"temperature": 0.1, "num_predict": 700, "num_ctx": context_tokens},
+        },
+        base_url,
+        timeout,
+    )
+    value = json.loads(text)
+    overview = str(value.get("overview") or "").strip()
+    actions = [str(item).strip() for item in value.get("actionPlan", []) if str(item).strip()]
+    allowed_ids = {recommendation.id for recommendation in recommendations}
+    insights = []
+    for item in value.get("recommendations", []):
+        recommendation_id = str(item.get("id") or "").strip()
+        candidate_id = str(item.get("candidateId") or "").strip()
+        rationale = str(item.get("rationale") or "").strip()
+        cautions = [str(caution).strip() for caution in item.get("cautions", []) if str(caution).strip()]
+        recommendation = next((value for value in recommendations if value.id == recommendation_id), None)
+        valid_candidate = recommendation and any(candidate.id == candidate_id for candidate in recommendation.candidates)
+        if recommendation_id in allowed_ids and valid_candidate and rationale:
+            insights.append({
+                "id": recommendation_id,
+                "candidateId": candidate_id,
+                "rationale": rationale[:800],
+                "cautions": cautions[:3],
+            })
+    if not overview or not actions or not insights:
+        raise RuntimeError("LLM returned an incomplete recommendation payload")
+    return {"overview": overview, "actionPlan": actions[:3], "recommendations": insights}

@@ -5,9 +5,24 @@ from .common import data, timestamp, number
 def analyze(snapshot, window_seconds=120):
     security = data(snapshot, 'security').get('sysmon', {})
     reliability = data(snapshot, 'reliability')
-    samples = data(snapshot, 'performance').get('samples', [])
+    performance = data(snapshot, 'performance')
+    samples = performance.get('samples', [])
+    if not samples:
+        cpu = ((performance.get('cpu') or {}).get('usage_percent') or {}).get('max')
+        observed = performance.get('observed_at')
+        samples = [{'timestamp': observed, 'cpu_percent': cpu}] if observed else []
     buckets = security.get('buckets', []) if security.get('status') == 'ok' else []
     hardware = reliability.get('buckets', [])
+    if not hardware:
+        hardware = [
+            {
+                'timestamp': event.get('last_at') or event.get('first_at'),
+                'kind': 'whea' if str(event.get('category')).startswith('whea_') else 'disk',
+                'count': event.get('count', 0),
+            }
+            for event in reliability.get('events', [])
+            if str(event.get('category')).startswith('whea_') or event.get('category') in {'disk_error', 'filesystem_error'}
+        ]
     candidates = []
 
     def near(a, b):

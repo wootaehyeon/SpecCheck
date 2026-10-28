@@ -5,7 +5,10 @@
     python -m speccheck_agent collectors      # 등록된 collector 목록
     python -m speccheck_agent list            # 최근 스냅샷
     python -m speccheck_agent show <id>       # 스냅샷 원문 출력
+    python -m speccheck_agent health          # 최신 스냅샷의 상태 요약 (M2)
     python -m speccheck_agent profile         # 최신 스냅샷의 부품 사양 프로필
+    python -m speccheck_agent history         # 같은 기기의 스냅샷 추이
+    python -m speccheck_agent prune           # 보관 정책 적용
     python -m speccheck_agent doctor          # 실행 환경 점검
 """
 
@@ -15,23 +18,85 @@ import argparse
 import json
 import platform
 import sys
-import logging
-import sqlite3
-from logging.handlers import RotatingFileHandler
-from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from typing import Any
 
 from . import __version__
+from .analysis import analyze_snapshot
 from .collectors import iter_collectors, registry
 from .config import AgentConfig
-from .pipeline import SnapshotStore, to_spec_profile
-from .snapshot import SCHEMA_VERSION, build_snapshot, summarize
+from .pipeline import (
+    DB_SCHEMA_VERSION,
+    SnapshotStore,
+    section_summaries,
+    to_health_profile,
+    to_spec_profile,
+)
+from .snapshot import SCHEMA_VERSION, build_snapshot, default_device_id, summarize
 from .transport import UploadError, upload_snapshot
-from .analysis import analyze_snapshot
+
+
+#: 수집하지 못한 값의 표시. "0"이나 "정상"으로 보이면 안 된다 - 확인하지 못한
+#: 것과 이상이 없는 것은 다른 결론이고, 그 구분이 진단 신뢰도의 출발점이다.
+UNKNOWN = "확인 못함"
+
+
+def _write_scan_status(
+    path: str | None,
+    *,
+    phase: str,
+    progress: int,
+    collector: str | None = None,
+    message: str,
+) -> None:
+    if not path:
+        return
+    target = Path(path)
+    temporary = target.with_suffix(target.suffix + ".tmp")
+    payload = {
+        "phase": phase,
+        "progress": max(0, min(100, progress)),
+        "collector": collector,
+        "message": message,
+    }
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temporary.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+        temporary.replace(target)
+    except OSError:
+        pass
 
 
 def _dump(data: Any) -> str:
     return json.dumps(data, ensure_ascii=False, indent=2)
+
+
+def _known(value: Any, unit: str = "") -> str:
+    """값을 표시 문자열로. 결측이면 단위를 붙이지 않는다 ('확인 못함%'는 읽히지 않는다)."""
+    return UNKNOWN if value is None else "{0}{1}".format(value, unit)
+
+
+def _load(store: SnapshotStore, snapshot_id: str | None) -> dict[str, Any] | None:
+    return store.get(snapshot_id) if snapshot_id else store.latest()
+
+
+def _attach_advanced_analysis(snapshot: dict[str, Any], config: AgentConfig) -> None:
+    """Add later local-only analysis before a snapshot is saved or uploaded."""
+    history: list[dict[str, Any]] = []
+    if config.db_path.exists():
+        with SnapshotStore(config.db_path) as store:
+            history = store.history(snapshot.get("device_id") or "", limit=200)
+    analyze_snapshot(snapshot, history)
+
+
+def _print_sections(snapshot: dict[str, Any]) -> None:
+    """섹션별 상태와 한 줄 요약. 못 본 항목도 반드시 함께 보여준다."""
+    for summary in section_summaries(snapshot):
+        print(
+            "  {0:<16}{1:<10}{2}".format(
+                summary["name"], summary["status"], summary["headline"] or ""
+            )
+        )
 
 
 # --- 명령 ----------------------------------------------------------------
@@ -40,47 +105,78 @@ def _dump(data: Any) -> str:
 def cmd_scan(args: argparse.Namespace, config: AgentConfig) -> int:
     names = [name.strip() for name in args.collectors.split(",")] if args.collectors else None
 
-    selected = list(iter_collectors(names))
-    with ThreadPoolExecutor(max_workers=5) as pool:
-        results = list(pool.map(lambda collector: collector.run(), selected))
-    for result in results:
-        logging.getLogger('speccheck_agent').info('%s status=%s duration_ms=%s', result.name, result.status, result.duration_ms)
-        if not args.quiet and not args.json:
-            print('  - {0}: {1}'.format(result.name, result.status))
+    results = []
+    collectors = list(iter_collectors(names))
+    total = len(collectors)
+    _write_scan_status(
+        args.status_file,
+        phase="collecting",
+        progress=0,
+        message="시스템 데이터 수집을 시작했습니다.",
+    )
+    for index, collector in enumerate(collectors):
+        progress = round(index / total * 75) if total else 75
+        _write_scan_status(
+            args.status_file,
+            phase="collecting",
+            progress=progress,
+            collector=collector.name,
+            message="{0} 데이터를 수집하고 있습니다.".format(collector.name),
+        )
+        if not args.quiet:
+            print("  - {0} ...".format(collector.name), end="", flush=True)
+        result = collector.run()
+        if not args.quiet:
+            print(" {0}".format(result.status))
+        results.append(result)
+
+    _write_scan_status(
+        args.status_file,
+        phase="saving",
+        progress=80,
+        message="Snapshot을 정규화하고 저장하고 있습니다.",
+    )
 
     snapshot = build_snapshot(
         results,
         scan_mode=args.mode,
         device_id=config.device_id,
         notes=args.note,
+        snapshot_id=getattr(args, "snapshot_id", None),
     )
-    history = []
-    if config.db_path.exists():
-        with SnapshotStore(config.db_path) as store:
-            history = store.history(snapshot['device_id'], snapshot['collected_at'])
-    analyze_snapshot(snapshot, history)
+
+    _attach_advanced_analysis(snapshot, config)
 
     if args.out:
         with open(args.out, "w", encoding="utf-8") as handle:
             handle.write(_dump(snapshot))
-        if not args.json and not args.quiet:
-            print("저장: {0}".format(args.out))
+        print("저장: {0}".format(args.out))
 
     if not args.no_save:
         config.ensure_dirs()
         with SnapshotStore(config.db_path) as store:
             store.save(snapshot)
-        if not args.json and not args.quiet:
-            print("로컬 DB: {0}".format(config.db_path))
+        print("로컬 DB: {0}".format(config.db_path))
 
     if args.upload:
+        _write_scan_status(
+            args.status_file,
+            phase="uploading",
+            progress=90,
+            message="수집 결과를 Local Backend에 전달하고 있습니다.",
+        )
         try:
             response = upload_snapshot(snapshot, config.backend_url, config.upload_timeout)
         except UploadError as exc:
+            _write_scan_status(
+                args.status_file,
+                phase="failed",
+                progress=90,
+                message="Backend 업로드에 실패했습니다.",
+            )
             print("업로드 실패: {0}".format(exc), file=sys.stderr)
             return 1
-        if not args.json and not args.quiet:
-            print("업로드 완료: {0}".format(response.get("snapshot_id", "?")))
+        print("업로드 완료: {0}".format(response.get("snapshot_id", "?")))
         if not args.no_save:
             with SnapshotStore(config.db_path) as store:
                 store.mark_uploaded(snapshot["snapshot_id"])
@@ -89,25 +185,14 @@ def cmd_scan(args: argparse.Namespace, config: AgentConfig) -> int:
         print(_dump(snapshot))
     else:
         print(summarize(snapshot))
-    return 0
-
-
-def cmd_analyze(args, config):
-    with SnapshotStore(config.db_path) as store:
-        snapshot = store.get(args.snapshot_id) if args.snapshot_id else store.latest()
-        if snapshot is None:
-            print('No saved snapshot found.', file=sys.stderr)
-            return 1
-        history = store.history(snapshot['device_id'], snapshot['collected_at'])
-    analyze_snapshot(snapshot, history)
-    print(_dump({k: snapshot['sections'][k] for k in ('correlation', 'anomaly', 'trajectory')}))
-    return 0
-
-
-def cmd_prune(args, config):
-    with SnapshotStore(config.db_path) as store:
-        count = store.prune(args.keep)
-    print('Removed {0} snapshots.'.format(count))
+        if not args.quiet:
+            _print_sections(snapshot)
+    _write_scan_status(
+        args.status_file,
+        phase="completed",
+        progress=100,
+        message="수집과 업로드가 완료됐습니다.",
+    )
     return 0
 
 
@@ -121,17 +206,18 @@ def cmd_collectors(args: argparse.Namespace, config: AgentConfig) -> int:
 
 def cmd_list(args: argparse.Namespace, config: AgentConfig) -> int:
     with SnapshotStore(config.db_path) as store:
-        rows = store.list_recent(args.limit)
+        rows = store.list_recent(args.limit, device_id=args.device)
     if not rows:
         print("저장된 스냅샷이 없습니다. 먼저 'scan' 을 실행하세요.")
         return 0
     for row in rows:
         print(
-            "{0}  {1}  {2:<10}{3}".format(
+            "{0}  {1}  {2:<10}{3:<10}{4}".format(
                 row["snapshot_id"][:8],
                 row["collected_at"],
                 row["scan_mode"],
                 "uploaded" if row["uploaded_at"] else "local",
+                row["notes"] or "",
             )
         )
     return 0
@@ -139,17 +225,21 @@ def cmd_list(args: argparse.Namespace, config: AgentConfig) -> int:
 
 def cmd_show(args: argparse.Namespace, config: AgentConfig) -> int:
     with SnapshotStore(config.db_path) as store:
-        snapshot = store.get(args.snapshot_id) if args.snapshot_id else store.latest()
+        snapshot = _load(store, args.snapshot_id)
     if snapshot is None:
         print("스냅샷을 찾을 수 없습니다.", file=sys.stderr)
         return 1
+    if args.sections:
+        print(summarize(snapshot))
+        _print_sections(snapshot)
+        return 0
     print(_dump(snapshot))
     return 0
 
 
 def cmd_profile(args: argparse.Namespace, config: AgentConfig) -> int:
     with SnapshotStore(config.db_path) as store:
-        snapshot = store.get(args.snapshot_id) if args.snapshot_id else store.latest()
+        snapshot = _load(store, args.snapshot_id)
     if snapshot is None:
         print("스냅샷을 찾을 수 없습니다. 먼저 'scan' 을 실행하세요.", file=sys.stderr)
         return 1
@@ -157,8 +247,109 @@ def cmd_profile(args: argparse.Namespace, config: AgentConfig) -> int:
     return 0
 
 
+def cmd_health(args: argparse.Namespace, config: AgentConfig) -> int:
+    """M2 telemetry(수명/이벤트/성능)를 사람이 읽는 형태로 보여준다."""
+    with SnapshotStore(config.db_path) as store:
+        snapshot = _load(store, args.snapshot_id)
+    if snapshot is None:
+        print("스냅샷을 찾을 수 없습니다. 먼저 'scan' 을 실행하세요.", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(_dump(to_health_profile(snapshot)))
+        return 0
+
+    print(summarize(snapshot))
+    _print_sections(snapshot)
+
+    health = to_health_profile(snapshot)
+    volume = health["system_volume"]
+    disk = health["worst_disk"]
+    events = health["events"]
+    load = health["load"]
+
+    print("\n[시스템 볼륨] {0}  여유 {1} / {2} ({3})".format(
+        volume["drive"] or UNKNOWN,
+        _known(volume["free_gb"], "GB"),
+        _known(volume["size_gb"], "GB"),
+        _known(volume["free_percent"], "%"),
+    ))
+    print("[저장장치] {0}  소모율 {1} / 재할당 {2} / 대기 {3} / 실패예측 {4}".format(
+        disk["model"] or UNKNOWN,
+        _known(disk["wear_percent"], "%"),
+        _known(disk["reallocated_sectors"]),
+        _known(disk["pending_sectors"]),
+        _known(disk["predict_failure"]),
+    ))
+    print("[이벤트 {0}] WHEA 정정 {1} / 치명 {2} / 비정상 종료 {3} / BSOD {4} / 디스크 {5}".format(
+        _known(events["window_days"], "일"),
+        _known(events["whea_corrected"]),
+        _known(events["whea_fatal"]),
+        _known(events["unexpected_shutdown"]),
+        _known(events["bugcheck"]),
+        _known(events["disk_error"]),
+    ))
+    print("[부하] CPU 평균 {0} (최대 {1}) / 가용 메모리 {2} / 클럭비 {3} / 전원 {4} / 최상위 {5}".format(
+        _known(load["cpu_avg_percent"], "%"),
+        _known(load["cpu_max_percent"], "%"),
+        _known(load["memory_available_mb"], "MB"),
+        _known(load["clock_ratio"]),
+        _known(load["power_plan"]),
+        _known(load["top_process"]),
+    ))
+    return 0
+
+
+def cmd_history(args: argparse.Namespace, config: AgentConfig) -> int:
+    """같은 기기의 스냅샷을 시간순으로 훑는다 (추세 확인용)."""
+    device_id = args.device or config.device_id or default_device_id()
+    with SnapshotStore(config.db_path) as store:
+        snapshots = store.history(device_id, limit=args.limit)
+
+    if not snapshots:
+        print("기기 {0} 의 스냅샷이 없습니다.".format(device_id[:12]), file=sys.stderr)
+        return 1
+
+    print("기기 {0} · 스냅샷 {1}개".format(device_id[:12], len(snapshots)))
+    for snapshot in snapshots:
+        health = to_health_profile(snapshot)
+        print(
+            "{0}  {1}  여유 {2:<12}소모율 {3:<12}WHEA {4:<8}{5}".format(
+                snapshot["snapshot_id"][:8],
+                snapshot["collected_at"],
+                _known(health["system_volume"]["free_gb"], "GB"),
+                _known(health["worst_disk"]["wear_percent"], "%"),
+                _known(health["events"]["whea_corrected"]),
+                snapshot.get("notes") or "",
+            )
+        )
+    return 0
+
+
+def cmd_analyze(args: argparse.Namespace, config: AgentConfig) -> int:
+    """Re-run local correlation/anomaly/trajectory analysis without overwriting history."""
+    with SnapshotStore(config.db_path) as store:
+        snapshot = _load(store, args.snapshot_id)
+        if snapshot is None:
+            print("스냅샷을 찾을 수 없습니다.", file=sys.stderr)
+            return 1
+        history = store.history(snapshot.get("device_id") or "", limit=200)
+    analyze_snapshot(snapshot, history)
+    print(_dump({name: snapshot["sections"][name] for name in ("correlation", "anomaly", "trajectory")}))
+    return 0
+
+
+def cmd_prune(args: argparse.Namespace, config: AgentConfig) -> int:
+    """보관 정책 적용. 두 조건을 모두 만족하는 스냅샷만 지운다."""
+    with SnapshotStore(config.db_path) as store:
+        before = store.count()
+        removed = store.prune(keep_last=args.keep, older_than_days=args.older_than)
+        print("{0}개 삭제 (보관 {1}개)".format(removed, before - removed))
+    return 0
+
+
 def cmd_doctor(args: argparse.Namespace, config: AgentConfig) -> int:
-    checks: list[tuple[str, bool | None, str]] = []
+    checks: list[tuple[str, bool, str]] = []
 
     is_windows = platform.system() == "Windows"
     checks.append(("OS", is_windows, platform.platform()))
@@ -176,31 +367,51 @@ def cmd_doctor(args: argparse.Namespace, config: AgentConfig) -> int:
         except cim.CimError as exc:
             detail = str(exc)
     checks.append(("PowerShell/CIM", powershell_ok, detail))
-    if powershell_ok:
-        from .win.events import probe_sysmon
-        sysmon = probe_sysmon()
-        # Optional checks inform the user without making doctor fail.
-        checks.append(('Sysmon (optional)', True if sysmon['status'] == 'ok' else None,
-                       sysmon['status'] + ': ' + sysmon['reason']))
-        import ctypes
-        admin = bool(ctypes.windll.shell32.IsUserAnAdmin())
-        checks.append(('Admin (optional)', True if admin else None, 'yes' if admin else 'no; protected counters may be unavailable'))
-        try:
-            policy = cim.run_powershell('Get-ExecutionPolicy', timeout=5).strip()
-            checks.append(('Execution policy', True, policy))
-        except cim.CimError:
-            checks.append(('Execution policy', None, 'unavailable; review PowerShell policy'))
+
+    if is_windows:
+        from .win import cim
+
+        # 권한 부족은 실패가 아니다. SMART/온도만 빠지고 나머지는 정상 수집된다.
+        elevated = cim.is_elevated()
+        checks.append(
+            (
+                "관리자 권한",
+                True,
+                "있음 (SMART 수집 가능)" if elevated else "없음 - SMART/온도 항목은 건너뜁니다",
+            )
+        )
+
+        from .win import events
+
+        sysmon = events.sysmon_status()
+        if sysmon["status"] == "ok" and sysmon.get("enabled"):
+            detail = "활성 · 이벤트 {0}건".format(sysmon.get("record_count") or 0)
+        elif sysmon["status"] == "ok":
+            detail = "채널은 있으나 비활성 - M5 보안 이벤트를 수집하지 않습니다"
+        else:
+            detail = "미설치·로그 비활성·읽기 권한 부족 - M5 보안 이벤트를 건너뜁니다"
+        # Sysmon은 선택 기능이다. 없다고 doctor 전체를 실패시키지 않는다.
+        checks.append(("Sysmon (M5)", True, detail))
 
     config.ensure_dirs()
     checks.append(("Agent Home", config.home.exists(), str(config.home)))
     checks.append(("Backend URL", True, config.backend_url))
     checks.append(("Schema", True, SCHEMA_VERSION))
 
-    for label, ok, detail in checks:
-        badge = '[WARN]' if ok is None else '[OK]' if ok else '[FAIL]'
-        print('{0:<6} {1:<22} {2}'.format(badge, label, detail))
+    with SnapshotStore(config.db_path) as store:
+        version = store.schema_version
+        checks.append(
+            (
+                "Local DB",
+                version == DB_SCHEMA_VERSION,
+                "v{0} / 스냅샷 {1}개".format(version, store.count()),
+            )
+        )
 
-    return 0 if all(ok is not False for _, ok, _ in checks) else 1
+    for label, ok, detail in checks:
+        print("{0} {1:<16}{2}".format("[OK]  " if ok else "[FAIL]", label, detail))
+
+    return 0 if all(ok for _, ok, _ in checks) else 1
 
 
 # --- 파서 ----------------------------------------------------------------
@@ -212,8 +423,6 @@ def build_parser() -> argparse.ArgumentParser:
         description="SpecCheck Local Agent - PC telemetry 수집기",
     )
     parser.add_argument("--version", action="version", version="speccheck-agent " + __version__)
-    parser.add_argument('--verbose', action='store_true', help='diagnostic status logging to stderr')
-    parser.add_argument('--log-file', action='store_true', help='enable rotating local status log')
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     scan = subparsers.add_parser("scan", help="telemetry 수집")
@@ -225,6 +434,8 @@ def build_parser() -> argparse.ArgumentParser:
     scan.add_argument("--upload", action="store_true", help="Backend로 전송")
     scan.add_argument("--note", help="스냅샷에 남길 메모 (예: 'RAM 교체 전')")
     scan.add_argument("--quiet", action="store_true")
+    scan.add_argument("--status-file", help=argparse.SUPPRESS)
+    scan.add_argument("--snapshot-id", help=argparse.SUPPRESS)
     scan.set_defaults(func=cmd_scan)
 
     collectors = subparsers.add_parser("collectors", help="등록된 collector 목록")
@@ -232,51 +443,64 @@ def build_parser() -> argparse.ArgumentParser:
 
     listing = subparsers.add_parser("list", help="최근 스냅샷 목록")
     listing.add_argument("--limit", type=int, default=20)
+    listing.add_argument("--device", help="특정 기기의 스냅샷만")
     listing.set_defaults(func=cmd_list)
 
     show = subparsers.add_parser("show", help="스냅샷 원문 출력")
     show.add_argument("snapshot_id", nargs="?", help="생략 시 최신 스냅샷")
+    show.add_argument("--sections", action="store_true", help="원문 대신 섹션별 상태 요약")
     show.set_defaults(func=cmd_show)
 
     profile = subparsers.add_parser("profile", help="부품 사양 프로필 추출")
     profile.add_argument("snapshot_id", nargs="?")
     profile.set_defaults(func=cmd_profile)
 
+    health = subparsers.add_parser("health", help="수명/이벤트/성능 상태 요약 (M2)")
+    health.add_argument("snapshot_id", nargs="?")
+    health.add_argument("--json", action="store_true")
+    health.set_defaults(func=cmd_health)
+
+    history = subparsers.add_parser("history", help="같은 기기의 스냅샷 추이")
+    history.add_argument("--device", help="생략 시 현재 기기")
+    history.add_argument("--limit", type=int, default=50)
+    history.set_defaults(func=cmd_history)
+
+    analyze = subparsers.add_parser("analyze", help="저장된 스냅샷의 고급 로컬 분석")
+    analyze.add_argument("snapshot_id", nargs="?")
+    analyze.set_defaults(func=cmd_analyze)
+
+    prune = subparsers.add_parser("prune", help="오래된 스냅샷 정리")
+    prune.add_argument("--keep", type=int, default=50, help="최근 N개는 남긴다 (기본 50)")
+    prune.add_argument(
+        "--older-than", type=int, default=180, dest="older_than", help="N일보다 오래된 것만 (기본 180)"
+    )
+    prune.set_defaults(func=cmd_prune)
+
     doctor = subparsers.add_parser("doctor", help="실행 환경 점검")
     doctor.set_defaults(func=cmd_doctor)
-
-    analysis = subparsers.add_parser('analyze', help='local correlation / anomaly / trajectory')
-    analysis.add_argument('snapshot_id', nargs='?')
-    analysis.set_defaults(func=cmd_analyze)
-    prune = subparsers.add_parser('prune', help='retain newest snapshots per device')
-    prune.add_argument('--keep', type=int, default=200)
-    prune.set_defaults(func=cmd_prune)
 
     return parser
 
 
+def _force_utf8_output() -> None:
+    """표준 출력을 UTF-8로 고정한다.
+
+    한국어 Windows에서 stdout이 파이프/파일로 연결되면 Python은 콘솔 코드페이지
+    (cp949)로 인코딩한다. 그러면 ``scan --json > snapshot.json`` 의 결과를
+    Backend나 jq가 읽지 못한다. 스냅샷은 어디로 나가든 UTF-8이어야 한다.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            try:
+                reconfigure(encoding="utf-8")
+            except (ValueError, OSError):
+                pass  # 인코딩을 바꿀 수 없는 스트림이면 그대로 둔다
+
+
 def main(argv: list[str] | None = None) -> int:
+    _force_utf8_output()
     parser = build_parser()
     args = parser.parse_args(argv)
     config = AgentConfig()
-    logger = logging.getLogger('speccheck_agent')
-    handlers = []
-    try:
-        if args.verbose:
-            handlers.append(logging.StreamHandler())
-        if args.log_file:
-            config.ensure_dirs()
-            handlers.append(RotatingFileHandler(config.home / 'agent.log', maxBytes=1048576, backupCount=2, encoding='utf-8'))
-        logger.setLevel(logging.INFO)
-        for handler in handlers:
-            logger.addHandler(handler)
-        return int(args.func(args, config))
-    except (KeyError, ValueError, OSError, sqlite3.Error) as exc:
-        print('Agent command failed ({0}); check arguments and local storage permissions.'.format(type(exc).__name__), file=sys.stderr)
-        return 1
-    except KeyboardInterrupt:
-        return 130
-    finally:
-        for handler in handlers:
-            logger.removeHandler(handler)
-            handler.close()
+    return int(args.func(args, config))

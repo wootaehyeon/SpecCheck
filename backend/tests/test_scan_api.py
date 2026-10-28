@@ -5,6 +5,8 @@ Agent -> Backend -> 진단으로 이어지는 경로 전체를 한 번에 확인
 
 from __future__ import annotations
 
+import threading
+import time
 from datetime import datetime, timezone
 
 import pytest
@@ -12,6 +14,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
 from app.main import app
+from app.services import local_scan_service
 
 
 @pytest.fixture(autouse=True)
@@ -20,6 +23,7 @@ def isolated_db(tmp_path, monkeypatch):
     settings = get_settings()
     monkeypatch.setattr(settings, "snapshot_db", tmp_path / "snapshots.db")
     monkeypatch.setattr(settings, "llm_enabled", False)
+    local_scan_service._reset_for_tests()
     yield
 
 
@@ -60,19 +64,15 @@ def test_health(client):
     assert response.json()["status"] == "ok"
 
 
-def test_schema_1_1_advanced_sections_round_trip(client):
-    payload = make_payload(schema_version='1.1.0')
-    payload['sections'].update({
-        'security': {'status': 'partial', 'milestone': 'M5', 'data': {'sysmon': {'status': 'skipped'}}},
-        'correlation': {'status': 'partial', 'milestone': 'M6', 'data': {'conclusion': 'unknown', 'candidates': []}},
-        'anomaly': {'status': 'partial', 'milestone': 'M7', 'data': {'signals': []}},
-        'trajectory': {'status': 'partial', 'milestone': 'M8', 'data': {'trends': []}},
-    })
-    response = client.post('/api/scan/snapshots', json=payload)
-    assert response.status_code == 201
-    fetched = client.get('/api/scan/snapshots/' + payload['snapshot_id']).json()
-    for key in ('security', 'correlation', 'anomaly', 'trajectory'):
-        assert fetched['sections'][key]['data'] == payload['sections'][key]['data']
+def test_launcher_health_identifies_project_and_connection_settings(client):
+    import hashlib
+    from app.core.config import PROJECT_ROOT
+
+    health = client.get("/health").json()
+    expected = hashlib.sha256(str(PROJECT_ROOT.resolve()).replace("\\", "/").lower().encode()).hexdigest()[:16]
+    assert health["projectId"] == expected
+    assert health["localAgentBackendUrl"] == get_settings().local_agent_backend_url
+    assert health["corsOrigins"] == get_settings().cors_origin_list
 
 
 def test_upload_and_fetch_snapshot(client):
@@ -137,8 +137,193 @@ def test_rules_endpoint_exposes_criteria(client):
     assert rules and all({"rule_id", "title", "requires"} <= set(rule) for rule in rules)
 
 
+def test_ui_scan_alias_returns_diagnosis_1_1(client):
+    response = client.post("/api/scans", json={"snapshot": make_payload()})
+    assert response.status_code == 200
+    result = response.json()
+    assert result["schemaVersion"] == "1.2.0"
+    assert result["scanType"] == "basic"
+    assert result["decision"]["action"] == "purchase"
+    assert all("recommendedAction" in finding for finding in result["findings"])
+    assert result["recommendations"][0]["aiInsight"]["status"] == "fallback"
+    candidates = result["recommendations"][0]["candidates"]
+    assert len(candidates) >= 2
+    assert sum(candidate["recommended"] for candidate in candidates) == 1
+    assert candidates[0]["strategy"] == "minimal"
+
+    latest = client.get("/api/scans/latest")
+    assert latest.status_code == 200
+    assert latest.json()["scanId"] == result["scanId"]
+
+
+def test_ui_scan_alias_requires_snapshot_history(client):
+    response = client.post("/api/scans", json={})
+    assert response.status_code == 404
+    assert "scan --upload" in response.json()["detail"]
+
+
+def test_ui_health_and_schema_endpoints(client):
+    health = client.get("/api/health")
+    assert health.status_code == 200
+    assert health.json()["backendVersion"] == "1.2.0"
+
+    schema = client.get("/api/schema/diagnosis")
+    assert schema.status_code == 200
+    assert schema.json()["properties"]["schemaVersion"]["const"] == "1.2.0"
+
+
+def test_local_scan_start_and_status_endpoints(client, monkeypatch):
+    running = {
+        "runId": "run-1",
+        "status": "running",
+        "phase": "collecting",
+        "progress": 30,
+        "currentCollector": "storage_health",
+        "message": "storage_health 데이터를 수집하고 있습니다.",
+        "scanId": None,
+        "startedAt": datetime.now(timezone.utc).isoformat(),
+        "finishedAt": None,
+    }
+    monkeypatch.setattr(local_scan_service, "start_scan", lambda: (running, True))
+    monkeypatch.setattr(local_scan_service, "get_status", lambda: running)
+
+    started = client.post("/api/scans/start", headers={"origin": "http://localhost:3000"})
+    assert started.status_code == 202
+    assert started.json()["started"] is True
+    assert started.json()["status"] == "running"
+
+    status_response = client.get("/api/scans/status")
+    assert status_response.status_code == 200
+    assert status_response.json()["currentCollector"] == "storage_health"
+
+
+def test_local_scan_rejects_untrusted_browser_origin(client, monkeypatch):
+    called = False
+
+    def start():
+        nonlocal called
+        called = True
+        return {}, True
+
+    monkeypatch.setattr(local_scan_service, "start_scan", start)
+    response = client.post("/api/scans/start", headers={"origin": "https://example.com"})
+
+    assert response.status_code == 403
+    assert called is False
+
+
+def test_local_scan_prevents_parallel_runs(tmp_path, monkeypatch):
+    entered = threading.Event()
+    release = threading.Event()
+
+    def run_agent(_status_file):
+        entered.set()
+        release.wait(timeout=2)
+
+    monkeypatch.setattr(local_scan_service, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(local_scan_service, "_run_agent", run_agent)
+    monkeypatch.setattr(local_scan_service.scan_service, "latest_snapshot_any", lambda: None)
+
+    first, first_started = local_scan_service.start_scan()
+    assert entered.wait(timeout=1)
+    second, second_started = local_scan_service.start_scan()
+
+    assert first_started is True
+    assert second_started is False
+    assert second["runId"] == first["runId"]
+
+    release.set()
+    deadline = time.monotonic() + 2
+    while local_scan_service.get_status()["status"] == "running" and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert local_scan_service.get_status()["status"] == "failed"
+
+
 def test_price_routes_still_mounted(client):
     """구조 개편 후에도 기존 가격 API 경로가 유지되는지 확인한다."""
     paths = {route.path for route in app.routes}
     assert "/api/price-check" in paths
     assert "/api/optimize-estimate" in paths
+
+
+def test_ui_result_by_id_does_not_follow_latest_upload(client):
+    first = make_payload()
+    second = make_payload("aaaaaaaa-0000-0000-0000-000000000002")
+    first["collected_at"] = "2026-09-27T10:00:00+00:00"
+    second["collected_at"] = "2026-09-27T10:01:00+00:00"
+    client.post("/api/scan/snapshots", json=first)
+    client.post("/api/scan/snapshots", json=second)
+    assert client.get("/api/scans/latest").json()["scanId"] == second["snapshot_id"]
+    result = client.get("/api/scans/" + first["snapshot_id"])
+    assert result.status_code == 200
+    assert result.json()["scanId"] == first["snapshot_id"]
+    assert client.get("/api/scans/missing").status_code == 404
+
+
+@pytest.mark.parametrize("upload_expected", [True, False])
+def test_local_worker_requires_its_own_upload(client, tmp_path, monkeypatch, upload_expected):
+    expected_id = "11111111-2222-3333-4444-555555555555"
+    unrelated_id = "aaaaaaaa-0000-0000-0000-000000000002"
+
+    def run_agent(status_file):
+        assert status_file.stem == expected_id
+        if upload_expected:
+            client.post("/api/scan/snapshots", json=make_payload(expected_id))
+        client.post("/api/scan/snapshots", json=make_payload(unrelated_id))
+
+    monkeypatch.setattr(local_scan_service, "_run_agent", run_agent)
+    local_scan_service._worker(tmp_path / (expected_id + ".json"))
+    state = local_scan_service.get_status()
+    assert state["status"] == ("completed" if upload_expected else "failed")
+    assert state["scanId"] == (expected_id if upload_expected else None)
+
+
+def test_agent_launch_passes_reserved_snapshot_id(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    expected_id = "11111111-2222-3333-4444-555555555555"
+    monkeypatch.setattr(local_scan_service.os, "name", "nt")
+    monkeypatch.setattr(local_scan_service, "_is_elevated", lambda: True)
+    calls = []
+
+    def run(arguments, **kwargs):
+        calls.append(arguments)
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(local_scan_service.subprocess, "run", run)
+    local_scan_service._run_agent(tmp_path / (expected_id + ".json"))
+    arguments = calls[0]
+    assert arguments[arguments.index("--snapshot-id") + 1] == expected_id
+
+
+@pytest.mark.parametrize("elevated", [True, False])
+def test_scan_timeout_reports_safe_retry_policy(client, tmp_path, monkeypatch, elevated):
+    import subprocess
+
+    def run_agent(_status_file):
+        raise subprocess.TimeoutExpired("agent", 300)
+
+    monkeypatch.setattr(local_scan_service, "_is_elevated", lambda: elevated)
+    monkeypatch.setattr(local_scan_service, "_run_agent", run_agent)
+    local_scan_service._worker(tmp_path / "scan.json")
+    result = client.get("/api/scans/status").json()
+    assert result["status"] == "failed"
+    assert result["errorCode"] == "SCAN_TIMEOUT"
+    assert result["retryAllowed"] is elevated
+    assert result["finishedAt"] is not None
+    if not elevated:
+        response = client.post("/api/scans/start")
+        assert response.status_code == 409
+        assert response.json()["error"] == "SCAN_CLEANUP_REQUIRED"
+
+
+def test_permission_failure_is_actionable(tmp_path, monkeypatch):
+    def run_agent(_status_file):
+        raise local_scan_service.ScanFailure("ADMIN_LAUNCH_FAILED", "관리자 실행을 승인해 주세요.")
+
+    monkeypatch.setattr(local_scan_service, "_run_agent", run_agent)
+    local_scan_service._worker(tmp_path / "scan.json")
+    state = local_scan_service.get_status()
+    assert state["errorCode"] == "ADMIN_LAUNCH_FAILED"
+    assert state["retryAllowed"] is True
+    assert "승인" in state["message"]

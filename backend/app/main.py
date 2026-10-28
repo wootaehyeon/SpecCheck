@@ -1,10 +1,12 @@
 """FastAPI 진입점."""
 
+import hashlib
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
-from app.core.config import get_settings
+from app.core.config import PROJECT_ROOT, get_settings
 
 settings = get_settings()
 
@@ -33,4 +35,9 @@ def root():
 @app.get("/health")
 def health():
     """배포 헬스체크 및 Agent의 backend 연결 확인용."""
-    return {"status": "ok", "app": settings.app_name, "version": settings.app_version}
+    project_id = hashlib.sha256(str(PROJECT_ROOT.resolve()).replace("\\", "/").lower().encode()).hexdigest()[:16]
+    return {
+        "status": "ok", "app": settings.app_name, "version": settings.app_version,
+        "projectId": project_id, "corsOrigins": settings.cors_origin_list,
+        "localAgentBackendUrl": settings.local_agent_backend_url,
+    }

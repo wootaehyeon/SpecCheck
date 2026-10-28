@@ -9,6 +9,39 @@ Agent M5–M9(Sysmon·상관 분석·이상 신호·추세·안정화) 업데이
 
 ---
 
+## 통합 진단 실행
+
+현재 Basic Scan UI는 Python Local Agent가 생성한 `telemetry 1.1.0`을 FastAPI의
+17개 규칙으로 분석하고 `diagnosis 1.2.0`으로 변환해 표시합니다.
+
+### Windows 원클릭 실행
+
+프로젝트 루트의 `Start-SpecCheck.bat`을 더블클릭하면 필요한 패키지를 최초 1회
+준비한 뒤 Backend와 UI를 함께 실행하고 브라우저를 자동으로 엽니다. 사용자명이나
+절대 경로 설정은 필요하지 않습니다. 실행 창을 닫거나 `Ctrl+C`를 누르면 서버가
+종료됩니다. 다른 PC에서는 Node.js 22.13 이상과 Python 3.10 이상이 필요합니다.
+
+부품 추천 화면을 바로 시연하려면 `Start-SpecCheck-Demo.bat`을 더블클릭합니다.
+실제 PC telemetry 대신 저장소에 포함된 비식별 데모 Snapshot을 사용하며, 메모리
+증설과 저장장치 교체 후보가 포함된 진단 결과를 생성합니다.
+
+### 명령어 실행
+
+```powershell
+# Backend + UI
+pnpm dev:all
+```
+
+`http://localhost:3000`에서 `기본 진단 시작`을 누르고 Windows UAC를 승인하면
+Agent 수집, Backend 업로드, Diagnosis 생성, UI 갱신이 자동으로 이어집니다.
+8000 포트가 사용 중이면 `$env:SPECCHECK_BACKEND_PORT=8001`처럼 포트를 지정한
+뒤 `pnpm dev:all`을 실행할 수 있으며 UI와 Agent 업로드 대상도 함께 변경됩니다.
+
+전체 연결 구조와 결정 사항은 [Collector JSON 통합](docs/collector-integration.md),
+구현 기록은 [진단 JSON 통합 작업 기록](docs/json-integration-readiness.md)을 참고하세요.
+
+---
+
 ## 📌 Project Overview
 
 | 항목 | 내용 |
@@ -144,7 +177,7 @@ Scan은 일회성 진단으로 끝나지 않는다. 예측한 결과와 실제 �
 * **성능 밸런스 분석** — CPU–GPU 병목(Bottleneck) 및 비효율 조합 탐지
 * **부품 호환성 검증** — CPU–메인보드, RAM, 파워 등 실제 조립 가능 여부 확인
 * **구매 위험도 점수** — 종합 분석을 수치화한 점수와 개선 방향 제시
-* **LLM 기반 도슨트** — Local Gemma로 진단 결과를 자연어 설명으로 변환
+* **LLM 기반 도슨트** — Local Gemma로 진단 결과와 교체 후보의 선택 근거를 자연어로 설명
 * **구매 후 검증** — 예측 대비 실제 개선폭을 측정해 모델에 피드백
 
 ---
@@ -184,7 +217,8 @@ Scan은 일회성 진단으로 끝나지 않는다. 예측한 결과와 실제 �
 | M10 | SpecCheck 통합/배포 | 실제 서비스 완성 |
 
 > **MVP 기준선**: M0–M5 완료 시점. 이때부터 실제 사용자 대상 Basic Scan 진단이 가능하다.
-> 현재 진행 상황은 [docs/ROADMAP.md](docs/ROADMAP.md) 참조 — M0·M1·M3 완료, M4·M5 동작, 남은 것은 **M2**다.
+> 현재 진행 상황: Agent 축(우태현)은 **M0–M4 완료** — 자세한 내용은 [docs/AGENT_ROADMAP.md](docs/AGENT_ROADMAP.md).
+> 전체 로드맵은 [docs/ROADMAP.md](docs/ROADMAP.md) 참조.
 
 ---
 
@@ -249,11 +283,26 @@ copy backend\.env.example backend\.env    # API 키 입력 (없어도 진단은 
 ### Local LLM (선택)
 
 ```powershell
-ollama pull gemma2:2b
+ollama pull gemma4:e2b
 # backend/.env 에서 LLM_ENABLED=true
 ```
 
-꺼져 있어도 진단은 동작하며, 설명만 템플릿으로 대체된다.
+Gemma 4 E2B는 약 7.2GB의 모델 파일을 사용한다. 진단과 추천은 8,192 토큰으로
+제한해 로컬 메모리 사용량을 제어한다. 기본 모델이 아직 없고 `gemma3:4b`가 설치되어
+있으면 자동으로 해당 모델을 임시 사용한다. 어느 로컬 모델도 없거나 LLM이 꺼져 있어도
+진단과 교체 후보 선택은 동작하며, 설명만 규칙 템플릿으로 대체된다.
+
+### 네이버 쇼핑 최저가 (선택)
+
+교체 후보가 생기면 동일 모델의 새 상품 중 최저 판매가와 구매 링크를 표시한다. 네이버 개발자 센터에서 애플리케이션을 등록하고 **검색 API**를 활성화한 뒤, `backend/.env`에 발급받은 키를 추가한다. 키는 저장소에 커밋하지 않는다.
+
+```dotenv
+NAVER_CLIENT_ID=발급받은_클라이언트_ID
+NAVER_CLIENT_SECRET=발급받은_클라이언트_시크릿
+NAVER_PRICE_CACHE_TTL_SECONDS=900
+```
+
+가격 검색은 중고·해외직구 결과를 제외하고, 카탈로그의 모델명과 충분히 일치하는 결과만 사용한다. API 키가 없거나 권한이 없으면 진단과 호환성 추천은 계속 동작하며 화면에 원인이 표시된다.
 
 ---
 

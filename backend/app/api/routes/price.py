@@ -60,9 +60,13 @@ def market_prices(request: MarketPricesRequest):
                     highestPrice=0,
                     averagePrice=0,
                     purchaseLink=None,
+                    productTitle=None,
+                    listingCount=0,
                     mall=None,
                     source="error",
-                    error=market_data.get("error")
+                    error=market_data.get("error"),
+                    errorCode=market_data.get("error_code"),
+                    cached=False,
                 )
             )
             continue
@@ -77,9 +81,13 @@ def market_prices(request: MarketPricesRequest):
                 highestPrice=market_data["highest_price"],
                 averagePrice=market_data["average_price"],
                 purchaseLink=market_data.get("purchase_link"),
-                mall="Naver 쇼핑",
+                productTitle=market_data.get("product_title"),
+                listingCount=market_data.get("listing_count", 0),
+                mall=market_data.get("mall") or "Naver 쇼핑",
                 source="naver",
-                error=None
+                error=None,
+                errorCode=None,
+                cached=market_data.get("cached", False),
             )
         )
 

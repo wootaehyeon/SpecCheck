@@ -37,9 +37,13 @@ class PartPriceInfo(BaseModel):
     highestPrice: int
     averagePrice: int
     purchaseLink: Optional[str]
+    productTitle: Optional[str] = None
+    listingCount: int = 0
     mall: Optional[str] = None
     source: Optional[str] = None
     error: Optional[str] = None
+    errorCode: Optional[str] = None
+    cached: Optional[bool] = None
 
 class MarketPricesRequest(BaseModel):
     parts: List[PartRequest]
