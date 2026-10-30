@@ -32,7 +32,8 @@ test('missing API keys do not become zero-price bargains or purchase approval', 
   assert.equal(result.recommendations.length, 0);
   c.renderResult(result);
   assert.equal(elements.get('marketLowestTotal').textContent, '조회 미완료');
-  assert.match(elements.get('priceCompareBody').innerHTML, /Naver API keys are missing/);
+  assert.match(elements.get('priceCompareBody').innerHTML, /네이버 쇼핑에서 직접 가격 확인/);
+  assert.ok(elements.get('priceCompareBody').innerHTML.includes(`query=${encodeURIComponent(parts[0].name)}`));
   assert.doesNotMatch(elements.get('priceCompareBody').innerHTML, />0원|0\.0%|badge-good/);
 });
 

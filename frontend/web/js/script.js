@@ -553,7 +553,7 @@ function mockAnalyze(estimate, marketPrices) {
   const inputTotal = comparedParts.reduce((sum, part) => sum + part.userPrice, 0);
   const unavailable = comparedParts.filter((part) => part.available === false);
   if (unavailable.length || !comparedParts.length) {
-    const message = `시세 조회가 완료되지 않아 가격 및 구매 여부를 판정할 수 없습니다. (${unavailable.length}/${comparedParts.length}개 부품 조회 불가) 잠시 후 다시 분석해 주세요.`;
+    const message = `시세 조회가 완료되지 않아 가격 및 구매 여부를 판정할 수 없습니다. (${unavailable.length}/${comparedParts.length}개 부품 조회 불가) 부품별 검색 링크에서 판매 가격을 직접 확인해 주세요.`;
     return {
       purchaseStatus: '판정 불가', riskScore: null, totalPrice: inputTotal,
       purposeFit: '판정 보류', summary: message,
@@ -661,8 +661,9 @@ function renderPriceCompare(priceCompare) {
     const diffClass = part.diff > 0 ? 'price-up' : part.diff < 0 ? 'price-down' : 'price-neutral';
     const diffText = part.diff == null ? '-' : `${part.diff > 0 ? '+' : ''}${formatWon(part.diff)} (${part.diffRate.toFixed(1)}%)`;
 
+    const searchUrl = `https://search.shopping.naver.com/search/all?query=${encodeURIComponent(part.name || '')}`;
     const purchaseInfo = part.available === false
-      ? escapeHtml(part.error || '시세 조회 실패')
+      ? `자동 시세를 확인할 수 없습니다.<br><a href="${escapeHtml(searchUrl)}" target="_blank" rel="noopener noreferrer">네이버 쇼핑에서 직접 가격 확인</a>`
       : part.purchaseLink
       ? `<a href="${escapeHtml(safeHttpUrl(part.purchaseLink))}" target="_blank" rel="noreferrer">구매 링크</a>`
       : escapeHtml(part.mall || '');
