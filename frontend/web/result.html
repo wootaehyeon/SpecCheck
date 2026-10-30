@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>분석 결과 - AI PC 견적 평가 시스템</title>
-    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/style.css?v=estimate-2" />
   </head>
   <body>
     <header>
@@ -37,7 +37,7 @@
             >
           </div>
           <div class="summary-card">
-            <span>위험도 점수</span>
+            <span>실측 성능 데이터</span>
             <strong id="riskScore">-</strong>
           </div>
           <div class="summary-card">
@@ -53,7 +53,7 @@
         </div>
 
         <div class="card">
-          <h3>AI 요약 의견</h3>
+          <h3>견적 검토 요약</h3>
           <div id="summaryText" class="result-comment">
             분석 결과가 여기에 표시됩니다.
           </div>
@@ -74,8 +74,8 @@
                     <th>부품</th>
                     <th>모델명</th>
                     <th>입력 가격</th>
-                    <th>오픈마켓 최저가</th>
-                    <th>오픈마켓 평균가</th>
+                    <th>비교 기준가</th>
+                    <th>시장 평균가 (미조회)</th>
                     <th>차이</th>
                     <th>평가</th>
                   </tr>
@@ -94,11 +94,11 @@
                 <strong id="inputTotalPrice">-</strong>
               </div>
               <div class="summary-card">
-                <span>오픈마켓 최저가 합계</span>
+                <span>비교 기준가 합계</span>
                 <strong id="marketLowestTotal">-</strong>
               </div>
               <div class="summary-card">
-                <span>오픈마켓 평균가 합계</span>
+                <span>시장 평균가 (미조회) 합계</span>
                 <strong id="marketAverageTotal">-</strong>
               </div>
               <div class="summary-card">
@@ -127,6 +127,7 @@
       </section>
     </main>
 
-    <script src="js/script.js"></script>
+    <script src="js/estimate-engine.js?v=estimate-2"></script>
+    <script src="js/script.js?v=estimate-2"></script>
   </body>
 </html>
