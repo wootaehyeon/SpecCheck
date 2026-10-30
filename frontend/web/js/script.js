@@ -8,6 +8,7 @@ const OPEN_MARKET_API_URL = `${API_BASE_URL}/api/market-prices`;
 const CRAWL_API_URL = `${API_BASE_URL}/api/crawl`;
 const OPTIMIZE_API_URL = `${API_BASE_URL}/api/optimize-estimate`;
 const MARKET_INTELLIGENCE_API_URL = `${API_BASE_URL}/api/market-intelligence`;
+const DEMO_MARKET_PRICES = true;
 const PAGE_URLS = {
   monitor: 'monitor.html',
   main: 'index.html',
@@ -202,7 +203,11 @@ function getMockMarketPrices(parts) {
 
   return parts.map((part) => ({
     ...part,
-    ...(mockPriceMap[part.key] || { lowestPrice: 0, averagePrice: 0, mall: '-', purchaseLink: '' })
+    ...(mockPriceMap[part.key] || { lowestPrice: Math.round(toNumber(part.userPrice) * 0.9), averagePrice: toNumber(part.userPrice), purchaseLink: '' }),
+    mall: '데모 시세 · 임의 값',
+    source: 'demo',
+    error: null,
+    available: true
   }));
 }
 
@@ -695,6 +700,12 @@ function renderPriceCompare(priceCompare) {
 function renderResult(result) {
   if (!result) return;
 
+  if (DEMO_MARKET_PRICES && Array.isArray(result.priceCompare?.parts)) {
+    result = mockAnalyze(loadData('estimateInput') || { purpose: '게임' }, getMockMarketPrices(result.priceCompare.parts));
+    result.purchaseStatus = '데모 · ' + result.purchaseStatus;
+    result.summary = '데모용 임의 시세이며 실제 판매 가격이 아닙니다. ' + result.summary;
+  }
+
   // Re-evaluate older cached results that treated provider failures as 0 KRW.
   const savedParts = result.priceCompare?.parts;
   if (Array.isArray(savedParts) && savedParts.some((part) => part.error || part.available === false || !(part.lowestPrice > 0) || !(part.averagePrice > 0))) {
@@ -787,7 +798,7 @@ function startAnalysisWorkflow(estimate) {
     index += 1;
   }, 450);
 
-  fetchOpenMarketPrices(estimate.parts)
+  (DEMO_MARKET_PRICES ? Promise.resolve(getMockMarketPrices(estimate.parts)) : fetchOpenMarketPrices(estimate.parts))
     .then((marketPrices) => {
       const result = mockAnalyze(estimate, marketPrices);
       saveData('analysisResult', result);
@@ -1135,7 +1146,9 @@ function initPage() {
   if (main) {
     const notice = document.createElement('p');
     notice.className = 'service-notice';
-    notice.textContent = '시범 서비스 · 성능·호환성 점수와 교체 추천은 예시 결과입니다. 가격·시장 정보도 조회 실패 시 예시 데이터가 표시될 수 있습니다.';
+    notice.textContent = DEMO_MARKET_PRICES
+      ? '데모 모드 · 시세는 임의로 설정한 예시 가격입니다. 성능·호환성 점수와 교체 추천도 시연용 결과이며 실제 구매 판단에 사용할 수 없습니다.'
+      : '시범 서비스 · 성능·호환성 점수와 교체 추천은 예시 결과입니다. 가격·시장 정보도 조회 실패 시 예시 데이터가 표시될 수 있습니다.';
     main.prepend(notice);
   }
   const currentPage = getCurrentPageName();

@@ -18,7 +18,7 @@ function setup(fetch = async () => { throw new Error('offline'); }) {
     }, createElement: () => ({ innerHTML: '' }) },
     console: { warn() {} }, fetch, AbortController, setTimeout, clearTimeout, URL
   });
-  vm.runInContext(source, context);
+  vm.runInContext(source.replace('const DEMO_MARKET_PRICES = true;', 'const DEMO_MARKET_PRICES = false;'), context);
   return { context, elements };
 }
 
