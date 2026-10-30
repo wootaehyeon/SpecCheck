@@ -120,7 +120,9 @@ function setBadgeClass(element, status) {
   if (!element) return;
   element.classList.remove('badge-good', 'badge-warning', 'badge-danger');
 
-  if (status.includes('비쌈') || status.includes('보류') || status.includes('위험')) {
+  if (status.includes('불가')) {
+    element.classList.add('badge-warning');
+  } else if (status.includes('비쌈') || status.includes('보류') || status.includes('위험')) {
     element.classList.add(status.includes('많이') || status.includes('보류') ? 'badge-danger' : 'badge-warning');
   } else {
     element.classList.add('badge-good');
@@ -474,53 +476,52 @@ function initCrawlPage() {
 }
 
 function normalizeMarketPrices(parts, prices) {
-  if (!Array.isArray(prices) || prices.length === 0) {
-    return getMockMarketPrices(parts);
-  }
-
-  return parts.map((part, index) => {
-    const raw = prices.find((item) => item.key === part.key || item.category === part.category || item.name === part.name) || prices[index] || {};
-    const priceInfo = raw.price_info || {};
-
+  const rows = Array.isArray(prices) ? prices : [];
+  return parts.map((part) => {
+    const raw = rows.find((item) => item && (item.key === part.key || item.name === part.name)) || {};
+    const info = raw.price_info || {};
+    const lowest = toNumber(raw.lowestPrice ?? raw.lowest_price ?? info.lowest_price);
+    const average = toNumber(raw.averagePrice ?? raw.average_price ?? info.average_price);
+    const available = !raw.error && raw.source !== 'error' && Number.isFinite(lowest) && lowest > 0 && Number.isFinite(average) && average > 0;
     return {
       ...part,
-      lowestPrice: toNumber(raw.lowestPrice ?? raw.lowest_price ?? priceInfo.lowest_price ?? priceInfo.lowestPrice),
-      averagePrice: toNumber(raw.averagePrice ?? raw.average_price ?? priceInfo.average_price ?? priceInfo.averagePrice),
-      mall: raw.mall || raw.source || raw.market || priceInfo.mall || '-',
-      purchaseLink: raw.purchaseLink || raw.purchase_link || raw.url || priceInfo.url || ''
+      lowestPrice: available ? lowest : null,
+      averagePrice: available ? average : null,
+      available,
+      error: available ? null : (raw.error || '시세 정보를 조회하지 못했습니다.'),
+      errorCode: raw.errorCode || raw.error_code || null,
+      mall: available ? (raw.mall || raw.source || '-') : '조회 불가',
+      purchaseLink: available ? (raw.purchaseLink || raw.purchase_link || '') : ''
     };
   });
 }
 
 async function fetchOpenMarketPrices(parts) {
+  const controller = new AbortController();
+  // The backend can perform six sequential provider calls (8 seconds each).
+  const timeoutId = setTimeout(() => controller.abort(), 60000);
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5초 타임아웃
-
     const response = await fetch(OPEN_MARKET_API_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ parts }),
       signal: controller.signal
     });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      throw new Error('API 호출 실패');
-    }
-
+    if (!response.ok) throw new Error('시세 조회 서버에 연결하지 못했습니다.');
     const data = await response.json();
     return normalizeMarketPrices(parts, data.prices || data.data || data);
   } catch (error) {
-    console.warn('시장 정보 API가 연결되지 않아 임시 가격 데이터를 사용합니다.', error);
-    return getMockMarketPrices(parts);
+    console.warn('시세 조회 실패:', error);
+    return normalizeMarketPrices(parts, []);
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
 function makePriceComparison(part) {
+  if (part.available === false || part.error || !(part.lowestPrice > 0) || !(part.averagePrice > 0)) {
+    return { ...part, available: false, diff: null, diffRate: null, status: '판정 불가', badgeClass: 'badge-warning' };
+  }
   const diff = part.userPrice - part.lowestPrice;
   const diffRate = part.lowestPrice > 0 ? (diff / part.lowestPrice) * 100 : 0;
 
@@ -550,6 +551,17 @@ function makePriceComparison(part) {
 function mockAnalyze(estimate, marketPrices) {
   const comparedParts = marketPrices.map(makePriceComparison);
   const inputTotal = comparedParts.reduce((sum, part) => sum + part.userPrice, 0);
+  const unavailable = comparedParts.filter((part) => part.available === false);
+  if (unavailable.length || !comparedParts.length) {
+    const message = `시세 조회가 완료되지 않아 가격 및 구매 여부를 판정할 수 없습니다. (${unavailable.length}/${comparedParts.length}개 부품 조회 불가) 잠시 후 다시 분석해 주세요.`;
+    return {
+      purchaseStatus: '판정 불가', riskScore: null, totalPrice: inputTotal,
+      purposeFit: '판정 보류', summary: message,
+      priceCompare: { parts: comparedParts, inputTotal, lowestTotal: null, averageTotal: null, totalDiffRate: null, status: '판정 불가' },
+      detail: { price: { score: null, status: '판정 불가', message } },
+      recommendations: []
+    };
+  }
   const lowestTotal = comparedParts.reduce((sum, part) => sum + part.lowestPrice, 0);
   const averageTotal = comparedParts.reduce((sum, part) => sum + part.averagePrice, 0);
   const totalDiffRate = lowestTotal > 0 ? ((inputTotal - lowestTotal) / lowestTotal) * 100 : 0;
@@ -647,9 +659,11 @@ function renderPriceCompare(priceCompare) {
 
   priceCompare.parts.forEach((part) => {
     const diffClass = part.diff > 0 ? 'price-up' : part.diff < 0 ? 'price-down' : 'price-neutral';
-    const diffText = `${part.diff > 0 ? '+' : ''}${formatWon(part.diff)} (${part.diffRate.toFixed(1)}%)`;
+    const diffText = part.diff == null ? '-' : `${part.diff > 0 ? '+' : ''}${formatWon(part.diff)} (${part.diffRate.toFixed(1)}%)`;
 
-    const purchaseInfo = part.purchaseLink
+    const purchaseInfo = part.available === false
+      ? escapeHtml(part.error || '시세 조회 실패')
+      : part.purchaseLink
       ? `<a href="${escapeHtml(safeHttpUrl(part.purchaseLink))}" target="_blank" rel="noreferrer">구매 링크</a>`
       : escapeHtml(part.mall || '');
 
@@ -658,8 +672,8 @@ function renderPriceCompare(priceCompare) {
       <td>${escapeHtml(part.category)}</td>
       <td>${escapeHtml(part.name)}</td>
       <td>${formatWon(part.userPrice)}</td>
-      <td>${formatWon(part.lowestPrice)}<br><small>${purchaseInfo}</small></td>
-      <td>${formatWon(part.averagePrice)}</td>
+      <td>${part.available === false ? '조회 불가' : formatWon(part.lowestPrice)}<br><small>${purchaseInfo}</small></td>
+      <td>${part.available === false ? '-' : formatWon(part.averagePrice)}</td>
       <td class="${diffClass}">${diffText}</td>
       <td><span class="badge ${escapeHtml(part.badgeClass)}">${escapeHtml(part.status)}</span></td>
     `;
@@ -667,8 +681,8 @@ function renderPriceCompare(priceCompare) {
   });
 
   safeSetText('inputTotalPrice', formatWon(priceCompare.inputTotal));
-  safeSetText('marketLowestTotal', formatWon(priceCompare.lowestTotal));
-  safeSetText('marketAverageTotal', formatWon(priceCompare.averageTotal));
+  safeSetText('marketLowestTotal', priceCompare.lowestTotal == null ? '조회 미완료' : formatWon(priceCompare.lowestTotal));
+  safeSetText('marketAverageTotal', priceCompare.averageTotal == null ? '조회 미완료' : formatWon(priceCompare.averageTotal));
 
   const statusEl = safeGet('priceDiffStatus');
   if (statusEl) {
@@ -680,13 +694,19 @@ function renderPriceCompare(priceCompare) {
 function renderResult(result) {
   if (!result) return;
 
+  // Re-evaluate older cached results that treated provider failures as 0 KRW.
+  const savedParts = result.priceCompare?.parts;
+  if (Array.isArray(savedParts) && savedParts.some((part) => part.error || part.available === false || !(part.lowestPrice > 0) || !(part.averagePrice > 0))) {
+    result = mockAnalyze({}, normalizeMarketPrices(savedParts, savedParts));
+  }
+
   const purchaseStatus = safeGet('purchaseStatus');
   if (purchaseStatus) {
     purchaseStatus.textContent = result.purchaseStatus;
     setBadgeClass(purchaseStatus, result.purchaseStatus);
   }
 
-  safeSetText('riskScore', result.riskScore + '점');
+  safeSetText('riskScore', result.riskScore == null ? '판정 불가' : result.riskScore + '점');
   safeSetText('resultPrice', formatWon(result.totalPrice));
   safeSetText('purposeFit', result.purposeFit);
   safeSetText('summaryText', result.summary);
@@ -713,6 +733,7 @@ function renderResult(result) {
   safeSetText('recencyStatus', result.detail?.recency?.status || '-');
 
   const rec = result.recommendations?.[0];
+  if (!rec) safeSetText('recommendReason', '시세 정보를 확인할 수 없어 교체 추천을 보류합니다.');
   if (rec) {
     safeSetText('currentPart', rec.currentPart);
     safeSetText('currentPrice', formatWon(rec.currentPrice));
@@ -771,8 +792,8 @@ function startAnalysisWorkflow(estimate) {
       saveData('analysisResult', result);
     })
     .catch((error) => {
-      console.warn('분석 중 오류가 발생하여 임시 데이터로 분석합니다.', error);
-      const result = mockAnalyze(estimate, getMockMarketPrices(estimate.parts));
+      console.warn('분석 중 오류가 발생하여 판정을 보류합니다.', error);
+      const result = mockAnalyze(estimate, normalizeMarketPrices(estimate.parts, []));
       saveData('analysisResult', result);
     })
     .finally(() => {
