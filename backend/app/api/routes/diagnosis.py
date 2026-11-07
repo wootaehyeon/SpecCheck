@@ -3,7 +3,8 @@
 두 가지 경로를 지원한다.
 
 - ``POST /diagnosis/analyze`` : 스냅샷을 그 자리에서 진단 (저장 없이)
-- ``POST /diagnosis/{snapshot_id}`` : 이미 업로드된 스냅샷을 진단
+- ``POST /diagnosis/{snapshot_id}`` : 이미 업로드된 스냅샷을 진단하고 이력 저장
+- ``GET /diagnosis/{snapshot_id}/history`` : 저장된 당시 진단 결과 조회
 
 두 번째 경로가 있는 이유: 규칙이 개선되면 과거 스냅샷을 다시 진단해
 예측이 맞았는지 확인해야 한다 (예측 -> 검증 -> 학습 루프).
@@ -18,6 +19,7 @@ from app.diagnosis.explainer import explain
 from app.schemas.diagnosis import DiagnosisResult
 from app.schemas.telemetry import TelemetrySnapshot
 from app.services import scan_service
+from app.services import diagnosis_service
 
 router = APIRouter()
 
@@ -59,4 +61,11 @@ def analyze_stored(
     snapshot = scan_service.get_snapshot(snapshot_id)
     if snapshot is None:
         raise HTTPException(status_code=404, detail="스냅샷을 찾을 수 없습니다.")
-    return _run(snapshot, explain_result)
+    result = _run(snapshot, explain_result)
+    diagnosis_service.save_diagnosis(snapshot, result)
+    return result
+
+
+@router.get("/{snapshot_id}/history")
+def diagnosis_history(snapshot_id: str, limit: int = Query(default=20, ge=1, le=100)) -> list[dict]:
+    return diagnosis_service.history(snapshot_id, limit)

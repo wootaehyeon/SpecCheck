@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="referrer" content="no-referrer" />
+  <title>부품 구매 · SpecCheck</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/monitor.css" />
+  <link rel="stylesheet" href="css/purchase.css" />
+</head>
+<body>
+  <header><a class="logo" href="index.html">SpecCheck</a><nav>
+    <a href="index.html">메인</a><a href="input.html">견적 분석</a><a href="monitor.html">내 PC 모니터링</a>
+  </nav></header>
+  <main class="monitor-main purchase-main">
+    <a class="purchase-back" href="monitor.html">← 내 PC 진단으로</a>
+    <section class="monitor-heading"><div>
+      <p class="monitor-eyebrow">DIAGNOSIS / SHOPPING</p>
+      <h1>필요한 부품, 구매까지</h1>
+      <p>진단에서 확인한 교체 사유를 보고, 상품을 찾아 판매처에서 구매하세요.</p>
+    </div></section>
+
+    <section class="card" aria-labelledby="diagnosisHeading">
+      <p class="monitor-eyebrow">01 / 교체 사유 확인</p>
+      <h2 id="diagnosisHeading">부품 구매 전 확인</h2>
+      <p id="diagnosisSummary" class="monitor-help">모니터링 화면에서 구매하기를 누르면 해당 진단을 함께 확인할 수 있습니다.</p>
+      <p id="diagnosisDetail" class="monitor-help" hidden></p>
+      <p id="currentHardware" class="monitor-help" hidden></p>
+      <p id="compatibilityNote" class="purchase-note"></p>
+    </section>
+
+    <section class="card" aria-labelledby="searchHeading">
+      <p class="monitor-eyebrow">02 / 상품 선택</p>
+      <h2 id="searchHeading">구매할 부품 찾기</h2>
+      <form id="productSearch" class="purchase-search">
+        <label for="partType">부품 규격
+          <select id="partType">
+            <option value="">직접 입력</option>
+            <optgroup label="저장장치">
+              <option value="NVMe SSD 1TB">M.2 NVMe SSD · 1TB</option>
+              <option value="SATA SSD 1TB">2.5인치 SATA SSD · 1TB</option>
+            </optgroup>
+            <optgroup label="데스크톱 메모리">
+              <option value="DDR4 데스크탑 메모리 16GB">DDR4 DIMM · 16GB</option>
+              <option value="DDR5 데스크탑 메모리 16GB">DDR5 DIMM · 16GB</option>
+            </optgroup>
+            <optgroup label="노트북 메모리">
+              <option value="DDR4 노트북 메모리 16GB">DDR4 SO-DIMM · 16GB</option>
+              <option value="DDR5 노트북 메모리 16GB">DDR5 SO-DIMM · 16GB</option>
+            </optgroup>
+          </select>
+        </label>
+        <label for="productQuery">상품명·검색어
+          <input id="productQuery" name="query" maxlength="120" required placeholder="예: NVMe SSD 1TB 또는 제품 모델명" />
+        </label>
+        <button class="btn btn-primary" type="submit">상품 검색</button>
+      </form>
+      <p id="productStatus" class="monitor-help" role="status" aria-live="polite">검색어를 입력하면 판매 상품을 조회합니다.</p>
+      <div id="productList" class="purchase-products" aria-label="상품 검색 결과" aria-busy="false"></div>
+    </section>
+
+    <section class="card" aria-labelledby="checkoutHeading">
+      <p class="monitor-eyebrow">03 / 판매처에서 구매</p>
+      <h2 id="checkoutHeading">쇼핑몰에서 계속하기</h2>
+      <p class="monitor-help">상품의 ‘구매하기’를 누르면 새 탭에서 판매처로 이동합니다. 결제는 판매처에서 진행하며, 최종 가격·배송비·보증 조건을 확인하세요.</p>
+      <div id="shoppingLinks" class="button-row" hidden>
+        <a id="naverSearch" class="btn btn-primary" target="_blank" rel="noopener noreferrer">네이버쇼핑에서 구매 상품 찾기 ↗</a>
+        <a id="danawaSearch" class="btn btn-secondary" target="_blank" rel="noopener noreferrer">다나와에서 가격 비교 ↗</a>
+      </div>
+      <p id="shoppingQuery" class="monitor-help"></p>
+    </section>
+  </main>
+  <script src="js/purchase-context.js" defer></script>
+  <script src="js/purchase.js" defer></script>
+</body>
+</html>

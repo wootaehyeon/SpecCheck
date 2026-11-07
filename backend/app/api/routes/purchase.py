@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, Query
 
+from app.services.purchase_catalog import search_products
 from app.services.component_catalog import load_catalog
 from app.services.purchase_market import offers_state
 
@@ -15,3 +16,8 @@ def get_quotes(product_id: list[str] = Query(default=[], max_length=32)):
     if identifiers - {p["id"] for p in products}:
         raise HTTPException(status_code=422, detail="카탈로그에 없는 부품입니다.")
     return offers_state([p for p in products if p["id"] in identifiers])[0]
+
+
+@router.get('/products')
+def products(query: str = Query(min_length=1, max_length=120)) -> dict:
+    return search_products(query.strip())

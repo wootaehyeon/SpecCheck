@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: speccheck
+    runtime: python
+    plan: free
+    region: singapore
+    buildCommand: pip install -r backend/requirements-web.txt
+    startCommand: uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeployTrigger: "off"
+    envVars:
+      - key: SERVE_FRONTEND
+        value: "true"
+      - key: TELEMETRY_API_ENABLED
+        value: "false"
+      - key: CORS_ORIGINS
+        value: ""
+      - key: LLM_ENABLED
+        value: "false"
+      - key: QUALITY_EVAL_ENABLED
+        value: "false"
+      - key: MONITORING_ENABLED
+        value: "true"
+      # Neon 등의 PostgreSQL 연결 URL은 Render Environment에 비공개로 추가한다.
+      # MONITORING_DATABASE_URL이 없으면 인증 모니터링 API는 닫힌 상태로 유지된다.

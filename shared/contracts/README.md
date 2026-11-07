@@ -5,12 +5,14 @@ Agent(생산자)와 Backend(소비자)가 공유하는 데이터 계약.
 
 | 파일 | 버전 | 설명 | 대응 구현 |
 | --- | --- | --- | --- |
-| `telemetry_snapshot.schema.json` | 1.1.0 | 스캔 1회 결과 표준 형식 | `agent/speccheck_agent/snapshot.py`, `backend/app/schemas/telemetry.py` |
+| `telemetry_snapshot.schema.json` | 1.2.0 | 스캔 1회 결과 표준 형식 | `agent/speccheck_agent/snapshot.py`, `backend/app/schemas/telemetry.py` |
+| `security_data.schema.json` | 1 | 동의한 Sysmon 이벤트의 최소 필드 | `backend/app/schemas/security.py` |
 
 ## 변경 이력
 
 | 버전 | 변경 |
 | --- | --- |
+| 1.2.0 | 선택적 Sysmon 수집 계약 추가. 기본 스캔은 security 섹션 생략. 비어 있지 않은 security.data는 동의 기록과 최소 이벤트 계약으로 검증한다. 기존 planned/빈 섹션은 수용한다. |
 | 1.1.0 | M2 섹션 추가 — `storage_health`(수명·여유 공간), `reliability`(이벤트 집계), `performance`(샘플링 통계). 각 섹션 `data` 의 키를 `$defs` 에 문서화했다. 1.0.0에 있던 `storage` 를 실제 collector 이름인 `storage_health` 로 맞췄다. |
 | 1.0.0 | 최초 정의 (M0). |
 

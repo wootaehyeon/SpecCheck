@@ -327,3 +327,79 @@ def test_permission_failure_is_actionable(tmp_path, monkeypatch):
     assert state["errorCode"] == "ADMIN_LAUNCH_FAILED"
     assert state["retryAllowed"] is True
     assert "승인" in state["message"]
+
+
+def security_payload(snapshot_id="security-one", event_id=1):
+    payload = make_payload(snapshot_id)
+    payload["sections"] = {"security": {"status": "ok", "data": {
+        "consent": {"version": "sysmon-minimal-v1", "granted_at": "2026-09-14T09:00:00Z"},
+        "window_start": "2026-09-14T09:00:00Z", "window_end": "2026-09-14T11:00:00Z",
+        "log_oldest_at": "2026-09-14T00:00:00Z", "log_gap": False,
+        "log_reset": False, "truncated": False,
+        "events": [{"event_id": event_id, "record_id": 12,
+                    "occurred_at": "2026-09-14T10:00:00Z", "process_guid": "guid-1",
+                    "process_id": 100, "image": "app.exe"}],
+    }}}
+    return payload
+
+
+def test_basic_scan_security_aggregates_remain_uploadable(client):
+    payload = make_payload()
+    data = {"sysmon": {"status": "ok", "counts": {"1": 2}, "buckets": [
+        {"timestamp": "2026-09-14T10:00:00Z", "event_id": 1, "count": 2,
+         "kind": "sysmon", "process_key": "a" * 64},
+    ]}, "security_state": {"secure_boot": False, "tpm_enabled": True,
+        "defender": {"antivirus_enabled": True, "realtime_enabled": True}}}
+    payload["sections"]["security"] = {"status": "ok", "data": data}
+    assert client.post("/api/scan/snapshots", json=payload).status_code == 201
+    saved = client.get("/api/scan/snapshots/" + payload["snapshot_id"]).json()
+    assert saved["sections"]["security"]["data"]["sysmon"]["counts"] == {"1": 2}
+    assert saved["sections"]["security"]["data"]["security_state"] == data["security_state"]
+
+
+def test_aggregate_format_cannot_bypass_process_history_consent(client):
+    payload = security_payload()
+    del payload["sections"]["security"]["data"]["consent"]
+    payload["sections"]["security"]["data"]["sysmon"] = {"status": "ok"}
+    assert client.post("/api/scan/snapshots", json=payload).status_code == 422
+
+
+def test_security_timeline_dedup_device_isolation_and_bounds(client):
+    for name in ("one", "two"):
+        assert client.post("/api/scan/snapshots", json=security_payload(name)).status_code == 201
+    params = {"device_id": "device-abc", "start": "2026-09-14T09:00:00Z", "end": "2026-09-14T11:00:00Z"}
+    response = client.get("/api/scan/process-events", params=params)
+    assert response.status_code == 200 and len(response.json()) == 1
+    assert client.get("/api/scan/process-events", params={**params, "device_id": "other"}).json() == []
+    assert client.get("/api/scan/process-events", params={**params, "offset": 1}).json() == []
+    assert client.get("/api/scan/process-events", params={**params, "end": params["start"]}).status_code == 422
+    assert client.get("/api/scan/process-events", params={**params, "start": "2026-09-14T09:00:00"}).status_code == 422
+
+
+def test_security_rejects_sensitive_fields_and_missing_consent(client):
+    payload = security_payload()
+    payload["sections"]["security"]["data"]["events"][0]["command_line"] = "secret"
+    assert client.post("/api/scan/snapshots", json=payload).status_code == 422
+    payload = security_payload()
+    del payload["sections"]["security"]["data"]["consent"]
+    assert client.post("/api/scan/snapshots", json=payload).status_code == 422
+
+
+def test_security_process_presence_is_not_malware_and_tampering_is_reviewable(client):
+    normal = client.post("/api/diagnosis/analyze", json=security_payload()).json()
+    assert not normal["findings"]
+    suspicious = client.post("/api/diagnosis/analyze", json=security_payload(event_id=25)).json()
+    assert suspicious["decision"]["action"] == "fix"
+    assert suspicious["findings"][0]["rule_id"] == "SEC-SYSMON-025"
+
+
+def test_diagnosis_history_is_append_only_and_stateless_analyze_stays_stateless(client):
+    client.post("/api/scan/snapshots", json=security_payload())
+    results = [client.post("/api/diagnosis/security-one").json() for _ in range(2)]
+    history = client.get("/api/diagnosis/security-one/history").json()
+    assert len(history) == 2
+    assert history[0]["result"] == results[-1]
+    assert history[0]["diagnosis_id"] != history[1]["diagnosis_id"]
+    assert len(history[0]["rules_version"]) == 64
+    client.post("/api/diagnosis/analyze", json=security_payload())
+    assert len(client.get("/api/diagnosis/security-one/history").json()) == 2

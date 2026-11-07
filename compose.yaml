@@ -1,0 +1,26 @@
+name: speccheck
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    init: true
+    restart: unless-stopped
+    # API credentials and optional features can reuse the local backend config.
+    # Compose 2.24+ supports starting even when this file does not exist.
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment:
+      SERVE_FRONTEND: "true"
+      SNAPSHOT_DB: /app/backend/data/snapshots.db
+      # Ollama runs on Windows, outside the Linux container.
+      OLLAMA_URL: http://host.docker.internal:11434
+    ports:
+      - "127.0.0.1:${SPECCHECK_PORT:-8000}:8000"
+    volumes:
+      - speccheck-data:/app/backend/data
+
+volumes:
+  speccheck-data:

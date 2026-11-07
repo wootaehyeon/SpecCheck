@@ -195,7 +195,7 @@ def test_collected_sysmon_without_a_finding_is_described_as_checked():
     raw = make_snapshot().model_dump(mode="json")
     raw["sections"]["security"] = {
         "status": "ok",
-        "data": {"sysmon": {"status": "ok", "events": []}},
+        "data": {"sysmon": {"status": "ok", "buckets": []}},
     }
     snapshot = TelemetrySnapshot.model_validate(raw)
 
