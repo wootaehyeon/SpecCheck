@@ -23,6 +23,7 @@ def public_client(monkeypatch, tmp_path):
     "/", "/index.html", "/input.html", "/analyzing.html", "/result.html",
     "/detail.html", "/recommend.html", "/crawl.html", "/css/style.css", "/js/script.js",
     "/purchase.html", "/css/purchase.css", "/js/purchase.js", "/js/purchase-context.js",
+    "/purchases.html", "/css/purchase-history.css", "/js/purchase-history.js", "/js/purchase-history-page.js",
 ])
 def test_public_web_assets(public_client, path):
     response = public_client.get(path)

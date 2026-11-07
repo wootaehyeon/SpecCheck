@@ -18,6 +18,7 @@ docker compose ps
 | http://localhost:8000/docs | API 문서 |
 | http://localhost:8000/health | 서버 상태 |
 | http://localhost:8000/monitor.html | 내 PC 모니터링 |
+| http://localhost:8000/purchases.html | 여러 사용자 구매이력·내 구매이력 저장 |
 
 Docker Desktop의 **Containers → speccheck → app**에서도 상태와 로그를 확인하고
 중지·시작할 수 있다. 프론트엔드는 API와 같은 서버에서 제공한다.
@@ -59,7 +60,7 @@ MONITORING_DATABASE_URL=sqlite:////app/backend/data/monitoring.db
 기본 구성은 localhost에서 사용하는 개발 환경이다. 공개 운영의 PostgreSQL 및 인증 설정은
 [MONITORING.md](MONITORING.md)와 [DEPLOYMENT.md](DEPLOYMENT.md)를 따른다.
 
-스냅샷, 진단 이력, 모니터링 DB, 가격 캐시는 `speccheck_speccheck-data` Docker 볼륨에 저장된다.
+스냅샷, 진단 이력, 모니터링 DB, 구매이력 DB, 가격 캐시는 `speccheck_speccheck-data` Docker 볼륨에 저장된다.
 기존 PC의 `backend/data/snapshots.db`는 자동으로 가져오지 않는다.
 `docker compose down`이나 컨테이너 재생성 후에도 볼륨 데이터는 유지된다.
 `docker compose down -v`는 볼륨 데이터까지 삭제하므로 초기화할 때만 사용한다.

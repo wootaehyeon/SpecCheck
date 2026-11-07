@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import {
   Activity,
   Bot,
@@ -409,6 +410,7 @@ export default function Home() {
               <span className={`size-1.5 rounded-full ${connectionState === 'live' ? 'bg-emerald-400 shadow-[0_0_10px_#34d399]' : connectionState === 'empty' ? 'bg-amber-300' : connectionState === 'error' || connectionState === 'offline' ? 'bg-red-400' : 'bg-zinc-500'}`} />
               {connectionState === 'checking' ? '진단 서비스 확인 중' : connectionState === 'live' ? !health || health.agentVersion === 'not-connected' ? '진단 서비스 연결됨' : '수집기 연결됨' : connectionState === 'empty' ? '진단 기록 없음' : connectionState === 'error' || connectionState === 'offline' ? '진단 서비스 연결 오류' : '예시 데이터'}
             </span>
+            <Link href="/purchases" className="text-xs font-medium text-primary">구매이력</Link>
             <Button onClick={runScan} disabled={running || scanStatus?.retryAllowed === false} size="lg" className="rounded-xl px-4">
               {running ? <RefreshCw className="animate-spin" data-icon="inline-start" /> : <ScanLine data-icon="inline-start" />}
               <span className="hidden sm:inline">{scanDisconnected ? '연결 복구 중' : scanChecking ? '스캔 확인 중' : loadingScanResult ? '결과 불러오는 중' : starting ? '시작 요청 중' : running ? `${scanStatus?.progress ?? 0}%` : scanStatus?.retryAllowed === false ? '관리자 실행 확인 필요' : diagnosis ? 'Agent로 다시 진단' : 'Agent로 내 PC 진단'}</span>

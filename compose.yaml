@@ -14,6 +14,7 @@ services:
         required: false
     environment:
       SERVE_FRONTEND: "true"
+      DATA_DIR: /app/backend/data
       SNAPSHOT_DB: /app/backend/data/snapshots.db
       # Ollama runs on Windows, outside the Linux container.
       OLLAMA_URL: http://host.docker.internal:11434
