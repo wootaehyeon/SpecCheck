@@ -1,6 +1,55 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { loadScanResult, monitorScan } from '../app/scan-monitor.ts';
+import { scanJourney } from '../app/scan-journey.ts';
+
+const journeyOptions = (overrides = {}) => ({
+  status: null, starting: false, checking: false, disconnected: false,
+  loadingResult: false, resultFailed: false, resultScanId: null, ...overrides,
+});
+
+test('journey follows reported Agent phases rather than elapsed time or progress', () => {
+  for (const [index, phase] of ['permission', 'collecting', 'saving', 'uploading'].entries()) {
+    const journey = scanJourney(journeyOptions({ status: { status: 'running', phase, progress: 90, message: phase } }));
+    assert.deepEqual(journey.states, Array.from({ length: 5 }, (_, step) => step < index ? 'complete' : step === index ? 'active' : 'pending'));
+  }
+});
+
+test('Agent completion does not complete server diagnosis until the matching result arrives', () => {
+  const status = { status: 'completed', phase: 'completed', scanId: 'new-scan', progress: 100 };
+  const waiting = scanJourney(journeyOptions({ status, resultScanId: 'previous-scan' }));
+  assert.equal(waiting.states[4], 'pending');
+  assert.equal(waiting.progress, null);
+  const loading = scanJourney(journeyOptions({ status, loadingResult: true, resultScanId: 'previous-scan' }));
+  assert.equal(loading.states[4], 'active');
+  assert.equal(loading.progress, null);
+  assert.ok(scanJourney(journeyOptions({ status, resultScanId: 'new-scan' })).states.every(step => step === 'complete'));
+});
+
+test('connection loss and unverified status cannot imply a running or completed step', () => {
+  const status = { status: 'running', phase: 'uploading', progress: 90 };
+  for (const flags of [{ disconnected: true }, { checking: true }]) {
+    const journey = scanJourney(journeyOptions({ status, ...flags }));
+    assert.ok(journey.states.every(step => step === 'unknown'));
+    assert.equal(journey.progress, null);
+  }
+  assert.ok(scanJourney(journeyOptions({ status: { ...status, phase: 'completed' } })).states.every(step => step === 'unknown'));
+});
+
+test('scan failure does not invent completed phases, while result failure preserves confirmed upload', () => {
+  const failed = scanJourney(journeyOptions({ status: { status: 'failed', phase: 'failed', message: '권한 거부' } }));
+  assert.ok(failed.states.every(step => step === 'unknown'));
+  assert.equal(failed.message, '권한 거부');
+  const resultFailed = scanJourney(journeyOptions({ status: { status: 'completed', scanId: 'scan' }, resultFailed: true }));
+  assert.deepEqual(resultFailed.states, ['complete', 'complete', 'complete', 'complete', 'failed']);
+});
+
+test('stored or example results do not fabricate a new scan journey', () => {
+  const journey = scanJourney(journeyOptions({ resultScanId: 'stored-scan' }));
+  assert.ok(journey.states.every(step => step === 'pending'));
+  const starting = scanJourney(journeyOptions({ starting: true, status: { status: 'completed', scanId: 'stored-scan' }, resultScanId: 'stored-scan' }));
+  assert.ok(starting.states.every(step => step === 'pending'));
+});
 
 const state = (status, runId = 'existing-run') => ({
   runId, status, phase: status === 'running' ? 'collecting' : status,

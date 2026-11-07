@@ -37,6 +37,7 @@ import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 import { diagnosticsConfig } from './config';
+import { AgentCollectionItems, AgentScanEvidence, AgentScanJourney, sourceNames } from './agent-scan-overview';
 import { getAgentHealth, getBasicScanStatus, getDiagnosis, getLatestDiagnosis, startBasicScan } from './diagnostics-client';
 import { PurchaseOffers } from './purchase-offers';
 import { demoDiagnosis } from './fixtures/demo-diagnosis';
@@ -393,30 +394,48 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-20 border-b border-white/8 bg-[#0b1018]/90 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-[1480px] items-center justify-between px-5 lg:px-8">
-          <div className="flex items-center gap-3">
+        <div className="mx-auto flex h-16 max-w-[1480px] items-center justify-between px-3 sm:px-5 lg:px-8">
+          <div className="flex items-center gap-2 sm:gap-3">
             <span className="grid size-9 place-items-center rounded-xl bg-primary text-primary-foreground shadow-[0_0_30px_rgba(45,212,191,.18)]">
               <Radar className="size-5" />
             </span>
             <div>
               <div className="text-sm font-semibold">SpecCheck</div>
-              <div className="text-[10px] font-medium text-muted-foreground">내 PC 진단</div>
+              <div className="hidden text-[10px] font-medium text-muted-foreground sm:block">Windows Agent · 실측 PC 진단</div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <span className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
               <span className={`size-1.5 rounded-full ${connectionState === 'live' ? 'bg-emerald-400 shadow-[0_0_10px_#34d399]' : connectionState === 'empty' ? 'bg-amber-300' : connectionState === 'error' || connectionState === 'offline' ? 'bg-red-400' : 'bg-zinc-500'}`} />
               {connectionState === 'checking' ? '진단 서비스 확인 중' : connectionState === 'live' ? !health || health.agentVersion === 'not-connected' ? '진단 서비스 연결됨' : '수집기 연결됨' : connectionState === 'empty' ? '진단 기록 없음' : connectionState === 'error' || connectionState === 'offline' ? '진단 서비스 연결 오류' : '예시 데이터'}
             </span>
             <Button onClick={runScan} disabled={running || scanStatus?.retryAllowed === false} size="lg" className="rounded-xl px-4">
               {running ? <RefreshCw className="animate-spin" data-icon="inline-start" /> : <ScanLine data-icon="inline-start" />}
-              {scanDisconnected ? '연결 복구 중' : scanChecking ? '스캔 확인 중' : loadingScanResult ? '결과 불러오는 중' : running ? `${scanStatus?.progress ?? 0}%` : scanStatus?.retryAllowed === false ? '관리자 실행 확인 필요' : diagnosis ? '다시 스캔' : '기본 진단 시작'}
+              <span className="hidden sm:inline">{scanDisconnected ? '연결 복구 중' : scanChecking ? '스캔 확인 중' : loadingScanResult ? '결과 불러오는 중' : starting ? '시작 요청 중' : running ? `${scanStatus?.progress ?? 0}%` : scanStatus?.retryAllowed === false ? '관리자 실행 확인 필요' : diagnosis ? 'Agent로 다시 진단' : 'Agent로 내 PC 진단'}</span>
+              <span className="sm:hidden">{scanDisconnected || scanChecking ? '연결 확인 중' : loadingScanResult ? '결과 확인 중' : starting ? '요청 중' : running ? `${scanStatus?.progress ?? 0}%` : scanStatus?.retryAllowed === false ? '실행 확인 필요' : 'Agent 진단'}</span>
             </Button>
           </div>
         </div>
       </header>
 
       <div className="mx-auto max-w-[1480px] px-5 py-7 lg:px-8">
+        <section aria-labelledby="agent-intro" className="mb-6 grid items-center gap-5 rounded-xl border border-primary/15 bg-gradient-to-br from-primary/8 via-card/60 to-card/30 p-5 sm:p-7 lg:grid-cols-[minmax(0,1fr)_auto]">
+          <div>
+            <p className="mb-2 text-[11px] font-semibold tracking-wide text-primary">WINDOWS AGENT → 진단 서버</p>
+            <h1 id="agent-intro" className="break-keep text-2xl font-semibold leading-snug sm:text-3xl">내 PC에서 수집하고,<br className="sm:hidden" /> 실측 데이터로 진단합니다.</h1>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">Windows Agent가 하드웨어·성능·시스템 이벤트를 수집하고, 진단 서버가 근거와 권장 조치를 제공합니다.</p>
+            <AgentCollectionItems />
+            <p className="mt-2 text-[11px] leading-5 text-muted-foreground">일부 센서와 이벤트는 지원 장치·관리자 권한·Sysmon 구성에 따라 수집되지 않을 수 있습니다.</p>
+          </div>
+          <div className="space-y-2 lg:max-w-60">
+            <Button onClick={runScan} disabled={running || scanStatus?.retryAllowed === false} size="lg" className="w-full rounded-xl">
+              {running ? <RefreshCw className="animate-spin motion-reduce:animate-none" data-icon="inline-start" /> : <ScanLine data-icon="inline-start" />}
+              {scanDisconnected ? '연결 복구 중' : scanChecking ? '스캔 확인 중' : loadingScanResult ? '진단 결과 확인 중' : starting ? '시작 요청 중' : running ? 'Agent 수집·전송 중' : scanStatus?.retryAllowed === false ? '관리자 실행 확인 필요' : 'Agent로 내 PC 진단'}
+            </Button>
+            <p className="text-[11px] leading-5 text-muted-foreground">클릭 후 Windows 관리자 권한을 승인하면 수집과 진단이 이어집니다.</p>
+          </div>
+        </section>
+
         {error && (
           <Alert variant="destructive" className="mb-5 border-red-400/20 bg-red-400/5">
             <WifiOff />
@@ -439,24 +458,23 @@ export default function Home() {
           <AlertDescription>연결되면 스캔 진행 상태를 다시 확인합니다. 연결이 끊긴 동안 수집 완료 여부는 확인할 수 없습니다.</AlertDescription>
         </Alert>}
 
-        {scanStatus?.status === 'running' && (
-          <Alert className="mb-5 border-primary/20 bg-primary/5">
-            <RefreshCw className="animate-spin text-primary" />
-            <AlertTitle>관리자 진단 실행 중</AlertTitle>
-            <AlertDescription className="space-y-2">
-              <span className="block">{scanStatus.message}</span>
-              <Progress value={scanStatus.progress} className="[&_[data-slot=progress-indicator]]:bg-primary" />
-            </AlertDescription>
-          </Alert>
-        )}
+        <AgentScanJourney
+          status={scanStatus}
+          starting={starting}
+          checking={scanChecking}
+          disconnected={scanDisconnected}
+          loadingResult={loadingScanResult}
+          resultFailed={resultFailed}
+          resultScanId={diagnosisSource === 'agent' ? diagnosis?.scanId ?? null : null}
+        />
 
         {!diagnosis ? (
-          <section className="grid min-h-[calc(100vh-10rem)] place-items-center border-y border-white/8 py-16">
+          <section className="grid place-items-center border-y border-white/8 py-12">
             <div className="max-w-xl text-center">
               <span className="mx-auto grid size-12 place-items-center rounded-lg border border-white/10 bg-white/[.03]">
                 {connectionState === 'checking' ? <RefreshCw className="size-5 animate-spin text-muted-foreground" /> : <Database className="size-5 text-muted-foreground" />}
               </span>
-              <h1 className="mt-5 text-2xl font-semibold">{connectionState === 'checking' ? '진단 데이터 확인 중' : '진단 데이터가 없습니다'}</h1>
+              <h2 className="mt-5 text-2xl font-semibold">{connectionState === 'checking' ? '진단 데이터 확인 중' : '첫 Agent 진단을 기다리고 있습니다'}</h2>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
                 {connectionState === 'checking'
                   ? '진단 서비스와 저장된 기록을 확인하고 있습니다.'
@@ -467,7 +485,7 @@ export default function Home() {
               {connectionState !== 'checking' && (
                 <Button onClick={runScan} disabled={running || scanStatus?.retryAllowed === false} className="mt-6">
                   {running ? <RefreshCw className="animate-spin" data-icon="inline-start" /> : <ScanLine data-icon="inline-start" />}
-                  {running ? `${scanStatus?.progress ?? 0}% 수집 중` : '관리자 스캔 시작'}
+                  {scanDisconnected ? '연결 복구 중' : scanChecking ? '스캔 확인 중' : loadingScanResult ? '진단 결과 확인 중' : starting ? '시작 요청 중' : running ? 'Agent 수집·전송 중' : scanStatus?.retryAllowed === false ? '관리자 실행 확인 필요' : 'Agent로 내 PC 진단'}
                 </Button>
               )}
             </div>
@@ -478,7 +496,7 @@ export default function Home() {
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
               <div>
                 <p className="mb-2 text-xs font-semibold text-primary">{scanStatus?.status === 'running' || loadingScanResult ? '이전 진단 결과' : '로컬 진단 결과'}</p>
-                <h1 className="text-3xl font-semibold sm:text-4xl">현재 PC 상태</h1>
+                <h2 className="text-3xl font-semibold sm:text-4xl">현재 PC 상태</h2>
                 <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                   <span>{formatTime(diagnosis.generatedAt)} · {diagnosis.machine.name}</span>
                   <Badge variant="outline" className={diagnosisSource === 'agent' ? 'border-emerald-400/20 text-emerald-300' : 'border-white/10 text-muted-foreground'}>
@@ -491,6 +509,12 @@ export default function Home() {
                 {diagnosis.risk.score >= 40 ? '주의 필요' : '정상'}
               </Badge>
             </div>
+
+            <AgentScanEvidence
+              diagnosis={diagnosis}
+              isDemo={diagnosisSource === 'demo'}
+              previous={starting || loadingScanResult || scanStatus?.status === 'running' || (!!scanStatus?.runId && scanStatus.scanId !== diagnosis.scanId)}
+            />
 
             {blockedSources.length > 0 && <Alert className="border-amber-400/20 bg-amber-400/5">
               <TriangleAlert className="text-amber-300" />
@@ -688,12 +712,13 @@ export default function Home() {
                   {diagnosis.sources.map((source) => (
                     <Card key={source.name} size="sm" className="border border-white/6 bg-card/60">
                       <CardHeader>
-                        <CardDescription className="font-mono uppercase">{source.name}</CardDescription>
+                        <CardDescription>{sourceNames[source.name]}</CardDescription>
                         <CardTitle className="flex items-center gap-2">
                           {source.status === 'collected' ? <Check className="size-4 text-emerald-300" /> : <Info className={`size-4 ${sourceStatus[source.status].tone}`} />}
                           {sourceStatus[source.status].label}
                         </CardTitle>
                         <CardDescription>{sourceStatus[source.status].detail}</CardDescription>
+                        <CardDescription>{source.collectedAt ? `수집 시각 · ${formatTime(source.collectedAt)}` : '수집 시각 · 기록 없음'}</CardDescription>
                         {(source.requirements?.length ?? 0) > 0 && <div className="mt-2 border-t border-white/6 pt-2">
                           <div className="text-[10px] font-semibold text-amber-200">수집 조건</div>
                           <ul className="mt-1 space-y-1 text-[10px] leading-4 text-muted-foreground">
