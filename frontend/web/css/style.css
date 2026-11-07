@@ -1169,3 +1169,5 @@ ul {
 .legend-color.negative {
   background: var(--bt_negative);
 }
+
+.planner [hidden] { display: none !important; }

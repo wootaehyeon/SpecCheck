@@ -1,130 +1,17 @@
 <!doctype html>
 <html lang="ko">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>교체 추천 - AI PC 견적 평가 시스템</title>
-    <link rel="stylesheet" href="css/style.css" />
-  </head>
-  <body>
-    <header>
-      <div class="logo">AI PC 견적 평가</div>
-      <nav>
-        <button onclick="navigateTo('monitor')">내 PC 모니터링</button>
-        <button onclick="navigateTo('main')">메인</button>
-        <button onclick="navigateTo('input')">견적 입력</button>
-        <button onclick="navigateTo('result')">분석 결과</button>
-        <button onclick="navigateTo('detail')">상세 분석</button>
-        <button onclick="navigateTo('recommend')">교체 추천</button>
-        <button onclick="navigateTo('crawl')">시장 조사</button>
-      </nav>
-    </header>
-
-    <main>
-      <section class="page active">
-        <div class="section-title">
-          <h2>교체 추천</h2>
-          <p>가성비 향상을 위한 추천 부품과 예상 개선 효과입니다.</p>
-        </div>
-
-        <div class="card">
-          <h3>현재 부품</h3>
-          <p><strong id="currentPart">-</strong></p>
-          <p>가격: <span id="currentPrice">-</span></p>
-          <p>성능: <span id="currentPerformance">-</span></p>
-          <p>가치: <span id="currentValue">-</span></p>
-        </div>
-
-        <div class="card">
-          <h3>추천 부품</h3>
-          <p><strong id="recommendedPart">-</strong></p>
-          <p>가격: <span id="recommendedPrice">-</span></p>
-          <p>성능: <span id="recommendedPerformance">-</span></p>
-          <p>가치: <span id="recommendedValue">-</span></p>
-        </div>
-
-        <div class="card">
-          <h3>추천 사유</h3>
-          <p id="recommendReason">추천 내용이 여기에 표시됩니다.</p>
-        </div>
-
-        <div class="card">
-          <h3>개선 효과</h3>
-          <p>가치 개선: <span id="valueImprovement">-</span></p>
-          <p>성능 개선: <span id="performanceImprovement">-</span></p>
-          <p>예상 점수 변화: <span id="beforeAfterScore">-</span></p>
-        </div>
-
-        <!-- 해외(eBay) 중고가 기반 견적 최적화 -->
-        <div class="card">
-          <div class="section-subtitle">
-            <h3>해외 중고가 기반 최적화</h3>
-            <p>
-              eBay 해외 중고 시세를 수집해 ① 같은 부품을 더 싸게 사는 방법과
-              ② 동일 예산에서 성능을 높이는 교체안을 제안합니다.
-            </p>
-          </div>
-
-          <div class="button-row" style="margin-bottom: 12px">
-            <button id="optimizeSaveBtn" class="btn btn-primary">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <polyline points="22 17 13.5 8.5 8.5 13.5 2 7" />
-                <polyline points="16 17 22 17 22 11" />
-              </svg>
-              가격 낮추기
-            </button>
-            <button id="optimizeUpgradeBtn" class="btn btn-secondary">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
-                <polyline points="16 7 22 7 22 13" />
-              </svg>
-              성능 향상 (동일 예산)
-            </button>
-          </div>
-
-          <div id="optimizeStatus" class="result-comment">
-            모드를 선택하면 해외 중고가를 조회합니다. (최초 조회는 수십 초 소요될 수 있습니다)
-          </div>
-
-          <div class="price-total-grid" id="optimizeSummary" style="display: none">
-            <div class="summary-card">
-              <span id="optimizeMetricLabel1">입력 가격 합계</span>
-              <strong id="optimizeMetric1">-</strong>
-            </div>
-            <div class="summary-card">
-              <span id="optimizeMetricLabel2">중고 최적화 합계</span>
-              <strong id="optimizeMetric2">-</strong>
-            </div>
-            <div class="summary-card">
-              <span id="optimizeMetricLabel3">총 절감액</span>
-              <strong id="optimizeMetric3">-</strong>
-            </div>
-            <div class="summary-card">
-              <span>환율 (USD→KRW)</span>
-              <strong id="optimizeRate">-</strong>
-            </div>
-          </div>
-
-          <div class="table-wrap" style="margin-top: 12px">
-            <table class="price-table">
-              <thead id="optimizeTableHead"></thead>
-              <tbody id="optimizeTableBody">
-                <tr>
-                  <td colspan="6">모드를 선택해 주세요.</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="button-row">
-          <button class="btn btn-secondary" onclick="navigateTo('result')">
-            분석 결과로
-          </button>
-        </div>
-      </section>
-    </main>
-
-    <script src="js/script.js"></script>
-  </body>
-</html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>견적 조정 · SpecCheck</title><link rel="stylesheet" href="css/style.css?v=estimate-2">
+<style>.planner [hidden]{display:none!important}header nav{display:flex;gap:18px;flex-wrap:wrap}.planner{max-width:1100px;margin:auto;padding:32px 20px}.planner h1{font-size:32px}.planner .controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px}.planner label{display:flex;flex-direction:column;gap:8px}.planner input,.planner select{padding:12px;border:1px solid #69717e;border-radius:8px;background:#161a20;color:#fff;max-width:100%}.planner .card{margin:20px 0;padding:24px}.planner li{margin:10px 0}.planner p{line-height:1.7}.planner button:disabled{opacity:.45;cursor:not-allowed}.planner details{margin:24px 0}.planner summary{cursor:pointer;padding:16px}.planner a{text-decoration:underline}.planner .stats{display:flex;gap:36px;flex-wrap:wrap}.planner .stats strong{font-size:24px;display:block}.planner .service-notice{margin-bottom:24px}.planner table{width:100%}</style></head>
+<body><header><a class="logo" href="index.html">SpecCheck</a><nav><a href="input.html">견적 입력</a><a href="result.html">분석 결과</a><a href="detail.html">상세 검토</a><a href="monitor.html">내 PC 모니터링</a></nav></header>
+<main class="planner"><h1>근거를 보고 견적을 조정하세요</h1><p>현재 부품보다 필요한 용량·코어 조건을 보완하는 후보를 찾습니다. 각 후보는 하나씩 교체하는 독립적인 견적입니다.</p>
+<section class="card"><form id="recommendForm" onsubmit="return false"><div class="controls">
+<label>전체 견적 예산 (원)<input id="recommendBudget" type="number" min="0" step="10000"></label>
+<label>주요 용도<select id="recommendPurpose"><option>게임</option><option>사무</option><option>개발</option><option>영상편집</option><option>AI 작업</option><option>기타</option></select></label>
+<label>게임 목표 해상도<select id="recommendResolution"><option value="FHD">FHD · 1920×1080</option><option value="QHD">QHD · 2560×1440</option><option value="UHD">4K · 3840×2160</option></select></label>
+<label><span>소프트웨어 조건</span><span><input id="recommendCuda" type="checkbox"> CUDA가 반드시 필요함</span></label>
+</div></form><p id="recommendTargets"></p><div class="stats"><div>현재 입력 합계<strong id="recommendInputTotal"></strong></div><div>예산 여유<strong id="recommendRemaining"></strong></div></div><p>현재 합계에는 입력된 부품만 포함됩니다. 케이스·쿨러·OS·조립비·배송비는 별도로 예산에 포함하세요. GPU 메모리와 CPU 코어만으로 게임 성능 향상을 보장하지 않습니다.</p></section>
+<section class="card"><h2>먼저 확인할 호환성</h2><ul id="recommendChecks"></ul></section>
+<section><h2>조건별 교체 후보</h2><p id="recommendExplanation"></p><p id="recommendApplied" role="status"></p><button id="undoReplacement" class="btn btn-secondary" hidden>직전 교체 되돌리기</button><div id="recommendCandidates"></div></section>
+<details><summary>비교 가격 편집 · 현재 값은 데모 가격</summary><p>알고 있는 판매 가격을 입력하면 예산 계산에 즉시 반영됩니다. 실제 조회 평균가나 할인율을 만들어내지 않습니다. 아래 목록은 확인된 사양의 제한된 카탈로그이며 전체 시장을 대표하지 않습니다.</p><div class="table-wrap"><table><thead><tr><th>후보 모델</th><th>비교 가격 (원)</th><th>사양 근거</th></tr></thead><tbody id="candidatePriceBody"></tbody></table></div></details>
+<div class="button-row"><a class="btn btn-secondary" href="input.html">전체 입력 수정</a><a class="btn btn-primary" href="result.html">변경된 견적 결과</a></div>
+</main><script src="js/estimate-engine.js?v=estimate-2"></script><script src="js/script.js?v=estimate-2"></script></body></html>

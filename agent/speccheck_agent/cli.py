@@ -461,7 +461,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     scan = subparsers.add_parser("scan", help="telemetry 수집")
     scan.add_argument("--mode", choices=["actual", "estimated"], default="actual")
-    scan.add_argument("--collectors", help="쉼표로 구분한 collector 이름 (기본: 보안 제외, 보안은 별도 동의)")
+    scan.add_argument("--collectors", help="쉼표로 구분한 collector 이름 (기본: 전체 집계, 프로세스 이력은 별도 동의)")
     scan.add_argument("--out", help="스냅샷 JSON 파일 경로")
     scan.add_argument("--json", action="store_true", help="스냅샷 전체를 표준 출력으로")
     scan.add_argument("--no-save", action="store_true", help="로컬 DB에 저장하지 않음")
