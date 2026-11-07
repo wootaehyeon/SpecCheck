@@ -25,6 +25,7 @@ module.exports = defineConfig({
     env: {
       SERVE_FRONTEND: 'true', TELEMETRY_API_ENABLED: 'false', MONITORING_ENABLED: 'true',
       MONITORING_DATABASE_URL: `sqlite:///${path.join(run, 'monitor.db').replaceAll('\\', '/')}`,
+      DATA_DIR: run,
       NAVER_CLIENT_ID: '', NAVER_CLIENT_SECRET: '', OPENAI_API_KEY: '',
     },
   },

@@ -340,6 +340,7 @@ NAVER_PRICE_CACHE_TTL_SECONDS=900
 | 문서 | 내용 |
 | --- | --- |
 | [docs/DOCKER.md](docs/DOCKER.md) | Docker Desktop 실행 · 설정 · 데이터 보관 |
+| [docs/PURCHASE_HISTORY.md](docs/PURCHASE_HISTORY.md) | 여러 사용자 구매이력 조회 · 비공개 저장 · 공유 관리 |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 계층 구조 · 데이터 흐름 · 설계 원칙 |
 | [docs/DIRECTORY.md](docs/DIRECTORY.md) | 디렉토리 지도 · 확장 지점 |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Milestone 진행 상황 · 다음 작업 |

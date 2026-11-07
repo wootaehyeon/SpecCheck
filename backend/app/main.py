@@ -1,6 +1,7 @@
 """FastAPI 진입점."""
 
 import hashlib
+import sqlite3
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -34,16 +35,18 @@ def create_app() -> FastAPI:
 
     @app.middleware("http")
     async def private_monitoring_responses(request: Request, call_next):
-        private = request.url.path.startswith("/api/monitor/")
+        purchases = request.url.path.startswith("/api/purchase/history")
+        private = request.url.path.startswith("/api/monitor/") or purchases
         try:
             response = await call_next(request)
-        except (SQLAlchemyError, ValueError):
+        except (SQLAlchemyError, sqlite3.Error, ValueError):
             if not private:
                 raise
-            response = JSONResponse(status_code=503, content={"detail": "모니터링 DB 연결을 확인해주세요."})
+            detail = "구매이력 저장소 연결을 확인해주세요." if purchases else "모니터링 DB 연결을 확인해주세요."
+            response = JSONResponse(status_code=503, content={"detail": detail})
         if private:
             response.headers["Cache-Control"] = "no-store"
-        if request.url.path in {"/monitor.html", "/purchase.html"}:
+        if request.url.path in {"/monitor.html", "/purchase.html", "/purchases.html"}:
             response.headers["Referrer-Policy"] = "no-referrer"
             response.headers["Content-Security-Policy"] = (
                 "default-src 'self'; script-src 'self'; style-src 'self' https://cdn.jsdelivr.net; "
