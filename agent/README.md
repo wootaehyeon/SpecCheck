@@ -1,5 +1,10 @@
 # SpecCheck Local Agent
 
+일반 사용자용 Windows GUI는 `SpecCheck-Agent.exe`를 실행하고 웹의 8자리 연결 코드를
+입력하는 방식이다. Python 설치가 필요 없으며, 연결 정보는 Windows 사용자 계정으로
+암호화해 저장한다. 빌드·배포 절차는 [모니터링 문서](../docs/MONITORING.md#windows-프로그램-빌드와-배포)를 참고한다.
+아래 명령어는 개발·CLI 자동화용이다. GUI 개발 실행은 `python -m speccheck_agent.desktop`이다.
+
 사용자 PC에서 telemetry를 수집해 표준 스냅샷으로 만드는 로컬 실행 프로그램.
 
 **런타임 의존성이 없다.** WMI 조회는 pywin32 대신 PowerShell

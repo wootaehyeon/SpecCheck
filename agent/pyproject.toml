@@ -8,6 +8,9 @@ dependencies = []
 [project.scripts]
 speccheck-agent = "speccheck_agent.cli:main"
 
+[project.gui-scripts]
+speccheck-desktop = "speccheck_agent.desktop:main"
+
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"

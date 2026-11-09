@@ -22,6 +22,10 @@ from .win.cim import is_elevated, is_windows
 
 def load_connection(path: str) -> dict:
     config = json.loads(Path(path).read_text(encoding="utf-8-sig"))
+    return validate_connection(config)
+
+
+def validate_connection(config: dict) -> dict:
     parsed = urlsplit(config.get("backend_url", ""))
     loopback = parsed.hostname in ("localhost", "127.0.0.1", "::1")
     if (parsed.scheme != "https" and not (loopback and parsed.scheme == "http")) or not parsed.hostname:
@@ -95,12 +99,16 @@ def pending(store: SnapshotStore, device_id: str, security_consent: bool):
         yield snapshot
 
 
-def cmd_watch(args: argparse.Namespace, config: AgentConfig) -> int:
+def cmd_watch(args: argparse.Namespace, config: AgentConfig, *, connection=None, stop_event=None, on_status=None) -> int:
+    def notify(state, message):
+        if on_status:
+            on_status(state, message)
+
     if not args.consent:
         print("수집과 서버 전송 동의가 필요합니다. --consent를 지정한 경우에만 시작합니다.")
         return 2
     try:
-        connection = load_connection(args.config)
+        connection = validate_connection(dict(connection)) if connection is not None else load_connection(args.config)
     except (OSError, ValueError, KeyError, TypeError):
         print("연결 설정 파일을 읽을 수 없습니다. 웹에서 speccheck-monitor.json을 다시 내려받아주세요.")
         return 2
@@ -123,6 +131,9 @@ def cmd_watch(args: argparse.Namespace, config: AgentConfig) -> int:
     try:
         with SnapshotStore(local_dir / "agent.db") as store:
             while True:
+                if stop_event and stop_event.is_set():
+                    break
+                notify("collecting", "PC 정보를 수집하고 있습니다. 첫 수집에는 잠시 시간이 걸립니다.")
                 started = time.monotonic()
                 if hardware is None or started - last_inventory >= 300:
                     hardware = HardwareCollector().run()
@@ -132,6 +143,7 @@ def cmd_watch(args: argparse.Namespace, config: AgentConfig) -> int:
                     result = security.run()
                     results.append(result)
                     if security.failure_code in ("access_denied", "log_unavailable", "log_disabled"):
+                        notify("error", "Sysmon 설치와 관리자 권한을 확인하거나 웹에서 Sysmon 수집을 꺼주세요.")
                         print("Sysmon 수집 실패: " + (result.error or "권한/설치 상태를 확인해주세요."))
                         return 2
                 snapshot = build_snapshot(results, device_id=connection["device_id"])
@@ -139,19 +151,28 @@ def cmd_watch(args: argparse.Namespace, config: AgentConfig) -> int:
                 if security:
                     security.acknowledge(results[-1].data)
                 for saved in pending(store, connection["device_id"], security_enabled):
+                    if stop_event and stop_event.is_set():
+                        break
                     try:
                         upload(_public_snapshot(saved), connection)
                     except WatchUploadError as exc:
+                        notify("error" if exc.status in (401, 403) else "offline", str(exc))
                         print(str(exc))
                         if exc.status in (401, 403):
                             print("웹에서 연결 설정을 다시 내려받거나 수집 동의를 확인해주세요.")
                             return 1
                         break
                     store.mark_uploaded(saved["snapshot_id"])
+                    notify("connected", "연결되었습니다. 웹에서 실시간 PC 상태를 확인하세요.")
                 print(snapshot["collected_at"] + " 수집 완료")
                 if args.once:
                     return 0
-                time.sleep(max(1.0, connection.get("interval", 30) - (time.monotonic() - started)))
+                delay = max(1.0, connection.get("interval", 30) - (time.monotonic() - started))
+                if stop_event:
+                    if stop_event.wait(delay):
+                        break
+                else:
+                    time.sleep(delay)
     except KeyboardInterrupt:
         print("모니터링을 중단했습니다. 웹의 연결 해제로 서버 이력과 키를 삭제할 수 있습니다.")
     return 0

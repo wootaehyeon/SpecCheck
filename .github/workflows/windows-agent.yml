@@ -1,0 +1,78 @@
+name: Windows Agent
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "agent/**"
+      - "scripts/build-windows-agent.py"
+      - ".github/workflows/windows-agent.yml"
+  workflow_dispatch:
+    inputs:
+      backend_url:
+        description: Public HTTPS origin of the SpecCheck server
+        required: true
+        type: string
+  pull_request:
+    paths:
+      - "agent/**"
+      - "scripts/build-windows-agent.py"
+      - ".github/workflows/windows-agent.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2022
+    env:
+      AGENT_BACKEND_URL: ${{ inputs.backend_url || vars.SPECCHECK_PUBLIC_ORIGIN || 'https://speccheck-z013.onrender.com' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r agent/requirements-build.txt pytest==8.2.0
+      - run: python -m pytest tests -q
+        working-directory: agent
+      - run: python scripts/build-windows-agent.py --backend-url "$env:AGENT_BACKEND_URL"
+      - name: Check packaged GUI without collecting PC data
+        shell: pwsh
+        run: |
+          $process = Start-Process -FilePath ./agent/releases/SpecCheck-Agent.exe -ArgumentList '--smoke-test' -WindowStyle Hidden -PassThru
+          if (-not $process.WaitForExit(30000)) { $process.Kill(); throw 'GUI did not exit' }
+          if ($process.ExitCode -ne 0) { throw 'GUI failed to start' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SpecCheck-Windows-Agent
+          path: |
+            agent/releases/SpecCheck-Agent.exe
+            agent/releases/SpecCheck-Agent.sha256
+            agent/releases/build-info.json
+
+  publish:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: SpecCheck-Windows-Agent
+          path: release
+      - name: Publish the verified Windows build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          AGENT_BACKEND_URL: ${{ inputs.backend_url || vars.SPECCHECK_PUBLIC_ORIGIN || 'https://speccheck-z013.onrender.com' }}
+        run: |
+          tag="windows-agent-${GITHUB_SHA:0:12}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release already exists for this commit."
+          else
+            gh release create "$tag" release/* --target "$GITHUB_SHA" \
+              --title "Windows Agent ${GITHUB_SHA:0:12}" \
+              --notes "Windows x64 Agent for $AGENT_BACKEND_URL. Enter the one-time code from the monitoring page. The executable is currently unsigned." \
+              --latest
+          fi

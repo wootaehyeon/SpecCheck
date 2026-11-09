@@ -2,7 +2,7 @@ name: Deployment checks
 
 on:
   push:
-    branches: ["codex/public-deployment"]
+    branches: ["main", "codex/public-deployment"]
   pull_request:
     paths:
       - ".github/workflows/deployment-check.yml"
@@ -37,7 +37,8 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements-web.txt
       - run: python -m pip install -r backend/requirements-web.txt pytest==8.2.0
-      - run: python -m pytest backend/tests -q -c backend/pytest.ini
+      - run: python -m pytest tests -q
+        working-directory: backend
       - run: python -m pytest tests -q
         working-directory: agent
       - uses: actions/setup-node@v4

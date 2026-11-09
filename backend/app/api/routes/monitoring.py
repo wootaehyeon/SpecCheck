@@ -10,6 +10,8 @@ from collections import defaultdict, deque
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.responses import FileResponse, RedirectResponse
+from urllib.parse import urlsplit
 from pydantic import BaseModel, Field, StrictBool, ValidationError
 from starlette.concurrency import run_in_threadpool
 
@@ -22,6 +24,8 @@ bearer = HTTPBearer(auto_error=False)
 MAX_BODY = 1024 * 1024
 _pair_attempts = defaultdict(deque)
 _pair_lock = threading.Lock()
+_redeem_attempts = defaultdict(deque)
+_redeem_lock = threading.Lock()
 
 
 def require_ready():
@@ -57,11 +61,26 @@ class SecurityConsentRequest(BaseModel):
     accepted: StrictBool
 
 
+class RedeemRequest(BaseModel):
+    code: str = Field(min_length=8, max_length=16, pattern=r"^[A-Za-z2-9 -]+$")
+    accepted: StrictBool
+
+
+def agent_download_ready():
+    cfg = get_settings()
+    return cfg.monitoring_agent_exe.is_file() or valid_download_url(cfg.monitoring_agent_download_url)
+
+
+def valid_download_url(url: str) -> bool:
+    parsed = urlsplit(url)
+    return bool(parsed.scheme == "https" and parsed.hostname and not parsed.username and not parsed.password)
+
+
 @router.get("/status")
 def status():
     cfg = get_settings()
     return {"enabled": service.configured(), "persistent": cfg.monitoring_database_url.startswith(("postgres://", "postgresql")),
-            "retention_days": 7, "connection_days": 90}
+            "retention_days": 7, "connection_days": 90, "agent_download_available": agent_download_ready()}
 
 
 @router.post("/pair", dependencies=[Depends(require_ready)], status_code=201)
@@ -89,6 +108,44 @@ def agent_config(device=Depends(reader)):
     return {"version": 1, "device_id": device["id"], "name": device["name"],
             "writer_token": service.issue_writer(device), "security_consent": device["security_allowed"],
             "consent_version": "monitor-v1", "consent_at": device["consent_at"], "interval": 30}
+
+
+@router.post("/pairing-code")
+def pairing_code(device=Depends(reader)):
+    return service.issue_pairing_code(device)
+
+
+@router.post("/redeem", dependencies=[Depends(require_ready)])
+def redeem(payload: RedeemRequest, request: Request):
+    if not payload.accepted:
+        raise HTTPException(422, "프로그램에서 수집과 서버 전송에 동의하고 시작해주세요.")
+    now = time.monotonic()
+    ip = request.client.host if request.client else "unknown"
+    with _redeem_lock:
+        for key in list(_redeem_attempts):
+            if not _redeem_attempts[key] or _redeem_attempts[key][-1] <= now - 600:
+                del _redeem_attempts[key]
+        attempts = _redeem_attempts[ip]
+        while attempts and attempts[0] <= now - 600:
+            attempts.popleft()
+        if len(attempts) >= 10:
+            raise HTTPException(429, "연결 시도가 많습니다. 10분 후 다시 시도해주세요.")
+        attempts.append(now)
+    config = service.redeem_pairing_code(payload.code)
+    if config is None:
+        raise HTTPException(400, "연결 코드가 올바르지 않거나 만료되었습니다. 웹에서 새 코드를 발급해주세요.")
+    return config
+
+
+@router.get("/agent.exe")
+def download_agent_exe():
+    cfg = get_settings()
+    if cfg.monitoring_agent_exe.is_file():
+        return FileResponse(cfg.monitoring_agent_exe, media_type="application/vnd.microsoft.portable-executable",
+                            filename="SpecCheck-Agent.exe")
+    if valid_download_url(cfg.monitoring_agent_download_url):
+        return RedirectResponse(cfg.monitoring_agent_download_url, status_code=307)
+    raise HTTPException(503, "Windows 프로그램을 준비 중입니다. 잠시 후 다시 다운로드해주세요.")
 
 
 @router.put("/security-consent")

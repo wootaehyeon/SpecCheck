@@ -24,6 +24,7 @@ COPY frontend/web /app/frontend/web
 # The monitoring page builds a downloadable Windows Agent ZIP from these files.
 COPY agent/speccheck_agent /app/agent/speccheck_agent
 COPY agent/Start-SpecCheck.cmd /app/agent/Start-SpecCheck.cmd
+COPY agent/releases /app/agent/releases
 
 RUN chown -R speccheck:speccheck /app/backend/data
 USER speccheck

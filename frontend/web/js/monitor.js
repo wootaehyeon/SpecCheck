@@ -2,12 +2,18 @@
 (() => {
   const storageKey = 'speccheck.monitor.reader.v1';
   const el = (id) => document.getElementById(id);
-  const text = (id, value) => { el(id).textContent = value; };
+  const text = (id, value) => { if (el(id).textContent !== String(value)) el(id).textContent = value; };
   let connection = null;
   let polling = false;
   let timer = null;
   let ready = false;
   let chartHistory = [];
+  let pairing = null;
+  let hasSnapshot = false;
+  let reconnecting = false;
+  let lastReceivedAt = 0;
+  let lastPollAt = 0;
+  const pairingStorageKey = 'speccheck.monitor.pairing.v1';
   const finite = (value) => typeof value === 'number' && Number.isFinite(value);
   const format = (value, unit, digits = 1) => finite(value) ? `${value.toFixed(digits)}${unit}` : '확인 못함';
   const moment = (value) => {
@@ -21,7 +27,11 @@
     const response = await fetch(`/api/monitor/${path}`, { ...options, headers, cache: 'no-store', signal: AbortSignal.timeout(20000) });
     if (response.status === 204) return null;
     const body = await response.json();
-    if (!response.ok) throw new Error(typeof body.detail === 'string' ? body.detail : '모니터링 요청에 실패했습니다.');
+    if (!response.ok) {
+      const error = new Error(typeof body.detail === 'string' ? body.detail : '모니터링 요청에 실패했습니다.');
+      error.status = response.status;
+      throw error;
+    }
     return body;
   }
 
@@ -35,9 +45,17 @@
 
   function showConnection() {
     el('setupPanel').hidden = !!connection;
-    el('dashboardPanel').hidden = !connection;
+    el('connectionPanel').hidden = !connection || (hasSnapshot && !reconnecting);
+    el('dashboardPanel').hidden = !connection || !hasSnapshot;
+    el('downloadPanel').hidden = !!connection;
     text('connectedName', connection?.name || '내 PC');
     showSecurityConsent();
+  }
+
+  function forgetConnection() {
+    localStorage.removeItem(storageKey); sessionStorage.removeItem(pairingStorageKey);
+    connection = null; pairing = null; hasSnapshot = false; reconnecting = false; lastReceivedAt = 0;
+    showConnection(); updateCode();
   }
 
   function showSecurityConsent() {
@@ -49,11 +67,39 @@
       : 'Sysmon 수집 동의: 꺼짐 · 새 프로세스 이벤트를 전송하지 않습니다.');
   }
 
-  async function downloadConfig() {
-    const config = await api('agent-config', { method: 'POST' });
-    saveFile('speccheck-monitor.json', { ...config, backend_url: window.location.origin });
-    text('monitorMessage', '연결 설정을 저장했습니다. Agent ZIP의 압축을 푼 폴더에 이 파일을 넣고 Start-SpecCheck.cmd를 실행하세요. 새 설정을 받으면 이전 전송키는 폐기됩니다.');
+  async function issueCode() {
+    const current = connection;
+    el('newCodeButton').disabled = true;
+    try {
+      const issued = await api('pairing-code', { method: 'POST' });
+      if (current !== connection) return;
+      pairing = { ...issued, device_id: connection.device_id, baseline_received_at: lastReceivedAt };
+      sessionStorage.setItem(pairingStorageKey, JSON.stringify(pairing));
+      reconnecting = hasSnapshot;
+      showConnection(); updateCode();
+      text('pairingProgress', '프로그램 연결 대기 중');
+      text('monitorMessage', '프로그램에 연결 코드를 입력하고 ‘연결하고 시작’을 눌러주세요. 데이터가 도착하면 자동으로 표시됩니다.');
+    } finally { el('newCodeButton').disabled = false; }
   }
+
+  function updateCode() {
+    text('serverOrigin', window.location.origin);
+    const valid = !!pairing && !!connection && pairing.device_id === connection.device_id;
+    const remaining = valid ? Math.max(0, Math.ceil(pairing.expires_at - Date.now() / 1000)) : 0;
+    text('pairingCode', valid && !pairing.consumed ? pairing.code : '—');
+    el('copyCodeButton').disabled = remaining === 0 || !!pairing?.consumed;
+    text('codeExpiry', pairing?.consumed ? '연결 코드를 사용했습니다. 프로그램에서 수집을 시작하고 있습니다.' : remaining ? `남은 시간 ${Math.floor(remaining / 60)}분 ${String(remaining % 60).padStart(2, '0')}초 · 한 번만 사용할 수 있어요.`
+      : valid ? '코드가 만료되었습니다. 새 코드를 발급해주세요.' : '새 코드 발급을 눌러 프로그램에 연결하세요.');
+  }
+
+  el('newCodeButton').addEventListener('click', async () => {
+    try { await issueCode(); } catch (error) { text('monitorMessage', error.message); }
+  });
+  el('copyCodeButton').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(pairing.code); text('codeExpiry', '코드를 복사했습니다. 프로그램에 붙여넣어주세요.'); }
+    catch { text('codeExpiry', '코드를 선택해 직접 복사해주세요.'); }
+  });
+  el('checkConnectionButton').addEventListener('click', refresh);
 
   function tableRows(id, rows, empty) {
     const body = el(id);
@@ -106,12 +152,24 @@
 
   function render(latest, history, events) {
     const snapshot = latest.snapshot;
+    hasSnapshot = !!snapshot;
+    lastReceivedAt = latest.received_at || 0;
+    if (pairing && latest.pairing_state === 'connected') {
+      pairing.consumed = true;
+      sessionStorage.setItem(pairingStorageKey, JSON.stringify(pairing));
+    }
+    if (hasSnapshot && (!reconnecting || (latest.pairing_state === 'connected' && lastReceivedAt >= latest.paired_at))) {
+      reconnecting = false;
+      pairing = null;
+      sessionStorage.removeItem(pairingStorageKey);
+    }
     connection.security_allowed = latest.security_allowed;
-    showSecurityConsent();
+    showConnection(); updateCode();
     text('connectedName', latest.name);
     if (!snapshot) {
-      text('connectionStatus', 'Agent 대기');
-      text('lastSeen', '연결 설정 저장 후 Windows PC에서 Agent를 실행해주세요.');
+      const collecting = latest.pairing_state === 'connected' || (latest.pairing_state === 'none' && latest.agent_connected);
+      text('connectionStatus', collecting ? '첫 데이터 수집 중' : '프로그램 연결 대기');
+      text('pairingProgress', collecting ? '프로그램이 연결되었습니다. 첫 데이터를 기다리고 있어요. 수집이 시작되지 않으면 프로그램의 안내를 확인해주세요.' : '프로그램에 코드를 입력하고 ‘연결하고 시작’을 눌러주세요.');
       return;
     }
     const elapsed = Math.max(0, Date.now() / 1000 - latest.received_at);
@@ -166,11 +224,19 @@
   async function refresh() {
     if (!connection || polling) return;
     polling = true;
+    const current = connection;
     try {
       const [latest, history, events] = await Promise.all([api('latest'), api('history'), api('process-events')]);
-      render(latest, history, events);
+      if (connection === current) render(latest, history, events);
     } catch (error) {
-      text('connectionStatus', '연결 확인 필요'); text('monitorMessage', error.message);
+      if (connection !== current) return;
+      if (error.status === 401) {
+        forgetConnection();
+        text('connectionStatus', '다시 연결 필요');
+        text('monitorMessage', '연결이 만료되었거나 해제되었습니다. 새 연결 코드를 받아주세요.');
+      } else {
+        text('connectionStatus', '연결 확인 필요'); text('monitorMessage', error.message);
+      }
     } finally { polling = false; }
   }
 
@@ -179,21 +245,21 @@
     el('pairButton').disabled = true;
     try {
       connection = await api('pair', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: el('deviceName').value || '내 PC', accepted: true, security_accepted: el('securityConsent').checked }) });
+      hasSnapshot = false; lastReceivedAt = 0;
       localStorage.setItem(storageKey, JSON.stringify(connection)); showConnection();
-      await downloadConfig(); await refresh();
+      await issueCode(); await refresh();
     } catch (error) { text('monitorMessage', error.message); }
     finally { el('pairButton').disabled = false; }
   });
   el('configButton').addEventListener('click', async () => {
-    if (!window.confirm('새 연결 설정을 저장하면 이전 Agent 전송키가 폐기됩니다. 새 설정으로 Agent를 다시 실행할까요?')) return;
-    try { await downloadConfig(); } catch (error) { text('monitorMessage', error.message); }
+    try { await issueCode(); el('connectionPanel').scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (error) { text('monitorMessage', error.message); }
   });
   el('securityToggleButton').addEventListener('click', async () => {
     if (!connection || !ready) return;
     const accepted = !connection.security_allowed;
     const prompt = accepted
-      ? 'Sysmon 실행 파일명·이벤트 시각·부모 프로세스 관계를 이 서버에 전송하고 7일간 보관하는 데 동의하나요? 명령줄·전체 경로·사용자 이름은 보내지 않습니다. 새 설정을 저장한 뒤 Agent를 관리자 권한으로 다시 실행해야 합니다.'
-      : '새 Sysmon 이벤트 전송을 끌까요? 기존 서버 이력은 보관 기간까지 유지됩니다. 새 설정을 저장한 뒤 Agent를 다시 실행하세요.';
+      ? 'Sysmon 실행 파일명·이벤트 시각·부모 프로세스 관계를 이 서버에 전송하고 7일간 보관하는 데 동의하나요? 명령줄·전체 경로·사용자 이름은 보내지 않습니다. 새 코드를 프로그램에 입력하면 관리자 실행을 안내합니다.'
+      : '새 Sysmon 이벤트 전송을 끌까요? 기존 서버 이력은 보관 기간까지 유지됩니다. 새 코드를 프로그램에 입력해주세요.';
     if (!window.confirm(prompt)) return;
     el('securityToggleButton').disabled = true;
     try {
@@ -201,10 +267,10 @@
       connection.security_allowed = settings.security_allowed;
       localStorage.setItem(storageKey, JSON.stringify(connection));
       showSecurityConsent();
-      await downloadConfig();
+      await issueCode();
       text('monitorMessage', accepted
-        ? 'Sysmon 수집을 켜고 새 연결 설정을 저장했습니다. 기존 Agent를 중단하고 speccheck-monitor.json을 교체한 뒤 관리자 권한으로 실행하세요.'
-        : 'Sysmon 수집을 껐습니다. 기존 Agent를 중단하고 새 연결 설정으로 다시 실행하세요.');
+        ? 'Sysmon 수집을 켰습니다. 프로그램에서 수집을 중지한 후 새 코드를 입력하세요. 관리자 권한과 Sysmon 사전 설치가 필요합니다.'
+        : 'Sysmon 수집을 껐습니다. 프로그램에서 수집을 중지한 후 새 코드를 입력하세요.');
     } catch (error) { text('monitorMessage', error.message); }
     finally { showSecurityConsent(); }
   });
@@ -215,30 +281,52 @@
       if (typeof imported.reader_token !== 'string' || !imported.reader_token.startsWith('sc_read_')) throw new Error('조회키 백업 파일이 아닙니다.');
       const previous = connection; connection = imported;
       try { await api('latest'); } catch (error) { connection = previous; throw error; }
+      hasSnapshot = false; pairing = null; reconnecting = false;
       localStorage.setItem(storageKey, JSON.stringify(connection)); showConnection(); await refresh();
     } catch (error) { text('monitorMessage', error.message); }
   });
   el('refreshButton').addEventListener('click', refresh);
-  el('disconnectButton').addEventListener('click', async () => {
+  async function disconnect() {
     if (!window.confirm('이 PC의 서버 이력과 연결키를 삭제합니다. 먼저 Agent를 중단해주세요. 로컬 원본은 유지됩니다. 삭제할까요?')) return;
     try {
       await api('connection', { method: 'DELETE' });
-      localStorage.removeItem(storageKey); connection = null; showConnection();
+      forgetConnection();
       text('connectionStatus', '연결 해제'); text('monitorMessage', '서버 이력과 연결키를 삭제했습니다.');
     } catch (error) { text('monitorMessage', error.message); }
-  });
+  }
+  el('disconnectButton').addEventListener('click', disconnect);
+  el('cancelConnectionButton').addEventListener('click', disconnect);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
   (async () => {
     try {
-      connection = JSON.parse(localStorage.getItem(storageKey) || 'null'); showConnection();
+      connection = JSON.parse(localStorage.getItem(storageKey) || 'null');
+      pairing = JSON.parse(sessionStorage.getItem(pairingStorageKey) || 'null');
+      if (pairing?.device_id !== connection?.device_id) pairing = null;
+      reconnecting = !!pairing;
+      showConnection(); updateCode();
       const status = await api('status'); ready = status.enabled;
       el('pairButton').disabled = !ready;
+      const downloadAvailable = status.agent_download_available;
+      for (const link of [el('downloadAgent'), el('downloadAgentAgain')]) {
+        link.setAttribute('aria-disabled', String(!downloadAvailable));
+        if (!downloadAvailable) link.removeAttribute('href');
+      }
+      if (!downloadAvailable) {
+        el('downloadAgent').removeAttribute('href');
+        text('downloadMessage', 'Windows 프로그램을 준비 중입니다. 준비가 끝나면 여기에서 다운로드할 수 있습니다.');
+      }
       text('connectionStatus', ready ? '연결 준비 완료' : '서버 설정 필요');
-      text('monitorMessage', ready ? '본인 PC의 연결 설정을 저장하고 Agent를 실행하면 실측값이 표시됩니다. 조회키 백업 파일은 다른 사람에게 공유하지 마세요.' : '모니터링 DB 연결이 아직 완료되지 않았습니다. 서버의 MONITORING_ENABLED와 MONITORING_DATABASE_URL 설정이 필요합니다.');
+      text('monitorMessage', ready ? 'Windows 프로그램을 실행한 후 연결 코드를 입력해주세요. 연결되면 PC 상태가 자동으로 표시됩니다.' : '모니터링 서비스가 아직 준비되지 않았습니다. 잠시 후 다시 확인해주세요.');
       if (connection && ready) await refresh();
-      timer = setInterval(() => { if (!document.hidden && ready) refresh(); }, 10000);
+      timer = setInterval(() => {
+        if (!document.hidden && ready && Date.now() - lastPollAt >= (hasSnapshot && !reconnecting ? 10000 : 3000)) {
+          lastPollAt = Date.now(); refresh();
+        }
+      }, 1000);
     } catch (error) { text('monitorMessage', error.message); }
   })();
-  window.addEventListener('pagehide', () => clearInterval(timer));
+  const codeTimer = setInterval(() => { if (!document.hidden) updateCode(); }, 1000);
+  window.addEventListener('pagehide', () => { clearInterval(timer); clearInterval(codeTimer); });
+  window.addEventListener('pageshow', (event) => { if (event.persisted) window.location.reload(); });
   window.addEventListener('resize', () => drawChart(chartHistory));
 })();

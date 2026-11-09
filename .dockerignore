@@ -18,6 +18,9 @@
 !agent/speccheck_agent/
 !agent/speccheck_agent/**
 !agent/Start-SpecCheck.cmd
+!agent/releases/
+!agent/releases/.gitkeep
+!agent/releases/SpecCheck-Agent.exe
 
 **/__pycache__/
 **/*.py[cod]

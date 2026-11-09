@@ -2,24 +2,43 @@ const { test, expect } = require('@playwright/test');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 
-test('pair a PC, download Agent settings, display real samples, restore viewer and revoke keys', async ({ page, request, browser }, testInfo) => {
+test('download Windows app, pair with a code, wait for data, restore viewer and revoke keys', async ({ page, request, browser }, testInfo) => {
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/monitor.html');
   await expect(page.getByText('연결 준비 완료', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: '내 PC 연결하고 설정 저장' }).click();
-  await expect(page.getByRole('status')).toContainText('먼저 동의');
+  const downloads = [];
+  page.on('download', (download) => downloads.push(download));
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('link', { name: 'Windows용 다운로드', exact: true }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe('SpecCheck-Agent.exe');
+  expect(await fs.readFile(await download.path(), 'utf8')).toBe('MZ-synthetic-browser-test-binary');
+  await page.getByRole('button', { name: '연결 코드 받기', exact: true }).click();
+  await expect(page.locator('#monitorMessage')).toContainText('먼저 동의');
   await page.locator('#deviceName').fill('Synthetic test PC');
   await page.locator('#basicConsent').check();
   await page.locator('#securityConsent').check();
-  const downloadPromise = page.waitForEvent('download');
-  await page.getByRole('button', { name: '내 PC 연결하고 설정 저장' }).click();
-  const download = await downloadPromise;
-  const config = JSON.parse(await fs.readFile(await download.path(), 'utf8'));
-  expect(config.backend_url).toBe('http://127.0.0.1:8031');
+  await page.getByRole('button', { name: '연결 코드 받기', exact: true }).click();
+  await expect(page.locator('#pairingCode')).toHaveText(/^[A-Z2-9]{4}-[A-Z2-9]{4}$/);
+  const code = await page.locator('#pairingCode').innerText();
+  await expect(page.locator('#connectionStatus')).toHaveText('프로그램 연결 대기');
+  await expect(page.locator('#dashboardPanel')).toBeHidden();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('pairing-mobile.png'), fullPage: true });
+  await page.reload();
+  await expect(page.locator('#pairingCode')).toHaveText(code);
+  const redemption = await request.post('/api/monitor/redeem', { data: { code, accepted: true } });
+  expect(redemption.status()).toBe(200);
+  const config = await redemption.json();
   expect(config.writer_token).toMatch(/^sc_write_/);
   expect(config.security_consent).toBe(true);
-  await expect(page.locator('#connectionStatus')).toHaveText('Agent 대기');
+  await page.getByRole('button', { name: '연결 확인', exact: true }).click();
+  await expect(page.locator('#connectionStatus')).toHaveText('첫 데이터 수집 중');
+  await expect(page.locator('#dashboardPanel')).toBeHidden();
+  await expect(page.locator('#codeExpiry')).toContainText('연결 코드를 사용했습니다');
+  expect(downloads).toHaveLength(1);
   const stamp = new Date().toISOString();
   const payload = {
     schema_version: '1.2.0', snapshot_id: 'synthetic-browser-snapshot', device_id: config.device_id,
@@ -34,8 +53,8 @@ test('pair a PC, download Agent settings, display real samples, restore viewer a
   expect(upload.status()).toBe(201);
   payload.snapshot_id = 'synthetic-browser-snapshot-2';
   expect((await request.post('/api/monitor/snapshots', { headers: { Authorization: `Bearer ${config.writer_token}` }, data: payload })).status()).toBe(201);
-  await page.getByRole('button', { name: '새로고침', exact: true }).click();
-  await expect(page.locator('#cpuMetric')).toHaveText('48.0%');
+  // First data opens the dashboard automatically, with no refresh action.
+  await expect(page.locator('#cpuMetric')).toHaveText('48.0%', { timeout: 10000 });
   await expect(page.locator('#memoryMetric')).toHaveText('8.0 GB');
   await expect(page.locator('#temperatureMetric')).toHaveText('확인 못함');
   await expect(page.locator('#connectionStatus')).toHaveText('수신 중');
@@ -44,6 +63,8 @@ test('pair a PC, download Agent settings, display real samples, restore viewer a
   await expect(page.locator('#processBody script')).toHaveCount(0);
   await expect(page.locator('#eventBody img')).toHaveCount(0);
   await expect(page.locator('#usageChart polyline')).toHaveCount(2);
+  await expect(page.locator('#connectionPanel')).toBeHidden();
+  await page.setViewportSize({ width: 1365, height: 1000 });
   await page.screenshot({ path: testInfo.outputPath('monitor-desktop.png'), fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.locator('#cpuMetric')).toBeVisible();
@@ -60,7 +81,7 @@ test('pair a PC, download Agent settings, display real samples, restore viewer a
   await expect(viewer.locator('#cpuMetric')).toHaveText('48.0%');
   viewer.once('dialog', (dialog) => dialog.accept());
   await viewer.getByRole('button', { name: '연결 해제·서버 이력 삭제' }).click();
-  await expect(viewer.getByRole('status')).toContainText('삭제했습니다');
+  await expect(viewer.locator('#monitorMessage')).toContainText('삭제했습니다');
   expect((await request.post('/api/monitor/snapshots', { headers: { Authorization: `Bearer ${config.writer_token}` }, data: payload })).status()).toBe(401);
   await context.close();
   expect(errors).toEqual([]);
@@ -80,22 +101,55 @@ test('estimate inputs cannot inject markup into pages sharing monitor credential
 test('an existing PC can enable and disable Sysmon while keeping its connection', async ({ page, request }) => {
   const paired = await request.post('/api/monitor/pair', { data: { name: 'Sysmon settings test', accepted: true, security_accepted: false } });
   const connection = await paired.json();
+  const owner = { Authorization: `Bearer ${connection.reader_token}` };
+  const original = await (await request.post('/api/monitor/agent-config', { headers: owner })).json();
+  await request.post('/api/monitor/snapshots', { headers: { Authorization: `Bearer ${original.writer_token}` }, data: {
+    schema_version: '1.2.0', snapshot_id: 'sysmon-before-toggle', device_id: connection.device_id,
+    collected_at: new Date().toISOString(), scan_mode: 'actual', agent: { version: '0.1.0', os: 'Windows' },
+    sections: { hardware: { status: 'ok', data: { cpu: [], gpu: [], memory: {}, storage: [], motherboard: {} } } },
+  } });
   await page.addInitScript((value) => localStorage.setItem('speccheck.monitor.reader.v1', JSON.stringify(value)), connection);
   await page.goto('/monitor.html');
   await expect(page.locator('#securityConsentState')).toContainText('꺼짐');
   page.once('dialog', (dialog) => dialog.accept());
-  const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Sysmon 수집 켜기', exact: true }).click();
-  const enabled = JSON.parse(await fs.readFile(await (await downloadPromise).path(), 'utf8'));
+  await expect(page.locator('#pairingCode')).toHaveText(/^[A-Z2-9]{4}-[A-Z2-9]{4}$/);
+  const enabled = await (await request.post('/api/monitor/redeem', { data: { code: await page.locator('#pairingCode').innerText(), accepted: true } })).json();
   expect(enabled.device_id).toBe(connection.device_id);
   expect(enabled.security_consent).toBe(true);
   await expect(page.locator('#securityConsentState')).toContainText('켜짐');
   page.once('dialog', (dialog) => dialog.accept());
-  const disabledDownload = page.waitForEvent('download');
+  const previous = await page.locator('#pairingCode').innerText();
   await page.getByRole('button', { name: 'Sysmon 수집 끄기', exact: true }).click();
-  const disabled = JSON.parse(await fs.readFile(await (await disabledDownload).path(), 'utf8'));
+  await expect(page.locator('#pairingCode')).not.toHaveText(previous);
+  const disabled = await (await request.post('/api/monitor/redeem', { data: { code: await page.locator('#pairingCode').innerText(), accepted: true } })).json();
   expect(disabled.device_id).toBe(connection.device_id);
   expect(disabled.security_consent).toBe(false);
   await expect(page.locator('#securityConsentState')).toContainText('꺼짐');
   await request.delete('/api/monitor/connection', { headers: { Authorization: `Bearer ${connection.reader_token}` } });
+});
+
+test('failed code issuance can be retried and a revoked reader can connect again', async ({ page, request }) => {
+  let fail = true;
+  await page.route('**/api/monitor/pairing-code', async (route) => {
+    if (fail) {
+      fail = false;
+      await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ detail: '잠시 후 다시 시도해주세요.' }) });
+    } else {
+      await route.continue();
+    }
+  });
+  await page.goto('/monitor.html');
+  await page.locator('#basicConsent').check();
+  await page.getByRole('button', { name: '연결 코드 받기', exact: true }).click();
+  await expect(page.locator('#monitorMessage')).toContainText('다시 시도');
+  const original = await page.evaluate(() => JSON.parse(localStorage.getItem('speccheck.monitor.reader.v1')));
+  await page.getByRole('button', { name: '새 코드 발급', exact: true }).click();
+  await expect(page.locator('#pairingCode')).toHaveText(/^[A-Z2-9]{4}-[A-Z2-9]{4}$/);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('speccheck.monitor.reader.v1')).device_id)).toBe(original.device_id);
+  await request.delete('/api/monitor/connection', { headers: { Authorization: `Bearer ${original.reader_token}` } });
+  await page.getByRole('button', { name: '연결 확인', exact: true }).click();
+  await expect(page.locator('#setupPanel')).toBeVisible();
+  await expect(page.locator('#connectionPanel')).toBeHidden();
+  await expect(page.locator('#monitorMessage')).toContainText('만료되었거나 해제');
 });

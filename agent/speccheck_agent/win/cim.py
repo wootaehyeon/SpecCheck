@@ -89,6 +89,7 @@ def run_powershell(script: str, timeout: float = DEFAULT_TIMEOUT) -> str:
                 _PREAMBLE + script,
             ],
             capture_output=True,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             timeout=timeout,
             check=False,
         )

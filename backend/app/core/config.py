@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     # 공개 모니터링은 별도 인증 API와 영구 DB를 사용한다.
     monitoring_enabled: bool = False
     monitoring_database_url: str = Field(default="", repr=False)
+    monitoring_agent_exe: Path = PROJECT_ROOT / "agent" / "releases" / "SpecCheck-Agent.exe"
+    monitoring_agent_download_url: str = ""
 
     # --- 경로 ---
     data_dir: Path = BACKEND_DIR / "data"
