@@ -2,7 +2,7 @@ import json
 import os
 from pathlib import Path
 from datetime import datetime, timedelta
-from app.services.naver_api import search_lowest_price
+from app.services.market_prices import search_lowest_price
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
@@ -36,7 +36,7 @@ def get_price(component_name: str) -> dict:
     cache = _load_cache()
     now = datetime.now()
 
-    if component_name in cache:
+    if component_name in cache and cache[component_name].get("source") == "ebay_browse":
         cached_data = cache[component_name]
         try:
             updated_at = datetime.fromisoformat(cached_data.get("updated_at", ""))
@@ -58,6 +58,7 @@ def get_price(component_name: str) -> dict:
     if api_result.get("price_krw"):
         # 캐시 업데이트
         cache[component_name] = {
+            "source": "ebay_browse",
             "price_krw": api_result["price_krw"],
             "title": api_result.get("title"),
             "link": api_result.get("link"),

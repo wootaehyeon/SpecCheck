@@ -49,10 +49,10 @@ function mountPart(part){const chk=canMount(part); if(!chk.ok){show(chk.msg); re
 function unmountPart(part){ part.mounted=false; show(`${part.name} 장착이 해제되었습니다.`); renderUI(); draw(); }
 
 function project(p){
-  let [x,y,z]=p;
+  const [x,y,z]=p;
   const cy=Math.cos(yaw), sy=Math.sin(yaw), cp=Math.cos(pitch), sp=Math.sin(pitch);
-  let x1=x*cy-z*sy, z1=x*sy+z*cy;
-  let y1=y*cp-z1*sp, z2=y*sp+z1*cp;
+  const x1=x*cy-z*sy, z1=x*sy+z*cy;
+  const y1=y*cp-z1*sp, z2=y*sp+z1*cp;
   const scale=zoom/(1+z2*0.045);
   return {x:canvas.width/2+x1*scale, y:canvas.height/2-y1*scale, z:z2, scale};
 }
@@ -63,7 +63,7 @@ function boxFaces(center,size,color,opts={}){
   for(const f of faces){ const pts=f.slice(0,4).map(i=>project(v[i])); const avg=pts.reduce((a,b)=>a+b.z,0)/4; renderQueue.push({z:avg, draw:()=>poly(pts,shade(color,f[4]),opts.stroke||'rgba(255,255,255,.12)',opts.alpha??1)}); }
 }
 function poly(pts,fill,stroke,alpha=1){ctx.save();ctx.globalAlpha=alpha;ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i].x,pts[i].y);ctx.closePath();ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=1.2;ctx.stroke();ctx.restore();}
-function shade(hex,k){const n=parseInt(hex.slice(1),16);let r=(n>>16)&255,g=(n>>8)&255,b=n&255;return `rgb(${Math.min(255,r*k)|0},${Math.min(255,g*k)|0},${Math.min(255,b*k)|0})`;}
+function shade(hex,k){const n=parseInt(hex.slice(1),16);const r=(n>>16)&255,g=(n>>8)&255,b=n&255;return `rgb(${Math.min(255,r*k)|0},${Math.min(255,g*k)|0},${Math.min(255,b*k)|0})`;}
 function circle3(center,r,color,label){const p=project(center);renderQueue.push({z:p.z,draw:()=>{ctx.beginPath();ctx.arc(p.x,p.y,r*p.scale/78,0,Math.PI*2);ctx.fillStyle=color;ctx.fill();ctx.strokeStyle='rgba(255,255,255,.25)';ctx.stroke(); if(label){ctx.fillStyle='#e5e7eb';ctx.font='11px Arial';ctx.textAlign='center';ctx.fillText(label,p.x,p.y+4)}}});}
 function label3(center,text,color='#e5e7eb'){const p=project(center);renderQueue.push({z:p.z-.1,draw:()=>{ctx.fillStyle='rgba(2,6,23,.75)';ctx.strokeStyle='rgba(148,163,184,.3)';ctx.font='12px Arial';ctx.textAlign='center';const w=ctx.measureText(text).width+14;ctx.beginPath();roundRect(p.x-w/2,p.y-11,w,20,8);ctx.fill();ctx.stroke();ctx.fillStyle=color;ctx.fillText(text,p.x,p.y+4);}})}
 function roundRect(x,y,w,h,r){ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);}
@@ -71,8 +71,8 @@ function roundRect(x,y,w,h,r){ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.a
 let renderQueue=[];
 function drawPart(part){
   const s=slots[part.targetSlot]; const size=partSize[part.type]||[1,1,1];
-  let pos=part.mounted ? s.pos : [ -5.0, .4 + (part.paletteIndex%4)*.7, -2.7 + Math.floor(part.paletteIndex/4)*1.5 ];
-  let alpha=part.mounted?1:.92; const selected=part.id===selectedId;
+  const pos=part.mounted ? s.pos : [ -5.0, .4 + (part.paletteIndex%4)*.7, -2.7 + Math.floor(part.paletteIndex/4)*1.5 ];
+  const alpha=part.mounted?1:.92; const selected=part.id===selectedId;
   boxFaces(pos,size,colors[part.type]||'#64748b',{stroke:selected?'#38bdf8':'rgba(255,255,255,.16)',alpha});
   // details
   if(part.type==='motherboard'){
@@ -138,7 +138,7 @@ canvas.addEventListener('click',e=>{
   if(hit.kind==='slot'&&selectedId){const p=parts.find(p=>p.id===selectedId); if(p && p.targetSlot===hit.id) mountPart(p);}
 });
 
-canvas.addEventListener('dblclick',e=>{ if(!selectedId) return; const p=parts.find(p=>p.id===selectedId); if(p&&p.mounted) unmountPart(p); });
+canvas.addEventListener('dblclick',()=>{ if(!selectedId) return; const p=parts.find(p=>p.id===selectedId); if(p&&p.mounted) unmountPart(p); });
 
 document.getElementById('unmountBtn').onclick=()=>{const p=parts.find(p=>p.id===selectedId); if(!p){show('해제할 부품을 먼저 선택하세요.');return;} if(!p.mounted){show('선택한 부품은 아직 장착되지 않았습니다.');return;} unmountPart(p);};
 document.getElementById('resetViewBtn').onclick=()=>{yaw=-.55;pitch=.45;zoom=78;draw();show('시점이 초기화되었습니다.');};

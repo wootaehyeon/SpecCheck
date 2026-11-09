@@ -31,6 +31,7 @@ module.exports = defineConfig({
       DATA_DIR: run,
       MONITORING_AGENT_EXE: agentBinary,
       NAVER_CLIENT_ID: '', NAVER_CLIENT_SECRET: '', OPENAI_API_KEY: '',
+      EBAY_CLIENT_ID: '', EBAY_CLIENT_SECRET: '', EBAY_OAUTH_TOKEN: '',
     },
   },
 });

@@ -1,10 +1,10 @@
 from datetime import datetime
 from app.schemas.price import PriceCheckRequest, MarketPriceInfo, PriceEvaluationResult
-from app.services.naver_api import search_market_prices
+from app.services.market_prices import search_market_prices
 
 def evaluate_price(request: PriceCheckRequest) -> PriceEvaluationResult:
     """
-    사용자가 입력한 가격과 네이버 API로 가져온 최신 시세를 비교하여 결과를 반환합니다.
+    입력한 원화 가격과 eBay의 원화 견적만 비교합니다. 외화는 자동 환산하지 않습니다.
     """
     market_data = search_market_prices(request.component_name)
     

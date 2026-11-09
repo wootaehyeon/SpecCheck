@@ -61,3 +61,13 @@ test('RAM kit capacities are counted and capacity candidate includes replacement
   const {e}=setup();assert.equal(e.ramInfo('16GB x2 DDR5').gb,32);const b=base();b.parts.find(x=>x.key==='ram').name='16GB DDR5';
   const r=e.recommend(b,{budget:1300000});assert.ok(r.candidates.some(x=>x.key==='ram'&&x.eligible));
 });
+
+test('eBay foreign prices remain informational and never become a won overpay comparison',()=>{
+  const {c}=setup();
+  const parts=[{key:'storage',name:'Fixture SSD 1TB',userPrice:99000}];
+  const normalized=c.normalizeMarketPrices(parts,[{key:'storage',lowestPrice:0,averagePrice:0,errorCode:'currency_mismatch',error:'native currency only',source:'ebay_browse',nativePrices:[{currency:'USD',lowest:'99.95'}],purchaseLink:'https://www.ebay.com/itm/123456789012'}]);
+  assert.equal(normalized[0].available,false);
+  assert.equal(normalized[0].lowestPrice,null);
+  assert.equal(normalized[0].nativePrices[0].currency,'USD');
+  assert.equal(c.makePriceComparison(normalized[0]).diff,null);
+});

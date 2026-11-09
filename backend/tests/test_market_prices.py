@@ -47,3 +47,19 @@ def test_market_prices_keeps_api_failure_in_item(monkeypatch):
     assert item["lowestPrice"] == 0
     assert item["error"] == "네이버 쇼핑 API 키가 설정되지 않았습니다."
     assert item["errorCode"] == "credentials_missing"
+
+
+def test_missing_ebay_credentials_are_reported_without_fake_prices(monkeypatch):
+    from app.core.config import get_settings
+    for key in ["ebay_client_id", "ebay_client_secret", "ebay_oauth_token"]:
+        monkeypatch.setattr(get_settings(), key, "")
+    response = TestClient(app).post(
+        "/api/market-prices",
+        json={"parts": [{"key": "storage", "category": "SSD", "name": "NVMe SSD 1TB"}]},
+    )
+    assert response.status_code == 200
+    item = response.json()["prices"][0]
+    assert item["errorCode"] == "unconfigured"
+    assert item["lowestPrice"] == 0
+    assert item["purchaseLink"] is None
+    assert "eBay" in item["error"]

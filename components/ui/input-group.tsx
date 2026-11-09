@@ -48,6 +48,9 @@ function InputGroupAddon({
   align = 'inline-start',
   ...props
 }: React.ComponentProps<'div'> & VariantProps<typeof inputGroupAddonVariants>) {
+  // Affix clicks supplement the input's existing keyboard access. An affix may
+  // contain buttons, so making the entire affix another button would be invalid.
+  /* oxlint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */
   return (
     <div
       role="group"
@@ -63,6 +66,7 @@ function InputGroupAddon({
       {...props}
     />
   );
+  /* oxlint-enable jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */
 }
 
 const inputGroupButtonVariants = cva(

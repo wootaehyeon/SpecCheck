@@ -10,10 +10,10 @@ import type { PurchaseQuote } from './purchase-comparison';
 export function PurchaseComparison({ diagnosis, offers }: { diagnosis: Diagnosis; offers: PurchaseQuote[] }) {
   const [mode, setMode] = useState<'cost' | 'benefits'>('cost');
   return <div className="min-w-0 space-y-4">
-    <div className="inline-flex flex-wrap gap-1 rounded-md border border-white/10 p-1" role="group" aria-label="견적 비교 보기">
+    <fieldset className="m-0 inline-flex min-w-0 flex-wrap gap-1 rounded-md border border-white/10 p-1" aria-label="견적 비교 보기">
       <Button size="sm" variant={mode === 'cost' ? 'secondary' : 'ghost'} aria-pressed={mode === 'cost'} onClick={() => setMode('cost')}><CircleDollarSign className="size-4" />비용 비교</Button>
       <Button size="sm" variant={mode === 'benefits' ? 'secondary' : 'ghost'} aria-pressed={mode === 'benefits'} onClick={() => setMode('benefits')}><TrendingUp className="size-4" />교체 효과</Button>
-    </div>
+    </fieldset>
     {diagnosis.recommendations.map(recommendation => {
       const rows = recommendation.candidates.map(candidate => ({ candidate, costs: candidateCosts(candidate, offers) }));
       const baseline = rows.find(row => row.candidate.recommended);

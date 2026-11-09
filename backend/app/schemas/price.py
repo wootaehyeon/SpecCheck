@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 
@@ -28,6 +28,14 @@ class PartRequest(BaseModel):
     # /crawl, /market-intelligence 요청은 가격 없이 부품명만 보내므로 기본값 허용
     userPrice: int = 0
 
+class NativePriceInfo(BaseModel):
+    currency: str
+    lowest: str
+    highest: str
+    average: str
+    listingCount: int
+
+
 class PartPriceInfo(BaseModel):
     key: str
     category: str
@@ -44,9 +52,10 @@ class PartPriceInfo(BaseModel):
     error: Optional[str] = None
     errorCode: Optional[str] = None
     cached: Optional[bool] = None
+    nativePrices: List[NativePriceInfo] = Field(default_factory=list)
 
 class MarketPricesRequest(BaseModel):
-    parts: List[PartRequest]
+    parts: List[PartRequest] = Field(max_length=12)
 
 class MarketPricesResponse(BaseModel):
     prices: List[PartPriceInfo]

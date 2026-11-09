@@ -17,22 +17,24 @@ export function PurchaseOffers({ diagnosis, onUpdated }: { diagnosis: Diagnosis;
   const parts = [...new Map(diagnosis.recommendations.flatMap(r => r.candidates.flatMap(c => c.parts)).map(p => [p.key, p])).values()];
   const productIds = parts.map(p => p.key).sort().join(',');
   const recommendedIds = new Set(diagnosis.recommendations.flatMap(r => r.candidates.filter(c => c.recommended).flatMap(c => c.parts.map(p => p.key))));
-  const [state, setState] = useState<State | null>(null);
-  const [error, setError] = useState('');
+  const [response, setResponse] = useState<{ key: string; data: State | null; error: string } | null>(null);
+  const [refreshError, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [revision, setRevision] = useState(0);
+  const requestKey = JSON.stringify([diagnosis.scanId, productIds, revision]);
+  const state = response?.key === requestKey ? response.data : null;
+  const error = refreshError || (response?.key === requestKey ? response.error : '');
   useEffect(() => {
     let active = true;
-    setState(null); setError('');
     const query = new URLSearchParams();
     productIds.split(',').filter(Boolean).forEach(id => query.append('product_id', id));
     const read = () => requestJson<State>(`${diagnosticsConfig.agentUrl}/api/purchase/quotes?${query}`, undefined, 25000)
-      .then(data => { if (active) setState(data); })
-      .catch(cause => { if (active) { setState(null); setError(cause instanceof Error ? cause.message : '가격 조회 실패'); } });
+      .then(data => { if (active) setResponse({ key: requestKey, data, error: '' }); })
+      .catch(cause => { if (active) setResponse({ key: requestKey, data: null, error: cause instanceof Error ? cause.message : '가격 조회 실패' }); });
     void read();
     const timer = setInterval(() => { if (document.visibilityState === 'visible') void read(); }, 300000);
     return () => { active = false; clearInterval(timer); };
-  }, [diagnosis.scanId, productIds, revision]);
+  }, [productIds, requestKey]);
   async function refresh() {
     setBusy(true); setError('');
     try { await onUpdated(); }

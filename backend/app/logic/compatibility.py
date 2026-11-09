@@ -47,15 +47,20 @@ def _load(filename: str) -> dict:
         return json.load(f)
 
 
-def _find_component(benchmark: dict, query: str):
+def _find_component(benchmark: dict, query: str | None):
     if not query:
         return None, None
-    q = query.lower().strip()
+
+    def identity(value: str) -> str:
+        value = re.sub(r"\((?:r|tm)\)", "", value.lower())
+        value = re.sub(r"\b(?:intel|core|amd|nvidia|geforce)\b", "", value)
+        return re.sub(r"[^a-z0-9]", "", value)
+
+    q = identity(query)
+    if not q:
+        return None, None
     for name, data in benchmark.items():
-        if name.lower() == q:
-            return name, data
-    for name, data in benchmark.items():
-        if q in name.lower() or name.lower() in q:
+        if identity(name) == q:
             return name, data
     return None, None
 

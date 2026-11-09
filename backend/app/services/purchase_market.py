@@ -107,12 +107,12 @@ def _money(value):
         return None
 
 
-def _offer(product, item):
+def _offer(product, item, *, verify=matches):
     if not isinstance(item, dict):
         return None
     title = str(item.get("title", ""))[:300]
     mpn = str(item.get("mpn", ""))[:100]
-    if not matches(product, title + " " + mpn):
+    if not verify(product, title + " " + mpn):
         return None
     if str(item.get("conditionId")) != "1000" or "FIXED_PRICE" not in item.get("buyingOptions", []):
         return None

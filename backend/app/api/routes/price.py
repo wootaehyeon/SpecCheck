@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from typing import List
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
 from app.schemas.price import (
     PriceCheckRequest,
     PriceEvaluationResult,
@@ -17,7 +18,7 @@ from app.schemas.price import (
 )
 from app.services.price_evaluation import evaluate_price
 from app.services.crawl_service import crawl_related_parts, get_sample_market_reactions, crawl_dcinside_search
-from app.services.naver_api import search_market_prices
+from app.services.market_prices import search_market_prices
 from app.services.sentiment_analyzer import SentimentAnalyzer
 from app.services.integrated_crawl import integrate_market_data
 from app.services.ebay_api import search_used_price, get_usd_krw_rate
@@ -43,12 +44,14 @@ def check_price(request: PriceCheckRequest):
 @router.post("/market-prices", response_model=MarketPricesResponse)
 def market_prices(request: MarketPricesRequest):
     """
-    여러 부품의 네이버 쇼핑 시세를 조회하여 프론트엔드에서 가공할 수 있는 데이터를 제공합니다.
+    eBay 상품가를 조회합니다. 외화 가격은 원화 비교 값과 분리해 반환합니다.
     """
     response_items: List[PartPriceInfo] = []
 
-    for part in request.parts:
-        market_data = search_market_prices(part.name)
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        market_results = list(pool.map(search_market_prices, [part.name for part in request.parts]))
+
+    for part, market_data in zip(request.parts, market_results):
         if "error" in market_data:
             response_items.append(
                 PartPriceInfo(
@@ -59,11 +62,12 @@ def market_prices(request: MarketPricesRequest):
                     lowestPrice=0,
                     highestPrice=0,
                     averagePrice=0,
-                    purchaseLink=None,
-                    productTitle=None,
-                    listingCount=0,
-                    mall=None,
-                    source="error",
+                    purchaseLink=market_data.get("purchase_link"),
+                    productTitle=market_data.get("product_title"),
+                    listingCount=market_data.get("listing_count", 0),
+                    mall=market_data.get("mall"),
+                    source=market_data.get("source", "error"),
+                    nativePrices=market_data.get("native_prices", []),
                     error=market_data.get("error"),
                     errorCode=market_data.get("error_code"),
                     cached=False,
@@ -84,7 +88,8 @@ def market_prices(request: MarketPricesRequest):
                 productTitle=market_data.get("product_title"),
                 listingCount=market_data.get("listing_count", 0),
                 mall=market_data.get("mall") or "Naver 쇼핑",
-                source="naver",
+                source=market_data.get("source", "ebay_browse"),
+                nativePrices=market_data.get("native_prices", []),
                 error=None,
                 errorCode=None,
                 cached=market_data.get("cached", False),
@@ -122,7 +127,7 @@ def crawl(request: CrawlRequest):
 def market_intelligence(request: CrawlRequest):
     """
     부품별 통합 시장 정보: 가격, 평가, 리뷰 채널, 위키 정보를 한 번에 제공합니다.
-    - 네이버 쇼핑 가격 정보
+    - eBay 판매 가격 정보
     - YouTube 리뷰 채널
     - 나무위키 부품 정보
     - 커뮤니티 감정 평가

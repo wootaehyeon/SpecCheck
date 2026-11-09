@@ -8,6 +8,9 @@
 !backend/data/
 !backend/data/cpu_benchmark.json
 !backend/data/gpu_benchmark.json
+!backend/data/component_catalog.json
+!schemas/
+!schemas/diagnosis.schema.json
 !datasets/
 !datasets/*/
 !datasets/*/*.csv

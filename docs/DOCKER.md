@@ -96,7 +96,10 @@ Windows에 설치한 Ollama를 사용하려면 `ollama pull gemma2:2b`를 실행
 접근 가능한 주소로 수신하도록 설정되어 있어야 한다. 연결 실패 시 기존 템플릿 설명을 사용한다.
 
 기본 이미지는 `requirements-web.txt`를 사용하며 torch/transformers와 선택적 품질 평가 모델은
-포함하지 않는다. 가격 API를 사용하려면 `backend/.env`에 해당 API 키를 입력한다.
+포함하지 않는다. 상품 검색과 가격 조회는 eBay Browse API를 사용한다.
+`backend/.env`에 `EBAY_CLIENT_ID`와 `EBAY_CLIENT_SECRET`(또는 `EBAY_OAUTH_TOKEN`)을 설정하고
+`docker compose up -d`로 반영한다. 외화 가격은 원화 견적과 자동 비교하지 않는다.
+네이버 쇼핑 검색 API는 2026년 7월 31일 종료되어 키를 추가해도 사용할 수 없다.
 
 ## 공식 문서
 

@@ -6,6 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     SERVE_FRONTEND=true \
     CORS_ORIGINS="" \
     MONITORING_ENABLED=true \
+    COMPONENT_CATALOG_SEED_FILE=/app/backend/catalog/component_catalog.json \
     MONITORING_DATABASE_URL=sqlite:////app/backend/data/monitoring.db
 
 WORKDIR /app
@@ -19,6 +20,9 @@ RUN groupadd --gid 10001 speccheck \
 
 COPY backend/app /app/backend/app
 COPY backend/data/cpu_benchmark.json backend/data/gpu_benchmark.json /app/backend/data/
+# Bundled specifications must stay outside the persistent user-data volume.
+COPY backend/data/component_catalog.json /app/backend/catalog/component_catalog.json
+COPY schemas/diagnosis.schema.json /app/schemas/diagnosis.schema.json
 COPY datasets /app/datasets
 COPY frontend/web /app/frontend/web
 # The monitoring page builds a downloadable Windows Agent ZIP from these files.

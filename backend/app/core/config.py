@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     snapshot_db: Path = BACKEND_DIR / "data" / "snapshots.db"
     local_agent_backend_url: str = "http://127.0.0.1:8000"
     component_catalog_file: Path | None = None
+    component_catalog_seed_file: Path = BACKEND_DIR / "data" / "component_catalog.json"
     catalog_review_max_age_days: int = 365
 
     # --- 외부 API ---

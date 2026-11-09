@@ -27,6 +27,7 @@
 
   function shoppingLinks(query) {
     el('shoppingLinks').hidden = !query;
+    el('ebaySearch').href = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}`;
     el('naverSearch').href = `https://search.shopping.naver.com/search/all?query=${encodeURIComponent(query)}`;
     el('danawaSearch').href = `https://search.danawa.com/dsearch.php?query=${encodeURIComponent(query)}`;
     el('shoppingQuery').textContent = query ? `검색어: ${query} · 새 탭에서 열립니다.` : '검색어를 입력하면 쇼핑몰 검색 링크가 표시됩니다.';
@@ -37,16 +38,26 @@
     for (const product of products) {
       let url;
       try { url = new URL(product.url); } catch { continue; }
-      if (url.protocol !== 'https:' || !Number.isFinite(product.price) || product.price <= 0) continue;
+      const currencies = ['KRW', 'USD', 'EUR', 'GBP', 'CAD', 'AUD'];
+      const currency = product.currency ?? 'KRW';
+      const amount = Number(product.amount ?? product.price);
+      if (url.protocol !== 'https:' || !currencies.includes(currency) || !Number.isFinite(amount) || amount <= 0) continue;
+      const money = value => new Intl.NumberFormat('ko-KR', { style: 'currency', currency }).format(Number(value));
       const card = document.createElement('article'); card.className = 'purchase-product';
       const info = document.createElement('div');
       const title = document.createElement('h3'); title.textContent = product.title;
-      const mall = document.createElement('p'); mall.textContent = product.mall || '네이버쇼핑';
-      const price = document.createElement('strong'); price.textContent = `${product.price.toLocaleString('ko-KR')}원`;
+      const mall = document.createElement('p'); mall.textContent = product.mall || 'eBay';
+      const price = document.createElement('strong'); price.textContent = currency === 'KRW' ? `${amount.toLocaleString('ko-KR')}원` : `${currency} ${money(amount)}`;
       const buy = document.createElement('a'); buy.className = 'btn btn-primary';
       buy.href = url.href; buy.target = '_blank'; buy.rel = 'noopener noreferrer'; buy.textContent = '구매하기 ↗';
       buy.setAttribute('aria-label', `${product.title} 구매하기 (새 탭)`);
-      info.append(title, mall, price); card.append(info, buy); el('productList').append(card);
+      info.append(title, mall, price);
+      if (product.currency) {
+        const terms = document.createElement('p');
+        terms.textContent = `한국 배송비 ${product.shipping == null ? '미확인' : money(product.shipping)} · 합계 ${product.total == null ? '미확인' : money(product.total)} · 관세·부가세 제외 · ${product.availability === 'in_stock' ? '재고 있음 (판매처 추정)' : '재고 미확인'}`;
+        info.append(terms);
+      }
+      card.append(info, buy); el('productList').append(card);
     }
     return el('productList').childElementCount;
   }
@@ -67,8 +78,10 @@
       if (pending !== controller) return;
       const count = renderProducts(Array.isArray(data.products) ? data.products : []);
       el('productStatus').textContent = count
-        ? `네이버쇼핑 상품 ${count}개 · 검색 관련도순 · 조회 시점 가격이며 배송비·옵션에 따라 달라질 수 있습니다.`
+        ? `${data.source === 'ebay_browse' ? 'eBay' : '판매처'} 상품 ${count}개 · 표시 통화 기준 상품가 · 배송비·관세·부가세·옵션에 따라 최종 금액이 달라집니다.`
         : data.status === 'empty' ? '검색된 상품이 없습니다. 검색어를 바꾸거나 아래 쇼핑몰에서 찾아보세요.'
+          : data.status === 'retired' ? '자동 가격 조회가 종료되었습니다. 아래 네이버쇼핑 또는 다나와에서 판매 가격을 확인하고 구매할 수 있습니다.'
+          : data.status === 'unconfigured' ? '상품 가격을 불러오지 못했습니다. eBay 실시간 가격 연결이 아직 준비되지 않았습니다. 아래 쇼핑몰에서 판매 가격을 확인할 수 있습니다.'
           : '상품 가격을 불러오지 못했습니다. 아래 네이버쇼핑 또는 다나와에서 상품을 확인하고 구매할 수 있습니다.';
     } catch {
       if (pending === controller) el('productStatus').textContent = '상품 조회가 지연되거나 연결되지 않았습니다. 아래 쇼핑몰에서 검색과 구매를 계속할 수 있습니다.';
@@ -77,9 +90,9 @@
       if (pending === controller) { pending = null; el('productList').setAttribute('aria-busy', 'false'); }
     }
   }
-  el('productSearch').addEventListener('submit', (event) => { event.preventDefault(); search(); });
+  el('productSearch').addEventListener('submit', (event) => { event.preventDefault(); void search(); });
   el('partType').addEventListener('change', () => {
-    if (el('partType').value) { el('productQuery').value = el('partType').value; search(); }
+    if (el('partType').value) { el('productQuery').value = el('partType').value; void search(); }
   });
   el('productQuery').addEventListener('input', () => {
     if (pending) { pending.abort(); pending = null; }
@@ -89,5 +102,5 @@
     shoppingLinks(el('productQuery').value.trim());
   });
   shoppingLinks(profile.query);
-  if (profile.query) search();
+  if (profile.query) void search();
 })();

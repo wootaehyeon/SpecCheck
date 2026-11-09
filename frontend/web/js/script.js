@@ -6,9 +6,8 @@ const API_BASE_URL = ['localhost', '127.0.0.1', '[::1]'].includes(window.locatio
   : '';
 const OPEN_MARKET_API_URL = `${API_BASE_URL}/api/market-prices`;
 const CRAWL_API_URL = `${API_BASE_URL}/api/crawl`;
-const OPTIMIZE_API_URL = `${API_BASE_URL}/api/optimize-estimate`;
 const MARKET_INTELLIGENCE_API_URL = `${API_BASE_URL}/api/market-intelligence`;
-const DEMO_MARKET_PRICES = true;
+const DEMO_MARKET_PRICES = false;
 const PAGE_URLS = {
   monitor: 'monitor.html',
   main: 'index.html',
@@ -62,7 +61,6 @@ function renderPriceInfo(marketData) {
     const { part_name, price_info, market_sentiment } = item;
     const lowestPrice = price_info?.lowest_price || 0;
     const avgPrice = price_info?.average_price || 0;
-    const sentiment = market_sentiment ? `${market_sentiment.positive}/${market_sentiment.neutral}/${market_sentiment.negative}` : '-';
     const scorePercent = market_sentiment ? (market_sentiment.average_score * 100).toFixed(0) : '-';
 
     const naverLink = `https://search.shopping.naver.com/search/all?query=${encodeURIComponent(part_name)}`;
@@ -485,15 +483,16 @@ function normalizeMarketPrices(parts, prices) {
       available,
       error: available ? null : (raw.error || '시세 정보를 조회하지 못했습니다.'),
       errorCode: raw.errorCode || raw.error_code || null,
+      nativePrices: Array.isArray(raw.nativePrices) ? raw.nativePrices.filter(price => ['KRW', 'USD', 'EUR', 'GBP', 'CAD', 'AUD'].includes(price.currency) && Number(price.lowest) > 0 && Number.isFinite(Number(price.lowest))) : [],
       mall: available ? (raw.mall || raw.source || '-') : '조회 불가',
-      purchaseLink: available ? (raw.purchaseLink || raw.purchase_link || '') : ''
+      purchaseLink: raw.purchaseLink || raw.purchase_link || ''
     };
   });
 }
 
 async function fetchOpenMarketPrices(parts) {
   const controller = new AbortController();
-  // The backend can perform six sequential provider calls (8 seconds each).
+  // eBay detail lookups run in bounded parallel batches on the backend.
   const timeoutId = setTimeout(() => controller.abort(), 60000);
   try {
     const response = await fetch(OPEN_MARKET_API_URL, {
@@ -552,16 +551,17 @@ function analyzeEstimate(estimate, marketPrices) {
   const totalDiffRate = lowestTotal > 0 ? (inputTotal-lowestTotal)/lowestTotal*100 : null;
   const errors = state.checks.filter(c => c.status === 'error');
   const status = errors.length ? '호환성 수정 필요' : '조건 확인 필요';
-  const prices = complete ? `입력 합계 ${formatWon(inputTotal)}, 데모 기준가 합계 ${formatWon(lowestTotal)}. 차액 ${formatWon(inputTotal-lowestTotal)}입니다.` : '미등록 모델의 가격은 추정하지 않았습니다. 가격 비교가 가능한 부품만 표시합니다.';
+  const basis = DEMO_MARKET_PRICES ? '데모 기준가' : '조회한 원화 상품가';
+  const prices = complete ? `입력 합계 ${formatWon(inputTotal)}, ${basis} 합계 ${formatWon(lowestTotal)}. 차액 ${formatWon(inputTotal-lowestTotal)}입니다.` : '미확인 가격과 외화 판매가는 원화 견적과 자동 비교하지 않습니다. 배송비·관세·부가세는 별도 확인이 필요합니다.';
   const needs = state.needs.length ? state.needs.join(' / ') : '설정한 용량·코어 기준에서 부족이 확인되지 않았습니다.';
   const recognized = [state.cpu,state.gpu].filter(Boolean);
   return {
     purchaseStatus:status,riskScore:null,totalPrice:inputTotal,
     purposeFit:!state.cpu || !state.gpu || !state.ram.gb ? '모델 확인 필요' : state.needs.length ? '요구 조건 검토' : '용량·코어 기준 충족',
-    summary:`${prices} ${errors.length ? '호환성 오류부터 해결하세요.' : '구매 확정 전 BIOS, 케이스, 커넥터를 확인하세요.'} 가격만 데모 값이며 실측 성능 점수는 생성하지 않습니다.`,
-    priceCompare:{parts,inputTotal,lowestTotal,averageTotal:null,totalDiffRate,status:complete ? '데모 기준 비교' : '일부 가격 미확인'},
+    summary:`${prices} ${errors.length ? '호환성 오류부터 해결하세요.' : '구매 확정 전 BIOS, 케이스, 커넥터를 확인하세요.'} 실측 성능 점수는 생성하지 않습니다.`,
+    priceCompare:{parts,inputTotal,lowestTotal,averageTotal:null,totalDiffRate,status:complete ? basis : '일부 가격 미확인'},
     detail:{
-      price:{status:complete ? '데모 가격' : '부분 비교',message:prices},
+      price:{status:complete ? basis : '부분 비교',message:prices},
       balance:{status:'작업 기준 비교',message:needs + ' 이 기준은 용량·코어 계획용이며 FPS나 병목률을 나타내지 않습니다.'},
       compatibility:{status:errors.length ? '오류 확인' : '추가 확인',message:state.checks.map(c => `${c.status === 'error' ? '[불일치]' : c.status === 'pass' ? '[규격 일치]' : '[미확인]'} ${c.message}`).join(' / ')},
       recency:{status:'등록 모델 정보',message:recognized.length ? recognized.map(x => `${x.name}: ${x.year}년 출시`).join(' / ') + '. 출시연도만으로 성능이나 구매 가치를 판단하지 않습니다.' : '정확한 모델을 확인할 수 없습니다.'}
@@ -581,8 +581,10 @@ function renderPriceCompare(priceCompare) {
     const diffText = part.diff == null ? '-' : `${part.diff > 0 ? '+' : ''}${formatWon(part.diff)} (${part.diffRate.toFixed(1)}%)`;
 
     const searchUrl = `https://search.shopping.naver.com/search/all?query=${encodeURIComponent(part.name || '')}`;
+    const native = (part.nativePrices || []).filter(price => ['KRW', 'USD', 'EUR', 'GBP', 'CAD', 'AUD'].includes(price.currency) && Number(price.lowest) > 0 && Number.isFinite(Number(price.lowest)))
+      .map(price => `${price.currency} ${new Intl.NumberFormat('ko-KR', { style: 'currency', currency: price.currency }).format(Number(price.lowest))}`).join(' / ');
     const purchaseInfo = part.available === false
-      ? `자동 시세를 확인할 수 없습니다.<br><a href="${escapeHtml(searchUrl)}" target="_blank" rel="noopener noreferrer">네이버 쇼핑에서 직접 가격 확인</a>`
+      ? `${escapeHtml(part.error || '자동 시세를 확인할 수 없습니다.')}<br>${native ? `eBay 상품가 ${escapeHtml(native)} · 배송비·세금 별도<br>` : ''}${part.purchaseLink ? `<a href="${escapeHtml(safeHttpUrl(part.purchaseLink))}" target="_blank" rel="noopener noreferrer">eBay 상품 확인</a><br>` : ''}<a href="${escapeHtml(searchUrl)}" target="_blank" rel="noopener noreferrer">네이버 쇼핑에서 직접 가격 확인</a>`
       : part.purchaseLink
       ? `<a href="${escapeHtml(safeHttpUrl(part.purchaseLink))}" target="_blank" rel="noreferrer">구매 링크</a>`
       : escapeHtml(part.mall || '');
@@ -779,7 +781,7 @@ function initRecommendPage() {
   const estimate = loadData('estimateInput');
   if (!estimate?.parts?.length) { navigateTo('input'); return; }
   const engine = window.SpecCheckEngine;
-  let prices = loadData('candidatePrices') || {};
+  const prices = loadData('candidatePrices') || {};
   const inputTotal = estimate.parts.reduce((s,p) => s + toNumber(p.userPrice),0);
   safeSetValue('recommendBudget', estimate.budget || inputTotal);
   safeSetValue('recommendPurpose', estimate.purpose || '게임');
@@ -843,7 +845,7 @@ function initPage() {
     notice.className = 'service-notice';
     notice.textContent = DEMO_MARKET_PRICES
       ? '가격 데모 · 시세는 편집 가능한 예시 값입니다. 추천은 입력 사양·용도·예산 조건으로 계산합니다. 실측 FPS·병목률·위험도 점수는 제공하지 않습니다.'
-      : '시범 서비스 · 성능·호환성 점수와 교체 추천은 예시 결과입니다. 가격·시장 정보도 조회 실패 시 예시 데이터가 표시될 수 있습니다.';
+      : 'eBay 판매가 조회 · 외화 가격을 원화로 자동 환산하지 않습니다. 배송비·관세·부가세를 별도로 확인하세요. 조회되지 않은 가격은 미확인으로 표시합니다.';
     main.prepend(notice);
   }
   const currentPage = getCurrentPageName();

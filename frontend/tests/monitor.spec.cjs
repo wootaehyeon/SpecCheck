@@ -1,6 +1,5 @@
 const { test, expect } = require('@playwright/test');
 const fs = require('node:fs/promises');
-const path = require('node:path');
 
 test('download Windows app, pair with a code, wait for data, restore viewer and revoke keys', async ({ page, request, browser }, testInfo) => {
   const errors = [];

@@ -296,8 +296,8 @@
   }
   el('disconnectButton').addEventListener('click', disconnect);
   el('cancelConnectionButton').addEventListener('click', disconnect);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
-  (async () => {
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) void refresh(); });
+  void (async () => {
     try {
       connection = JSON.parse(localStorage.getItem(storageKey) || 'null');
       pairing = JSON.parse(sessionStorage.getItem(pairingStorageKey) || 'null');
@@ -320,7 +320,7 @@
       if (connection && ready) await refresh();
       timer = setInterval(() => {
         if (!document.hidden && ready && Date.now() - lastPollAt >= (hasSnapshot && !reconnecting ? 10000 : 3000)) {
-          lastPollAt = Date.now(); refresh();
+          lastPollAt = Date.now(); void refresh();
         }
       }, 1000);
     } catch (error) { text('monitorMessage', error.message); }

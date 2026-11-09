@@ -5,88 +5,19 @@ from bs4 import BeautifulSoup
 from urllib.parse import quote, urlencode
 from datetime import datetime, timedelta
 from typing import List, Dict
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
-
-NAVER_CLIENT_ID = os.getenv("NAVER_CLIENT_ID")
-NAVER_CLIENT_SECRET = os.getenv("NAVER_CLIENT_SECRET")
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
 
 def get_naver_shopping_price(part_name: str) -> Dict:
-    """네이버 쇼핑에서 실제 가격 정보 수집"""
-    if not NAVER_CLIENT_ID or not NAVER_CLIENT_SECRET:
-        return {
-            "source": "네이버 쇼핑",
-            "lowest_price": 0,
-            "average_price": 0,
-            "items": [],
-            "error": "API 키 미설정"
-        }
+    """Legacy entry point; price data now comes from eBay Browse."""
+    from app.services.market_prices import search_market_prices
 
-    headers = {
-        "X-Naver-Client-Id": NAVER_CLIENT_ID,
-        "X-Naver-Client-Secret": NAVER_CLIENT_SECRET
-    }
+    result = search_market_prices(part_name)
+    return {**result, "source": "eBay", "lowest_price": result.get("lowest_price", 0),
+            "average_price": result.get("average_price", 0), "items": []}
 
-    params = {
-        "query": part_name,
-        "display": 10,
-        "sort": "sim"
-    }
-
-    try:
-        resp = requests.get(
-            "https://openapi.naver.com/v1/search/shop.json",
-            headers=headers,
-            params=params,
-            timeout=5
-        )
-
-        if resp.status_code != 200:
-            return {"source": "네이버 쇼핑", "error": "API 호출 실패", "items": []}
-
-        data = resp.json()
-        items = data.get("items", [])
-
-        if not items:
-            return {"source": "네이버 쇼핑", "error": "검색 결과 없음", "items": []}
-
-        prices = []
-        result_items = []
-
-        for item in items:
-            lprice = item.get("lprice", "0")
-            if lprice and lprice.isdigit():
-                price = int(lprice)
-                prices.append(price)
-                result_items.append({
-                    "title": item.get("title", "").replace("<b>", "").replace("</b>", ""),
-                    "price": price,
-                    "link": item.get("link", ""),
-                    "shop": item.get("shop", "")
-                })
-
-        if prices:
-            lowest = min(prices)
-            average = sum(prices) // len(prices)
-            return {
-                "source": "네이버 쇼핑",
-                "lowest_price": lowest,
-                "average_price": average,
-                "items": result_items[:3],
-                "price_updated": datetime.now().isoformat(timespec="seconds")
-            }
-        else:
-            return {"source": "네이버 쇼핑", "error": "유효한 가격 없음", "items": []}
-
-    except Exception as e:
-        print(f"네이버 쇼핑 API 오류: {e}")
-        return {"source": "네이버 쇼핑", "error": str(e), "items": []}
 
 def get_youtube_reviews(part_name: str) -> List[Dict]:
     """YouTube에서 부품 리뷰 채널 추출"""

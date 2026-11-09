@@ -83,3 +83,31 @@ test('direct access, network failures and empty queries have a usable recovery p
   await expect(page.getByRole('status')).toContainText('상품명이나 규격을 입력');
   await expect(page.locator('#shoppingLinks')).toBeHidden();
 });
+
+test('missing eBay credentials keep real shopping links available without a retry error', async ({ page, request }) => {
+  const response = await request.get('/api/purchase/products?query=NVMe%20SSD%201TB');
+  expect(response.status()).toBe(200);
+  expect(await response.json()).toMatchObject({ status: 'unconfigured', source: 'ebay_browse', products: [] });
+  await page.goto('/purchase.html?rule=HW-DISK-001');
+  await expect(page.getByRole('status')).toContainText('eBay 실시간 가격 연결이 아직 준비되지 않았습니다');
+  await expect(page.locator('#ebaySearch')).toHaveAttribute('href', `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent('NVMe SSD 1TB')}`);
+  await expect(page.locator('#naverSearch')).toBeVisible();
+  await expect(page.locator('#danawaSearch')).toHaveAttribute('href', `https://search.danawa.com/dsearch.php?query=${encodeURIComponent('NVMe SSD 1TB')}`);
+  await expect(page.locator('.purchase-product')).toHaveCount(0);
+});
+
+test('eBay prices retain native currency and unknown shipping instead of a won price or free delivery', async ({ page }) => {
+  await page.route('**/api/purchase/products?**', route => route.fulfill({ json: {
+    source: 'ebay_browse', status: 'ok', products: [{
+      title: 'Fixture SSD 1TB', mall: 'eBay', price: 99.95, amount: '99.95', currency: 'USD',
+      shipping: null, total: null, availability: 'unknown', url: 'https://www.ebay.com/itm/123456789012',
+    }, { title: 'invalid currency', price: 1, currency: 'XXX', url: 'https://www.ebay.com/itm/123456789013' }],
+  } }));
+  await page.goto('/purchase.html?rule=HW-DISK-001');
+  await expect(page.locator('.purchase-product')).toHaveCount(1);
+  await expect(page.locator('.purchase-product strong')).toContainText('USD');
+  await expect(page.locator('.purchase-product strong')).not.toContainText('원');
+  await expect(page.locator('.purchase-product')).toContainText('한국 배송비 미확인');
+  await expect(page.locator('.purchase-product')).toContainText('합계 미확인');
+  await expect(page.locator('.purchase-product')).toContainText('재고 미확인');
+});

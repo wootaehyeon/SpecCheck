@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import {
   Activity,
@@ -232,13 +232,29 @@ function CandidateComparison({ diagnosis, onUpdated }: {
   </Card>;
 }
 
+function subscribePreview(onChange: () => void) {
+  window.addEventListener('popstate', onChange);
+  return () => window.removeEventListener('popstate', onChange);
+}
+
+function readPreview() {
+  if (!['localhost', '127.0.0.1', '[::1]', '::1'].includes(window.location.hostname)) return null;
+  const preview = new URLSearchParams(window.location.search).get('preview');
+  return preview && ['analysis', 'purchase', 'm6', 'm7', 'm8'].includes(preview) ? preview : null;
+}
+
 export default function Home() {
-  const [diagnosis, setDiagnosis] = useState<Diagnosis | null>(diagnosticsConfig.demoMode ? demoDiagnosis : null);
+  const preview = useSyncExternalStore(subscribePreview, readPreview, () => null);
+  return <DiagnosticsHome key={preview ?? 'live'} preview={preview} />;
+}
+
+function DiagnosticsHome({ preview }: { preview: string | null }) {
+  const [diagnosis, setDiagnosis] = useState<Diagnosis | null>(preview === 'purchase' ? purchaseDiagnosis : preview || diagnosticsConfig.demoMode ? demoDiagnosis : null);
   const [diagnosisSource, setDiagnosisSource] = useState<'demo' | 'agent'>('demo');
   const [health, setHealth] = useState<AgentHealth | null>(null);
-  const [connectionState, setConnectionState] = useState<ConnectionState>('checking');
+  const [connectionState, setConnectionState] = useState<ConnectionState>(preview ? 'demo' : 'checking');
   const [starting, setStarting] = useState(false);
-  const [scanChecking, setScanChecking] = useState(true);
+  const [scanChecking, setScanChecking] = useState(!preview);
   const [scanDisconnected, setScanDisconnected] = useState(false);
   const [scanMonitoring, setScanMonitoring] = useState(false);
   const [loadingScanResult, setLoadingScanResult] = useState(false);
@@ -250,16 +266,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<'findings' | 'inventory' | 'sources'>('findings');
 
   useEffect(() => {
-    const isLocalPreview = ['localhost', '127.0.0.1', '[::1]', '::1'].includes(window.location.hostname);
-    const preview = new URLSearchParams(window.location.search).get('preview');
-    const isAnalysisPreview = isLocalPreview && (preview === 'analysis' || preview === 'purchase' || preview === 'm6' || preview === 'm7' || preview === 'm8');
-    if (isAnalysisPreview && !scanMonitoring) {
-      setDiagnosis(preview === 'purchase' ? purchaseDiagnosis : demoDiagnosis);
-      setDiagnosisSource('demo');
-      setConnectionState('demo');
-      setScanChecking(false);
-      return;
-    }
+    if (preview && !scanMonitoring) return;
     let active = true;
     let connectedBefore = false;
     let needsHydration = false;
@@ -363,7 +370,7 @@ export default function Home() {
     }
 
     return () => { active = false; controller.abort(); };
-  }, [scanMonitoring, resultRetry]);
+  }, [preview, scanMonitoring, resultRetry]);
 
   async function runScan() {
     if (connectionState === 'demo') setScanMonitoring(true);

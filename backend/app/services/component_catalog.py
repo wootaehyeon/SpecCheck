@@ -12,9 +12,9 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
 
-from app.core.config import PROJECT_ROOT, get_settings
+from app.core.config import get_settings
 
-SEED = PROJECT_ROOT / "backend" / "data" / "component_catalog.json"
+SEED = get_settings().component_catalog_seed_file
 
 
 class Product(BaseModel):

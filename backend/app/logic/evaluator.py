@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from app.services.price_manager import get_price
-from app.logic.compatibility import check_compatibility
+from app.logic.compatibility import check_compatibility, _find_component
 
 DATA_DIR = Path(__file__).parent.parent.parent / "data"
 
@@ -9,33 +9,6 @@ DATA_DIR = Path(__file__).parent.parent.parent / "data"
 def _load(filename: str) -> dict:
     with open(DATA_DIR / filename, "r", encoding="utf-8") as f:
         return json.load(f)
-
-
-def _find_component(benchmark: dict, query: str) -> tuple:
-    """부품명으로 벤치마크 데이터 검색 (부분 일치)"""
-    q = query.lower().strip()
-    if not q:
-        return None, None
-        
-    # 완전 일치
-    for name, data in benchmark.items():
-        if name.lower() == q:
-            return name, data
-    # 부분 일치
-    for name, data in benchmark.items():
-        if q in name.lower() or name.lower() in q:
-            return name, data
-    # 키워드 다수 일치
-    keywords = [k for k in q.split() if len(k) > 2]
-    best, best_cnt = None, 0
-    for name, data in benchmark.items():
-        cnt = sum(1 for k in keywords if k in name.lower())
-        if cnt > best_cnt:
-            best_cnt = cnt
-            best = (name, data)
-    if best and best_cnt > 0:
-        return best
-    return None, None
 
 
 def evaluate_build(build: dict) -> dict:
