@@ -7,8 +7,9 @@ Render가 발급하는 HTTPS 기본 주소를 공유할 수 있다. 프론트엔
 ## 공개 범위
 
 - 견적 입력·분석·가격 조회·시장 조사 웹과 해당 API를 제공한다.
-- 현재 웹의 성능·호환성 점수와 교체 추천은 예시 결과다. 공개 화면에 시범 서비스
-  안내가 표시된다. 완성된 진단·구매 판단 서비스로 안내하지 않는다.
+- 견적 화면은 서버 평가 API의 등록 벤치마크·호환성 결과와 입력 사양·예산을 사용한다.
+  등록 벤치마크를 현재 PC의 실측 성능으로 표시하지 않는다. 가격 조회 실패는 미확인으로
+  표시하고 교체 후보 가격은 직접 입력한다. 검증 범위는 [추가 검증 기록](validation-2026-11-09.md)을 따른다.
 - `TELEMETRY_API_ENABLED=false`로 `/api/scan/*`, `/api/diagnosis/*`를 등록하지 않는다.
   업로드, 기기 목록, 프로세스 이력, 저장된 진단 결과도 공개되지 않는다.
 - 공개하는 파일은 `frontend/web` 안의 파일뿐이다. 저장소 전체를 정적 서버로 열지 않는다.
@@ -59,9 +60,10 @@ Blueprint 대신 Web Service를 직접 만들 때의 설정:
 | `QUALITY_EVAL_ENABLED` | `false` | 선택적 게시글 품질 모델 비활성화 |
 
 네이버 실시간 가격을 사용하려면 Render의 **Environment**에 `NAVER_CLIENT_ID`,
-`NAVER_CLIENT_SECRET`을 입력하고 재배포한다. 없으면 가격 조회 API가 오류 정보를
-반환하며, 기존 웹은 샘플 가격으로 대체할 수 있다. 샘플 결과를 실제 시세 검증에
-사용하지 않는다. 필요하면 `EBAY_OAUTH_TOKEN`도 서버 환경변수로 추가한다.
+`NAVER_CLIENT_SECRET`을 입력하고 재배포한다. 실제 제공자와 필요한 키는 사용하는
+API의 설정을 확인한다. 현재 eBay 기반 가격·상품 경로에는 `EBAY_OAUTH_TOKEN` 또는
+`EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET`이 필요하다. 없으면 오류 또는 미설정 상태를
+반환하며 기존 웹도 샘플 가격으로 대체하지 않는다. 외화 판매가는 원화와 자동 비교하지 않는다.
 
 `.env` 파일이나 API 키를 GitHub·프론트엔드에 올리지 않는다.
 공개 웹 런타임은 `requirements-web.txt`를 사용하므로 torch/transformers를

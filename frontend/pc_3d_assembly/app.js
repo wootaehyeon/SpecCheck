@@ -46,7 +46,11 @@ function show(msg){toast.textContent=msg;}
 function mountedType(t){return parts.some(p=>p.type===t && p.mounted);}
 function canMount(part){const s=slots[part.targetSlot]; if(!s) return {ok:false,msg:'알 수 없는 장착 위치입니다.'}; const req=s.requires||[]; for(const r of req){ if(!mountedType(r)) return {ok:false,msg:`${r==='motherboard'?'메인보드':r.toUpperCase()}를 먼저 장착해야 합니다.`}; } return {ok:true,msg:''};}
 function mountPart(part){const chk=canMount(part); if(!chk.ok){show(chk.msg); return;} part.mounted=true; show(`${part.name} 장착 완료`); selectedId=null; renderUI(); draw();}
-function unmountPart(part){ part.mounted=false; show(`${part.name} 장착이 해제되었습니다.`); renderUI(); draw(); }
+function unmountPart(part){
+  const dependent = parts.find(p=>p.mounted && p.id!==part.id && (slots[p.targetSlot]?.requires||[]).includes(part.type));
+  if(dependent){show(`${dependent.name}을 먼저 해제해야 합니다.`);return;}
+  part.mounted=false; show(`${part.name} 장착이 해제되었습니다.`); renderUI(); draw();
+}
 
 function project(p){
   const [x,y,z]=p;
