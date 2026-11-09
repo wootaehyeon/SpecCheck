@@ -17,6 +17,10 @@ header nav [aria-current] { color: var(--bt_foreground); border-bottom: 2px soli
 .monitor-help { color: var(--bt_muted); line-height: 1.8; margin: 12px 0; overflow-wrap: anywhere; }
 .monitor-main a.btn { text-decoration: none; display: inline-block; }
 .monitor-main .button-row { flex-wrap: wrap; }
+.monitor-pairing { border: 1px solid var(--bt_cta-outline-text); }
+.monitor-code-row { display: flex; align-items: center; flex-wrap: wrap; gap: 20px; }
+.monitor-code { font: 600 clamp(30px, 6vw, 48px)/1.4 Consolas, monospace; letter-spacing: .08em; overflow-wrap: anywhere; }
+.monitor-main a[aria-disabled="true"] { opacity: .5; pointer-events: none; }
 .monitor-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
 .monitor-metrics strong { display: block; font-size: 30px; margin-top: 12px; }
 .monitor-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }

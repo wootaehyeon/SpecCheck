@@ -1,0 +1,2 @@
+# Build on Windows with Python 3.12; end users do not install these packages.
+PyInstaller==6.22.3

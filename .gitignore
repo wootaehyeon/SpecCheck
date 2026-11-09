@@ -94,6 +94,10 @@ snapshots/
 # Agent 전송키와 브라우저 조회키가 포함된 연결 설정
 speccheck-monitor*.json
 speccheck-reader*.json
+agent/releases/*
+!agent/releases/.gitkeep
+desktop-connection.dat
+desktop-connection.tmp
 
 # 외부 데이터셋 (e9t/nsmc 클론) - 커밋 대상 아님
 nsmc/

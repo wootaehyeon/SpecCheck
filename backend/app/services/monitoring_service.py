@@ -20,12 +20,18 @@ from app.schemas.telemetry import TelemetrySnapshot
 
 RETENTION_SECONDS = 7 * 24 * 3600
 ACCESS_SECONDS = 90 * 24 * 3600
+PAIRING_SECONDS = 10 * 60
+CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 metadata = MetaData()
 devices = Table("monitor_devices", metadata,
     Column("id", String(36), primary_key=True), Column("name", String(64), nullable=False),
     Column("read_hash", String(64), unique=True, nullable=False),
     Column("write_hash", String(64), unique=True), Column("security_allowed", Boolean, nullable=False),
     Column("consent_at", Float, nullable=False), Column("expires_at", Float, nullable=False))
+pairing_codes = Table("monitor_pairing_codes", metadata,
+    Column("code_hash", String(64), primary_key=True),
+    Column("device_id", String(36), ForeignKey("monitor_devices.id", ondelete="CASCADE"), unique=True, nullable=False),
+    Column("expires_at", Float, nullable=False), Column("redeemed_at", Float))
 samples = Table("monitor_samples", metadata,
     Column("device_id", String(36), ForeignKey("monitor_devices.id", ondelete="CASCADE"), primary_key=True),
     Column("snapshot_id", String(64), primary_key=True), Column("received_at", Float, nullable=False),
@@ -84,6 +90,7 @@ def pair(name: str, security_allowed: bool) -> dict:
         expired = select(devices.c.id).where(devices.c.expires_at < now)
         conn.execute(delete(events).where(events.c.device_id.in_(expired)))
         conn.execute(delete(samples).where(samples.c.device_id.in_(expired)))
+        conn.execute(delete(pairing_codes).where(pairing_codes.c.device_id.in_(expired)))
         conn.execute(delete(devices).where(devices.c.expires_at < now))
         conn.execute(devices.insert().values(**device))
     return {"device_id": device["id"], "name": name, "reader_token": read_token,
@@ -105,6 +112,49 @@ def issue_writer(device: dict) -> str:
     with engine().begin() as conn:
         conn.execute(update(devices).where(devices.c.id == device["id"]).values(write_hash=token_hash(token)))
     return token
+
+
+def issue_pairing_code(device: dict) -> dict:
+    """Reissuing a code leaves the running Agent's credentials intact."""
+    code = "".join(secrets.choice(CODE_ALPHABET) for _ in range(8))
+    expires_at = min(time.time() + PAIRING_SECONDS, device["expires_at"])
+    with engine().begin() as conn:
+        # Serialize issuance/redemption for the same device across server workers.
+        conn.execute(update(devices).where(devices.c.id == device["id"])
+                     .values(name=devices.c.name))
+        conn.execute(delete(pairing_codes).where(pairing_codes.c.device_id == device["id"]))
+        conn.execute(pairing_codes.insert().values(code_hash=token_hash(code),
+                     device_id=device["id"], expires_at=expires_at))
+    return {"code": code[:4] + "-" + code[4:], "expires_at": expires_at}
+
+
+def redeem_pairing_code(code: str) -> dict | None:
+    code_hash = token_hash(code.upper().replace("-", "").replace(" ", ""))
+    now = time.time()
+    with engine().begin() as conn:
+        candidate = conn.execute(select(pairing_codes.c.device_id).where(
+            pairing_codes.c.code_hash == code_hash, pairing_codes.c.expires_at > now,
+            pairing_codes.c.redeemed_at.is_(None))).scalar_one_or_none()
+        if candidate is None:
+            return None
+        # Lock in the same order as issuance: device, then its code.
+        conn.execute(update(devices).where(devices.c.id == candidate).values(name=devices.c.name))
+        # Atomic UPDATE RETURNING makes a code single-use, including concurrent requests.
+        device_id = conn.execute(update(pairing_codes).where(
+            pairing_codes.c.code_hash == code_hash, pairing_codes.c.expires_at > now,
+            pairing_codes.c.redeemed_at.is_(None)).values(redeemed_at=now)
+            .returning(pairing_codes.c.device_id)).scalar_one_or_none()
+        if device_id is None:
+            return None
+        device = conn.execute(select(devices).where(devices.c.id == device_id,
+            devices.c.expires_at > now)).mappings().first()
+        if device is None:
+            return None
+        token = "sc_write_" + secrets.token_urlsafe(32)
+        conn.execute(update(devices).where(devices.c.id == device_id).values(write_hash=token_hash(token)))
+        return {"version": 1, "device_id": device_id, "name": device["name"],
+                "writer_token": token, "security_consent": device["security_allowed"],
+                "consent_version": "monitor-v1", "consent_at": device["consent_at"], "interval": 30}
 
 
 def set_security_consent(device: dict, accepted: bool) -> dict:
@@ -169,8 +219,12 @@ def latest(device: dict) -> dict:
         row = conn.execute(select(samples).where(samples.c.device_id == device["id"],
             samples.c.received_at >= time.time() - RETENTION_SECONDS)
             .order_by(samples.c.received_at.desc()).limit(1)).mappings().first()
+        code = conn.execute(select(pairing_codes).where(pairing_codes.c.device_id == device["id"])).mappings().first()
+    pairing_state = ("connected" if code["redeemed_at"] else "pending" if code["expires_at"] > time.time() else "expired") if code else "none"
     result = {"device_id": device["id"], "name": device["name"],
-              "security_allowed": device["security_allowed"], "snapshot": None}
+              "security_allowed": device["security_allowed"],
+              "agent_connected": bool(device["write_hash"]), "pairing_state": pairing_state,
+              "paired_at": code["redeemed_at"] if code else None, "snapshot": None}
     if row:
         result.update(snapshot=json.loads(zlib.decompress(row["payload"])), received_at=row["received_at"],
                       diagnosis=json.loads(row["diagnosis"]), metrics=json.loads(row["metrics"]))
@@ -195,6 +249,7 @@ def process_events(device: dict, limit: int) -> list[dict]:
 
 def disconnect(device: dict) -> None:
     with engine().begin() as conn:
+        conn.execute(delete(pairing_codes).where(pairing_codes.c.device_id == device["id"]))
         conn.execute(delete(events).where(events.c.device_id == device["id"]))
         conn.execute(delete(samples).where(samples.c.device_id == device["id"]))
         conn.execute(delete(devices).where(devices.c.id == device["id"]))

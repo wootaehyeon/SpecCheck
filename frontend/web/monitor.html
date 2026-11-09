@@ -13,34 +13,53 @@
   </nav></header>
   <main class="monitor-main">
     <section class="monitor-heading"><div><p class="monitor-eyebrow">MY PC / ACTUAL TELEMETRY</p>
-      <h1>내 PC 모니터링</h1><p>Windows Agent가 수집한 실제 상태를 확인하세요.</p></div>
+      <h1>내 PC 모니터링</h1><p>프로그램을 실행하고 연결 코드만 입력하세요.</p></div>
       <span id="connectionStatus" class="monitor-status">연결 확인 중</span>
     </section>
     <p id="monitorMessage" class="service-notice" role="status" aria-live="polite">서버 설정을 확인하고 있습니다.</p>
 
+    <section id="downloadPanel" class="card monitor-setup">
+      <div class="section-title"><h2>내 PC 연결, 세 단계면 끝나요</h2><p>Windows 10·11 x64용 · Python 설치와 설정 파일 이동이 필요하지 않습니다.</p></div>
+      <ol class="monitor-steps"><li><strong>프로그램 다운로드</strong><span>아래 Windows용 프로그램을 다운로드하세요.</span></li>
+        <li><strong>다운로드한 파일 실행</strong><span>SpecCheck-Agent.exe를 더블클릭하세요.</span></li>
+        <li><strong>연결 코드 입력</strong><span>웹의 코드를 프로그램에 입력하고 ‘연결하고 시작’을 누르세요.</span></li></ol>
+      <a id="downloadAgent" class="btn btn-primary" href="/api/monitor/agent.exe" download>Windows용 다운로드</a>
+      <p id="downloadMessage" class="monitor-help">프로그램을 실행한 상태에서 아래 연결 코드를 발급해주세요.</p>
+    </section>
+
     <section id="setupPanel" class="card monitor-setup">
-      <div class="section-title"><h2>내 PC 연결</h2><p>웹페이지는 PC 정보를 직접 읽지 않습니다. 본인의 Windows PC에서 Agent를 실행하면 여기에 표시됩니다.</p></div>
-      <ol class="monitor-steps"><li><strong>연결 설정 저장</strong><span>아래 항목에 동의하고 내 PC 연결을 누르세요.</span></li>
-        <li><strong>Agent 다운로드</strong><span>ZIP 압축을 풀고 연결 설정 파일을 같은 폴더에 넣으세요.</span></li>
-        <li><strong>PC에서 실행</strong><span>Python 3.10 이상이 필요합니다. Start-SpecCheck.cmd를 실행하고 Y를 눌러 시작하세요.</span></li></ol>
+      <div class="section-title"><h2>연결 코드 받기</h2><p>본인의 Windows PC에서 수집할 항목을 확인해주세요.</p></div>
       <label class="monitor-field" for="deviceName">PC 이름<input id="deviceName" maxlength="64" value="내 PC" autocomplete="off" /></label>
       <label class="monitor-consent"><input id="basicConsent" type="checkbox" />
         <span>하드웨어 사양, CPU·메모리·디스크 부하, 지원되는 온도, 상위 점유 프로세스 이름을 수집하고 이 서버에 전송하는 데 동의합니다.</span></label>
       <label class="monitor-consent"><input id="securityConsent" type="checkbox" />
         <span><strong>선택:</strong> Sysmon 프로세스 시작·종료 이력도 수집·전송합니다. Sysmon 사전 설치와 관리자 권한이 필요하며, 실행 파일명·이벤트 시각만 전송합니다. 명령줄·전체 경로·사용자 이름은 제외합니다.</span></label>
       <p class="monitor-help">서버 이력은 7일, 연결키는 90일 동안 유지됩니다. 브라우저에 조회키를 저장하며, 연결 해제로 서버 이력과 키를 삭제할 수 있습니다. Agent를 중단해도 로컬 원본은 PC에 남습니다.</p>
-      <div class="button-row"><button id="pairButton" class="btn btn-primary" disabled>내 PC 연결하고 설정 저장</button>
-        <a class="btn btn-secondary" href="/api/monitor/agent.zip" download>Agent ZIP 다운로드</a>
+      <div class="button-row"><button id="pairButton" class="btn btn-primary" disabled>연결 코드 받기</button>
         <label class="btn btn-secondary" for="restoreReader">조회키 불러오기</label><input id="restoreReader" type="file" accept=".json" hidden /></div>
+    </section>
+
+    <section id="connectionPanel" class="card monitor-pairing" hidden aria-labelledby="pairingTitle">
+      <div class="monitor-toolbar"><div><h2 id="pairingTitle">프로그램에 연결 코드를 입력하세요</h2>
+        <p id="pairingHelp" class="monitor-help">프로그램에서 ‘연결하고 시작’을 누르면 자동으로 연결됩니다.</p></div>
+        <button id="newCodeButton" class="btn btn-secondary">새 코드 발급</button></div>
+      <div class="monitor-code-row"><output id="pairingCode" class="monitor-code" aria-label="연결 코드">—</output>
+        <button id="copyCodeButton" class="btn btn-secondary" disabled>코드 복사</button></div>
+      <p id="codeExpiry" class="monitor-help" role="timer" aria-live="off"></p>
+      <p class="monitor-help">프로그램의 서버 주소: <strong id="serverOrigin"></strong></p>
+      <p id="pairingProgress" class="monitor-help" role="status" aria-live="polite">프로그램 연결 대기 중</p>
+      <div class="button-row"><button id="checkConnectionButton" class="btn btn-secondary">연결 확인</button>
+        <button id="cancelConnectionButton" class="btn btn-secondary">연결 취소</button>
+        <a id="downloadAgentAgain" class="btn btn-secondary" href="/api/monitor/agent.exe" download>프로그램 다시 다운로드</a></div>
     </section>
 
     <section id="dashboardPanel" hidden>
       <div class="monitor-toolbar"><div><h2 id="connectedName">내 PC</h2><p id="lastSeen">아직 Agent가 연결되지 않았습니다.</p></div>
         <div class="button-row"><button id="refreshButton" class="btn btn-secondary">새로고침</button>
-          <button id="configButton" class="btn btn-secondary">연결 설정 다시 저장</button>
+          <button id="configButton" class="btn btn-secondary">프로그램 다시 연결</button>
           <button id="backupButton" class="btn btn-secondary">조회키 백업</button>
           <button id="disconnectButton" class="btn btn-secondary">연결 해제·서버 이력 삭제</button></div></div>
-      <p class="monitor-help">Agent ZIP 압축을 푼 폴더에 speccheck-monitor.json을 넣고 Start-SpecCheck.cmd를 실행하세요. 프로세스 이력을 선택했다면 우클릭 → 관리자 권한으로 실행하세요. Ctrl+C로 수집과 전송을 중단할 수 있습니다.</p>
+      <p class="monitor-help">프로그램을 다시 실행하면 저장된 연결로 수집합니다. 프로그램에서 ‘수집 중지’를 누르거나 창을 닫으면 중단됩니다.</p>
       <div class="monitor-metrics">
         <article class="summary-card"><span>CPU 사용률 · 샘플 평균</span><strong id="cpuMetric">—</strong></article>
         <article class="summary-card"><span>사용 가능한 메모리</span><strong id="memoryMetric">—</strong></article>
@@ -59,7 +78,7 @@
       <section class="card"><div class="monitor-toolbar"><h2>프로세스 이벤트 이력</h2>
         <button id="securityToggleButton" class="btn btn-secondary" disabled>Sysmon 수집 켜기</button></div>
         <p id="securityConsentState" class="monitor-help">Sysmon 수집 설정을 확인하고 있습니다.</p>
-        <p class="monitor-help">Sysmon이 설치된 PC에서 관리자 권한으로 Agent를 실행해야 합니다. 켜거나 끄면 새 연결 설정이 저장됩니다. 기존 Agent를 중단하고 새 설정으로 다시 실행하세요.</p>
+        <p class="monitor-help">Sysmon이 설치된 PC에서 관리자 권한으로 프로그램을 실행해야 합니다. 설정을 바꾸면 새 연결 코드를 프로그램에 입력해주세요.</p>
         <p id="securityState" class="monitor-help">선택적으로 동의한 Sysmon 이벤트만 표시합니다.</p>
         <div class="table-wrap"><table><thead><tr><th>시각</th><th>종류</th><th>프로세스</th><th>부모 프로세스</th></tr></thead><tbody id="eventBody"></tbody></table></div></section>
     </section>

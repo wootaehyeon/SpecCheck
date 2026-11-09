@@ -27,6 +27,7 @@ def client(request, tmp_path, monkeypatch):
     monkeypatch.setattr(cfg, "telemetry_api_enabled", False)
     monkeypatch.setattr(cfg, "serve_frontend", True)
     monitoring._pair_attempts.clear()
+    monitoring._redeem_attempts.clear()
     with TestClient(create_app()) as test_client:
         yield test_client
     service.database(url).dispose()
@@ -201,3 +202,87 @@ def test_missing_database_fails_closed(client, monkeypatch):
     assert client.get("/api/monitor/status").json()["enabled"] is False
     assert client.post("/api/monitor/pair", json={"accepted": True}).status_code == 503
     assert client.get("/api/monitor/latest").status_code == 503
+
+
+def test_code_is_authenticated_single_use_and_only_grants_upload_access(client):
+    device, owner, old_writer = connect(client)
+    assert client.post('/api/monitor/pairing-code').status_code == 401
+    assert client.post('/api/monitor/pairing-code', headers=old_writer).status_code == 401
+    issued = client.post('/api/monitor/pairing-code', headers=owner).json()
+    assert len(issued['code']) == 9 and issued['code'][4] == '-'
+    assert 590 < issued['expires_at'] - time.time() <= 600
+    with service.engine().connect() as conn:
+        stored = conn.execute(select(service.pairing_codes)).mappings().one()
+    assert stored['code_hash'] == service.token_hash(issued['code'].replace('-', ''))
+    assert issued['code'] not in str(stored)
+    assert client.get('/api/monitor/latest', headers=owner).json()['pairing_state'] == 'pending'
+    # Showing/reissuing a code must not stop an Agent that is already running.
+    assert client.post('/api/monitor/snapshots', json=payload(device['device_id']), headers=old_writer).status_code == 201
+    assert client.post('/api/monitor/redeem', json={'code': issued['code'], 'accepted': False}).status_code == 422
+    result = client.post('/api/monitor/redeem', json={'code': issued['code'].lower(), 'accepted': True})
+    assert result.status_code == 200
+    config = result.json()
+    assert config['device_id'] == device['device_id']
+    assert 'reader_token' not in config and 'read_hash' not in config
+    new_writer = {'Authorization': 'Bearer ' + config['writer_token']}
+    assert client.get('/api/monitor/latest', headers=new_writer).status_code == 401
+    assert client.post('/api/monitor/redeem', json={'code': issued['code'], 'accepted': True}).status_code == 400
+    assert client.post('/api/monitor/snapshots', json=payload(device['device_id']), headers=old_writer).status_code == 401
+    assert client.post('/api/monitor/snapshots', json=payload(device['device_id']), headers=new_writer).status_code == 201
+    assert client.get('/api/monitor/latest', headers=owner).json()['pairing_state'] == 'connected'
+
+
+def test_reissued_expired_and_disconnected_codes_cannot_connect(client):
+    device, owner, sender = connect(client)
+    first = client.post('/api/monitor/pairing-code', headers=owner).json()['code']
+    second = client.post('/api/monitor/pairing-code', headers=owner).json()['code']
+    assert client.post('/api/monitor/redeem', json={'code': first, 'accepted': True}).status_code == 400
+    service.engine().dispose()
+    service.database.cache_clear()
+    # Codes survive restarts and remain scoped to their owning device.
+    config = client.post('/api/monitor/redeem', json={'code': second, 'accepted': True}).json()
+    assert config['device_id'] == device['device_id']
+    expired = client.post('/api/monitor/pairing-code', headers=owner).json()['code']
+    with service.engine().begin() as conn:
+        conn.execute(update(service.pairing_codes).where(service.pairing_codes.c.device_id == device['device_id']).values(expires_at=0))
+    assert client.get('/api/monitor/latest', headers=owner).json()['pairing_state'] == 'expired'
+    assert client.post('/api/monitor/redeem', json={'code': expired, 'accepted': True}).status_code == 400
+    removed = client.post('/api/monitor/pairing-code', headers=owner).json()['code']
+    assert client.delete('/api/monitor/connection', headers=owner).status_code == 204
+    assert client.post('/api/monitor/redeem', json={'code': removed, 'accepted': True}).status_code == 400
+
+
+def test_parallel_redemption_has_exactly_one_winner(client):
+    from concurrent.futures import ThreadPoolExecutor
+    _, owner, _ = connect(client)
+    code = client.post('/api/monitor/pairing-code', headers=owner).json()['code']
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(service.redeem_pairing_code, [code, code]))
+    assert sum(result is not None for result in results) == 1
+
+
+def test_invalid_codes_are_rate_limited(client):
+    for _ in range(10):
+        assert client.post('/api/monitor/redeem', json={'code': 'AAAA-BBBB', 'accepted': True}).status_code == 400
+    assert client.post('/api/monitor/redeem', json={'code': 'AAAA-BBBB', 'accepted': True}).status_code == 429
+
+
+def test_windows_download_serves_binary_or_explicit_unavailable(client, monkeypatch, tmp_path):
+    cfg = get_settings()
+    binary = tmp_path / 'SpecCheck-Agent.exe'
+    monkeypatch.setattr(cfg, 'monitoring_agent_exe', binary)
+    monkeypatch.setattr(cfg, 'monitoring_agent_download_url', '')
+    assert client.get('/api/monitor/status').json()['agent_download_available'] is False
+    assert client.get('/api/monitor/agent.exe').status_code == 503
+    binary.write_bytes(b'MZ-synthetic-test-binary')
+    response = client.get('/api/monitor/agent.exe')
+    assert response.status_code == 200 and response.content == binary.read_bytes()
+    assert 'SpecCheck-Agent.exe' in response.headers['content-disposition']
+    assert client.get('/api/monitor/status').json()['agent_download_available'] is True
+    monkeypatch.setattr(cfg, 'monitoring_agent_exe', tmp_path / 'not-present.exe')
+    monkeypatch.setattr(cfg, 'monitoring_agent_download_url', 'https://downloads.example.com/SpecCheck-Agent.exe')
+    response = client.get('/api/monitor/agent.exe', follow_redirects=False)
+    assert response.status_code == 307
+    assert response.headers['location'] == cfg.monitoring_agent_download_url
+    monkeypatch.setattr(cfg, 'monitoring_agent_download_url', 'http://downloads.example.com/Agent.exe')
+    assert client.get('/api/monitor/agent.exe', follow_redirects=False).status_code == 503

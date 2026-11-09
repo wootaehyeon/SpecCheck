@@ -5,6 +5,9 @@ const root = path.resolve(__dirname, '../..');
 const temp = path.join(root, '.deployment-tmp');
 fs.mkdirSync(temp, { recursive: true });
 const run = fs.mkdtempSync(path.join(temp, 'ui-monitor-'));
+// Download routing is tested without shipping a real executable in the test fixture.
+const agentBinary = path.join(run, 'SpecCheck-Agent.exe');
+fs.writeFileSync(agentBinary, 'MZ-synthetic-browser-test-binary');
 const python = process.env.SPECCHECK_TEST_PYTHON || 'python';
 module.exports = defineConfig({
   testDir: __dirname,
@@ -26,6 +29,7 @@ module.exports = defineConfig({
       SERVE_FRONTEND: 'true', TELEMETRY_API_ENABLED: 'false', MONITORING_ENABLED: 'true',
       MONITORING_DATABASE_URL: `sqlite:///${path.join(run, 'monitor.db').replaceAll('\\', '/')}`,
       DATA_DIR: run,
+      MONITORING_AGENT_EXE: agentBinary,
       NAVER_CLIENT_ID: '', NAVER_CLIENT_SECRET: '', OPENAI_API_KEY: '',
     },
   },

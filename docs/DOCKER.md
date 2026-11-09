@@ -69,7 +69,8 @@ MONITORING_DATABASE_URL=sqlite:////app/backend/data/monitoring.db
 ## Windows Agent 연결
 
 Agent는 Windows의 WMI/CIM·이벤트 로그를 사용하므로 Windows PC에서 실행한다.
-웹과 API만 Linux 컨테이너에서 실행하며, Agent를 사용할 PC에는 Python 3.10 이상이 필요하다.
+웹과 API만 Linux 컨테이너에서 실행한다. Windows GUI 사용자는 Python을 설치하지 않는다.
+아래 CLI를 직접 실행하는 개발 환경에서는 Python 3.10 이상이 필요하다.
 
 한 번 스캔해서 Docker의 API로 업로드하려면:
 
@@ -82,7 +83,8 @@ $env:SPECCHECK_BACKEND_URL = 'http://127.0.0.1:8080'
 .\scripts\scan.ps1 --upload
 ```
 
-지속적인 모니터링은 웹의 **내 PC 모니터링**에서 연결 설정과 Agent ZIP을 내려받고
+지속적인 모니터링은 웹의 **내 PC 모니터링**에서 Windows 프로그램을 내려받아 실행하고 연결 코드를 입력한다.
+EXE를 제공하려면 Windows 빌드를 `agent/releases`에 넣거나 `MONITORING_AGENT_DOWNLOAD_URL`을 설정한 뒤
 [MONITORING.md의 사용자 연결 절차](MONITORING.md#사용자-연결)를 따른다.
 Docker를 실행하는 것만으로 PC 수집이 시작되지는 않는다.
 
