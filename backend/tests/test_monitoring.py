@@ -106,6 +106,49 @@ def test_history_and_connection_survive_recreated_engine(client):
         assert len(restarted.get("/api/monitor/history", headers=owner).json()) == 1
 
 
+def test_monitor_diagnosis_includes_matching_purchase_candidates_and_clears_after_recovery(client):
+    device, owner, sender = connect(client)
+    body = payload(device["device_id"], "memory-pressure")
+    body["sections"]["hardware"]["data"]["memory"] = {
+        "total_gb": 8, "modules": [{"rated_speed_mhz": 3200}], "empty_slot_count": 2,
+    }
+    body["sections"]["performance"]["data"]["memory"] = {
+        "available_mb": {"avg": 500}, "committed_percent": {"avg": 96},
+    }
+    assert client.post("/api/monitor/snapshots", json=body, headers=sender).status_code == 201
+    latest = client.get("/api/monitor/latest", headers=owner).json()
+    recommendations = latest["diagnosis"]["recommendations"]
+    assert recommendations
+    assert "PF-MEM-001" in recommendations[0]["findingIds"]
+    preferred = next(item for item in recommendations[0]["candidates"] if item["recommended"])
+    assert preferred["parts"][0]["searchQuery"]
+    assert "DDR4" in preferred["parts"][0]["specifications"]
+    assert all(part["category"] == "memory" for part in preferred["parts"])
+    service.engine().dispose()
+    service.database.cache_clear()
+    assert client.get("/api/monitor/latest", headers=owner).json()["diagnosis"]["recommendations"] == recommendations
+    recovered = payload(device["device_id"], "recovered")
+    assert client.post("/api/monitor/snapshots", json=recovered, headers=sender).status_code == 201
+    assert client.get("/api/monitor/latest", headers=owner).json()["diagnosis"]["recommendations"] == []
+
+
+def test_catalog_failure_keeps_monitor_diagnosis(client, monkeypatch):
+    from app.diagnosis import recommendations
+
+    def unavailable(*args):
+        raise ValueError("catalog unavailable")
+
+    monkeypatch.setattr(recommendations, "build_recommendations", unavailable)
+    device, owner, sender = connect(client)
+    body = payload(device["device_id"])
+    body["sections"]["hardware"]["data"]["memory"]["total_gb"] = 4
+    assert client.post("/api/monitor/snapshots", json=body, headers=sender).status_code == 201
+    diagnosis = client.get("/api/monitor/latest", headers=owner).json()["diagnosis"]
+    assert diagnosis["findings"]
+    assert diagnosis["recommendations"] == []
+    assert diagnosis["recommendations_unavailable"] is True
+
+
 def test_process_consent_and_event_deduplication(client):
     device, owner, sender = connect(client)
     assert client.post("/api/monitor/snapshots", json=payload(device["device_id"], security=True), headers=sender).status_code == 403

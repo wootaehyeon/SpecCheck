@@ -35,6 +35,15 @@ header nav [aria-current] { color: var(--bt_foreground); border-bottom: 2px soli
 .monitor-finding { padding: 16px 0; border-bottom: 1px solid var(--bt_hairline); line-height: 1.8; }
 .monitor-finding p { margin-top: 8px; }
 .monitor-finding .btn { margin-top: 16px; }
+.monitor-purchase { border: 1px solid var(--bt_cta-outline-text); scroll-margin-top: 24px; }
+.monitor-products { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 20px; }
+.monitor-product { min-width: 0; padding: 20px; border: 1px solid var(--bt_hairline-strong); border-radius: 12px; line-height: 1.8; overflow-wrap: anywhere; }
+.monitor-product h3 { font-size: 18px; margin-bottom: 10px; }
+.monitor-product p, .monitor-product ul { margin: 10px 0; }
+.monitor-product ul { padding-left: 20px; color: var(--bt_muted); }
+.monitor-product .button-row { gap: 10px; margin-top: 16px; }
+.monitor-offers { margin-top: 16px; border-top: 1px solid var(--bt_hairline); }
+.monitor-offer { padding-top: 14px; }
 [hidden] { display: none !important; }
 @media (max-width: 760px) {
   .monitor-heading, .monitor-toolbar { align-items: flex-start; flex-direction: column; }

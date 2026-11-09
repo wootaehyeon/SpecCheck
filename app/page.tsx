@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import {
   Activity,
@@ -128,15 +128,34 @@ function CandidateComparison({ diagnosis, onUpdated }: {
   onUpdated: () => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  if (diagnosis.recommendations.length === 0) return null;
+  if (diagnosis.recommendations.length === 0) return <Alert className="border-emerald-400/20 bg-emerald-400/5">
+    <Check />
+    <AlertTitle>지금 추천할 구매 물품이 없습니다</AlertTitle>
+    <AlertDescription>{diagnosis.decision.action === 'purchase' ? '교체 검토가 필요하지만 정확한 상품을 정할 정보가 부족합니다. 진단 조치와 부품 규격을 먼저 확인하세요.' : '수집된 범위에서 구매가 필요한 부품을 찾지 못했습니다. 진단의 유지·수정 조치를 먼저 확인하세요.'}</AlertDescription>
+  </Alert>;
 
   return <Card className="border border-orange-400/15 bg-card/65">
     <CardHeader>
       <CardDescription>진단 근거 기반 호환성 검증</CardDescription>
-      <CardTitle>문제 부품 중심 교체 제안</CardTitle>
+      <CardTitle>진단에 맞는 추천 구매 물품</CardTitle>
       <CardAction><HardDrive className="size-5 text-orange-300" /></CardAction>
     </CardHeader>
     <CardContent className="space-y-6">
+      <div className="grid gap-4 sm:grid-cols-2">
+        {diagnosis.recommendations.flatMap(recommendation => recommendation.candidates.filter(candidate => candidate.recommended).map(candidate => (
+          <div key={recommendation.id} className="rounded-xl border border-primary/25 bg-primary/5 p-4">
+            <Badge variant="outline" className={recommendationTone[recommendation.priority]}>{priorityLabels[recommendation.priority]} 추천</Badge>
+            <h3 className="mt-3 text-base font-semibold">{candidate.title}</h3>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">{recommendation.description}</p>
+            <p className="mt-2 text-xs text-amber-300">{candidate.compatibilityStatus === 'passed' ? '수집된 조건 일치 · 장착 환경 최종 확인' : '구매 전 장착 조건 추가 확인 필요'}</p>
+            {candidate.parts.map(part => <div key={part.key} className="mt-3 flex flex-wrap gap-3 text-xs text-primary">
+              <a href={`https://search.shopping.naver.com/search/all?query=${encodeURIComponent(part.searchQuery)}`} target="_blank" rel="noreferrer">{part.name} 구매 찾기 ↗</a>
+              <a href={`https://search.danawa.com/dsearch.php?query=${encodeURIComponent(part.searchQuery)}`} target="_blank" rel="noreferrer">다나와 가격 비교 ↗</a>
+            </div>)}
+          </div>
+        )))}
+      </div>
+      <p className="text-xs text-muted-foreground">진단이 끝나면 추천이 자동으로 표시됩니다. 판매 가격·재고는 판매처에서 확인하세요.</p>
       {diagnosis.recommendations.map((recommendation) => (
         <section key={recommendation.id} className="border-t border-white/6 pt-5 first:border-t-0 first:pt-0">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -264,6 +283,17 @@ function DiagnosticsHome({ preview }: { preview: string | null }) {
   const [resultFailed, setResultFailed] = useState(false);
   const [resultRetry, setResultRetry] = useState(0);
   const [activeTab, setActiveTab] = useState<'findings' | 'inventory' | 'sources'>('findings');
+  const requestedRun = useRef<string | null>(null);
+  const purchasePanel = useRef<HTMLElement | null>(null);
+  const purchaseReady = !!diagnosis && !running && !resultFailed && !scanDisconnected &&
+    (!scanStatus?.runId || scanStatus.status === 'idle' || (scanStatus.status === 'completed' && scanStatus.scanId === diagnosis.scanId));
+
+  useEffect(() => {
+    if (!purchaseReady || !scanStatus?.runId || requestedRun.current !== scanStatus.runId) return;
+    requestedRun.current = null;
+    purchasePanel.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' });
+    purchasePanel.current?.focus({ preventScroll: true });
+  }, [purchaseReady, scanStatus?.runId]);
 
   useEffect(() => {
     if (preview && !scanMonitoring) return;
@@ -379,6 +409,7 @@ function DiagnosticsHome({ preview }: { preview: string | null }) {
     setResultFailed(false);
     try {
       const status = await startBasicScan();
+      requestedRun.current = status.runId;
       setScanStatus(status);
       setScanChecking(false);
     } catch (cause) {
@@ -431,8 +462,8 @@ function DiagnosticsHome({ preview }: { preview: string | null }) {
         <section aria-labelledby="agent-intro" className="mb-6 grid items-center gap-5 rounded-xl border border-primary/15 bg-gradient-to-br from-primary/8 via-card/60 to-card/30 p-5 sm:p-7 lg:grid-cols-[minmax(0,1fr)_auto]">
           <div>
             <p className="mb-2 text-[11px] font-semibold tracking-wide text-primary">WINDOWS AGENT → 진단 서버</p>
-            <h1 id="agent-intro" className="break-keep text-2xl font-semibold leading-snug sm:text-3xl">내 PC에서 수집하고,<br className="sm:hidden" /> 실측 데이터로 진단합니다.</h1>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">Windows Agent가 하드웨어·성능·시스템 이벤트를 수집하고, 진단 서버가 근거와 권장 조치를 제공합니다.</p>
+            <h1 id="agent-intro" className="break-keep text-2xl font-semibold leading-snug sm:text-3xl">내 PC 진단부터,<br className="sm:hidden" /> 필요한 부품 구매까지.</h1>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">PC 연결 → Agent 모니터링 → 실측 진단 → 맞춤 구매 추천. 수집이 끝나면 부족한 부품과 구매 링크가 바로 표시됩니다.</p>
             <AgentCollectionItems />
             <p className="mt-2 text-[11px] leading-5 text-muted-foreground">일부 센서와 이벤트는 지원 장치·관리자 권한·Sysmon 구성에 따라 수집되지 않을 수 있습니다.</p>
           </div>
@@ -476,6 +507,14 @@ function DiagnosticsHome({ preview }: { preview: string | null }) {
           resultFailed={resultFailed}
           resultScanId={diagnosisSource === 'agent' ? diagnosis?.scanId ?? null : null}
         />
+
+        {purchaseReady && <section ref={purchasePanel} tabIndex={-1} aria-label="진단 후 구매 추천" className="mb-6 scroll-mt-20 outline-none">
+          <CandidateComparison diagnosis={diagnosis!} onUpdated={async () => {
+            const scanId = diagnosis!.scanId;
+            const updated = await getDiagnosis(scanId);
+            setDiagnosis(current => current?.scanId === scanId ? updated : current);
+          }} />
+        </section>}
 
         {!diagnosis ? (
           <section className="grid place-items-center border-y border-white/8 py-12">
@@ -578,12 +617,6 @@ function DiagnosticsHome({ preview }: { preview: string | null }) {
                 </Card>
               ))}
             </div>
-
-            <CandidateComparison diagnosis={diagnosis} onUpdated={async () => {
-              const scanId = diagnosis.scanId;
-              const updated = await getDiagnosis(scanId);
-              setDiagnosis(current => current?.scanId === scanId ? updated : current);
-            }} />
 
             <div className="space-y-4">
               <div role="tablist" aria-label="진단 상세" className="flex w-fit gap-1 border-b border-white/8 text-sm">

@@ -13,7 +13,7 @@
   </nav></header>
   <main class="monitor-main">
     <section class="monitor-heading"><div><p class="monitor-eyebrow">MY PC / ACTUAL TELEMETRY</p>
-      <h1>내 PC 모니터링</h1><p>프로그램을 실행하고 연결 코드만 입력하세요.</p></div>
+      <h1>내 PC 모니터링</h1><p>PC 연결 → 실측 모니터링 → Agent 진단 → 맞춤 부품 구매</p></div>
       <span id="connectionStatus" class="monitor-status">연결 확인 중</span>
     </section>
     <p id="monitorMessage" class="service-notice" role="status" aria-live="polite">서버 설정을 확인하고 있습니다.</p>
@@ -66,6 +66,13 @@
         <article class="summary-card"><span>디스크 대기열</span><strong id="diskMetric">—</strong></article>
         <article class="summary-card"><span>지원되는 온도 센서</span><strong id="temperatureMetric">—</strong></article>
       </div>
+      <section id="purchasePanel" class="card monitor-purchase" aria-labelledby="purchaseTitle">
+        <div class="monitor-toolbar"><div><p class="monitor-eyebrow">DIAGNOSIS → SHOPPING</p>
+          <h2 id="purchaseTitle">진단에 맞는 추천 구매 물품</h2></div><a class="btn btn-secondary" href="#findingsList">진단 근거 보기</a></div>
+        <p id="purchaseSummary" class="monitor-help" role="status" aria-live="polite">PC 진단이 완료되면 필요한 부품을 자동으로 표시합니다.</p>
+        <div id="purchaseRecommendations" class="monitor-products"></div>
+        <p id="purchasePriceStatus" class="monitor-help" role="status" aria-live="polite"></p>
+      </section>
       <section class="card"><h2>사용률 추이</h2><p class="monitor-help">최근 240회 수신 · CPU 사용률과 메모리 커밋 사용률 · 수집하지 못한 값은 그래프에서 제외합니다.</p>
         <div class="monitor-legend"><span>● CPU</span><span>● 메모리 커밋</span></div>
         <svg id="usageChart" viewBox="0 0 900 200" role="img" aria-label="CPU와 메모리 커밋 사용률 추이"></svg>
@@ -84,5 +91,6 @@
     </section>
   </main>
   <script src="js/purchase-context.js" defer></script>
+  <script src="js/monitor-purchases.js" defer></script>
   <script src="js/monitor.js" defer></script>
 </body></html>

@@ -53,6 +53,7 @@
   }
 
   function forgetConnection() {
+    window.SpecCheckMonitorPurchases.clear();
     localStorage.removeItem(storageKey); sessionStorage.removeItem(pairingStorageKey);
     connection = null; pairing = null; hasSnapshot = false; reconnecting = false; lastReceivedAt = 0;
     showConnection(); updateCode();
@@ -195,6 +196,7 @@
     const performance = snapshot.sections?.performance?.data || {};
     tableRows('processBody', (performance.top_processes || []).map((item) => [item.name, format(item.cpu_percent, '%'), format(item.memory_mb, ' MB')]), '수집된 프로세스가 없습니다.');
     const diagnosis = latest.diagnosis || {};
+    window.SpecCheckMonitorPurchases.render(latest);
     text('coverageText', Object.entries(snapshot.sections || {}).map(([name, section]) => `${name}: ${section.status}`).join(' / '));
     const findings = el('findingsList'); findings.replaceChildren();
     for (const finding of diagnosis.findings || []) {

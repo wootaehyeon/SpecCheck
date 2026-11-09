@@ -188,9 +188,21 @@ def _insert(table):
 
 def save(device: dict, snapshot: TelemetrySnapshot) -> float:
     from app.diagnosis import diagnose
+    from app.diagnosis.recommendations import build_recommendations
 
     try:
-        diagnosis = diagnose(snapshot).model_dump_json()
+        result = diagnose(snapshot)
+        diagnosis_data = result.model_dump(mode="json")
+        try:
+            diagnosis_data["recommendations"] = [
+                item.model_dump(mode="json", by_alias=True)
+                for item in build_recommendations(snapshot, result)
+            ]
+        except (OSError, TypeError, ValueError, KeyError, AttributeError, IndexError):
+            # 상품 카탈로그 오류가 있어도 실측 진단 근거는 보존한다.
+            diagnosis_data["recommendations"] = []
+            diagnosis_data["recommendations_unavailable"] = True
+        diagnosis = json.dumps(diagnosis_data, ensure_ascii=False)
     except (TypeError, ValueError, KeyError, AttributeError, IndexError):
         diagnosis = json.dumps({"findings": [], "unavailable": True, "coverage": snapshot.coverage()})
     now = time.time()
