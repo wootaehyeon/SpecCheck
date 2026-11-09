@@ -243,6 +243,32 @@ def latest(device: dict) -> dict:
     return result
 
 
+def assistance(device: dict, snapshot_id: str | None = None) -> dict | None:
+    """Return this Agent's diagnosis, without reader credentials or raw telemetry."""
+    query = select(samples.c.snapshot_id, samples.c.received_at, samples.c.diagnosis).where(
+        samples.c.device_id == device["id"],
+        samples.c.received_at >= time.time() - RETENTION_SECONDS,
+    )
+    if snapshot_id is not None:
+        query = query.where(samples.c.snapshot_id == snapshot_id)
+    with engine().connect() as conn:
+        row = conn.execute(query.order_by(samples.c.received_at.desc()).limit(1)).mappings().first()
+    if row is None:
+        return None
+    diagnosis = json.loads(row["diagnosis"])
+    fields = ("rule_id", "title", "summary", "recommended_action", "action_detail")
+    return {
+        "device_id": device["id"], "snapshot_id": row["snapshot_id"],
+        "received_at": row["received_at"],
+        "unavailable": bool(diagnosis.get("unavailable")),
+        "decision": diagnosis.get("decision"),
+        "findings": [{key: finding.get(key) for key in fields}
+                     for finding in diagnosis.get("findings", [])],
+        "recommendations": diagnosis.get("recommendations", []),
+        "recommendations_unavailable": bool(diagnosis.get("recommendations_unavailable")),
+    }
+
+
 def history(device: dict, limit: int) -> list[dict]:
     with engine().connect() as conn:
         rows = conn.execute(select(samples.c.received_at, samples.c.metrics)

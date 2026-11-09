@@ -182,6 +182,15 @@ def latest(device=Depends(reader)):
     return service.latest(device)
 
 
+@router.get("/assistance")
+def assistance(snapshot_id: str | None = Query(default=None, min_length=1, max_length=64),
+               device=Depends(writer)):
+    result = service.assistance(device, snapshot_id)
+    if result is None:
+        raise HTTPException(404, "이 PC의 진단 자료가 없습니다. Agent에서 먼저 수집·전송해주세요.")
+    return result
+
+
 @router.get("/history")
 def history(limit: int = Query(default=240, ge=1, le=1440), device=Depends(reader)):
     return service.history(device, limit)

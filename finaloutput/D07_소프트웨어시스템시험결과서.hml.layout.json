@@ -1,0 +1,37 @@
+{
+  "pages": 32,
+  "native_pages": 32,
+  "headings": [
+    [
+      "1. 프로젝트 개요",
+      4
+    ],
+    [
+      "2. 테스트 개요",
+      5
+    ],
+    [
+      "3. 테스트 케이스",
+      6
+    ],
+    [
+      "4. 테스트 예외사항",
+      16
+    ],
+    [
+      "5. 테스트 환경",
+      17
+    ],
+    [
+      "6. 테스트 결과",
+      18
+    ],
+    [
+      "7. 부록",
+      28
+    ]
+  ],
+  "native_application": "Hancom Hangul 2018",
+  "template_format_review": "2026-11-09",
+  "summary_pages": null
+}

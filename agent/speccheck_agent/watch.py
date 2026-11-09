@@ -99,7 +99,7 @@ def pending(store: SnapshotStore, device_id: str, security_consent: bool):
         yield snapshot
 
 
-def cmd_watch(args: argparse.Namespace, config: AgentConfig, *, connection=None, stop_event=None, on_status=None) -> int:
+def cmd_watch(args: argparse.Namespace, config: AgentConfig, *, connection=None, stop_event=None, on_status=None, on_snapshot=None) -> int:
     def notify(state, message):
         if on_status:
             on_status(state, message)
@@ -164,6 +164,8 @@ def cmd_watch(args: argparse.Namespace, config: AgentConfig, *, connection=None,
                         break
                     store.mark_uploaded(saved["snapshot_id"])
                     notify("connected", "연결되었습니다. 웹에서 실시간 PC 상태를 확인하세요.")
+                    if on_snapshot and saved["snapshot_id"] == snapshot["snapshot_id"]:
+                        on_snapshot(saved["snapshot_id"])
                 print(snapshot["collected_at"] + " 수집 완료")
                 if args.once:
                     return 0

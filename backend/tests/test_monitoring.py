@@ -74,6 +74,47 @@ def test_read_and_upload_keys_have_different_permissions(client):
     assert client.get("/api/diagnosis/rules", headers=owner).status_code == 404
 
 
+def test_agent_assistance_is_writer_scoped_and_does_not_expose_raw_telemetry(client):
+    device, owner, sender = connect(client)
+    assert client.get("/api/monitor/assistance").status_code == 401
+    assert client.get("/api/monitor/assistance", headers=owner).status_code == 401
+    assert client.get("/api/monitor/assistance", headers=sender).status_code == 404
+    body = payload(device["device_id"], "agent-scan")
+    body["sections"]["hardware"]["data"]["motherboard"] = {"product": "B550"}
+    body["sections"]["performance"]["data"]["memory"] = {
+        "available_mb": {"avg": 780}, "committed_percent": {"avg": 96}}
+    assert client.post("/api/monitor/snapshots", headers=sender, json=body).status_code == 201
+    response = client.get("/api/monitor/assistance?snapshot_id=agent-scan", headers=sender)
+    result = response.json()
+    assert response.status_code == 200 and response.headers["cache-control"] == "no-store"
+    assert result["device_id"] == device["device_id"] and result["snapshot_id"] == "agent-scan"
+    assert result["decision"]["action"] == "purchase" and result["recommendations"]
+    assert "snapshot" not in result and "sections" not in result
+    assert "reader_token" not in response.text and "writer_token" not in response.text
+    assert "evidence" not in result["findings"][0]
+    # The Agent receives only its bounded diagnosis, never the browser's full read scope.
+    assert client.get("/api/monitor/latest", headers=sender).status_code == 401
+    other, _, other_sender = connect(client)
+    assert client.get("/api/monitor/assistance?snapshot_id=agent-scan", headers=other_sender).status_code == 404
+    assert client.get("/api/monitor/assistance?snapshot_id=wrong", headers=sender).status_code == 404
+    assert client.delete("/api/monitor/connection", headers=owner).status_code == 204
+    assert client.get("/api/monitor/assistance", headers=sender).status_code == 401
+
+
+def test_agent_assistance_excludes_expired_measurements_and_preserves_diagnosis_failure(client):
+    device, _, sender = connect(client)
+    assert client.post("/api/monitor/snapshots", headers=sender, json=payload(device["device_id"])).status_code == 201
+    with service.engine().begin() as conn:
+        conn.execute(update(service.samples).where(service.samples.c.device_id == device["device_id"])
+                     .values(diagnosis=json.dumps({"unavailable": True, "findings": []})))
+    result = client.get("/api/monitor/assistance", headers=sender).json()
+    assert result["unavailable"] is True and result["decision"] is None
+    with service.engine().begin() as conn:
+        conn.execute(update(service.samples).where(service.samples.c.device_id == device["device_id"])
+                     .values(received_at=time.time() - 8 * 86400))
+    assert client.get("/api/monitor/assistance", headers=sender).status_code == 404
+
+
 def test_two_owners_are_isolated_even_with_same_snapshot_id(client):
     a, owner_a, sender_a = connect(client)
     b, owner_b, sender_b = connect(client)

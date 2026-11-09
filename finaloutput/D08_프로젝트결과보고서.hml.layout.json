@@ -1,0 +1,33 @@
+{
+  "pages": 17,
+  "native_pages": 17,
+  "headings": [
+    [
+      "1. 최종 시스템 아키텍처 (System Architecture)",
+      3
+    ],
+    [
+      "2. 소프트웨어 아키텍처 (Software Architecture)",
+      4
+    ],
+    [
+      "3. 모듈 명세 (Module Specification)",
+      6
+    ],
+    [
+      "4. 개발 결과 및 검증 근거",
+      13
+    ],
+    [
+      "5. 남은 검증 및 향후 계획",
+      16
+    ],
+    [
+      "6. 작성·검토 근거",
+      16
+    ]
+  ],
+  "native_application": "Hancom Hangul 2018",
+  "template_format_review": "2026-11-09",
+  "summary_pages": 2
+}

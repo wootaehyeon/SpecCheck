@@ -50,8 +50,10 @@ def test_watch_stores_then_uploads_only_the_connected_device(connection, tmp_pat
         uploaded.append(snapshot)
     monkeypatch.setattr(watch, "upload", fake_upload)
     args = argparse.Namespace(consent=True, config=str(path), security_consent=False, once=True)
-    assert watch.cmd_watch(args, AgentConfig(home=tmp_path)) == 0
+    completed = []
+    assert watch.cmd_watch(args, AgentConfig(home=tmp_path), on_snapshot=completed.append) == 0
     assert len(uploaded) == 1 and uploaded[0]["device_id"] == data["device_id"]
+    assert completed == [uploaded[0]["snapshot_id"]]
     assert "security" not in uploaded[0]["sections"]
     assert "private-name" not in json.dumps(uploaded)
     assert "collect_errors" not in uploaded[0]["sections"]["performance"]["data"]

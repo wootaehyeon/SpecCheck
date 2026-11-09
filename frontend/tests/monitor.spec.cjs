@@ -75,7 +75,7 @@ test('download Windows app, pair with a code, wait for data, restore viewer and 
   const backup = await backupPromise;
   const context = await browser.newContext();
   const viewer = await context.newPage();
-  await viewer.goto('http://127.0.0.1:8031/monitor.html');
+  await viewer.goto(new URL('/monitor.html', testInfo.project.use.baseURL).href);
   await viewer.locator('#restoreReader').setInputFiles(await backup.path());
   await expect(viewer.locator('#cpuMetric')).toHaveText('48.0%');
   viewer.once('dialog', (dialog) => dialog.accept());

@@ -65,14 +65,17 @@ def test_gui_connects_stops_and_reuses_saved_connection(tmp_path, monkeypatch):
     def redeem(server, code):
         redeemed.append((server, code))
         return connected
-    def watch(args, agent_config, *, connection, stop_event, on_status):
+    def watch(args, agent_config, *, connection, stop_event, on_status, on_snapshot):
         collected.append(connection)
         on_status('connected', 'Synthetic connection ready')
+        on_snapshot('synthetic-gui-scan')
         stop_event.wait(3)
         return 0
     monkeypatch.setattr(desktop, 'default_server', lambda: 'https://example.com')
     monkeypatch.setattr(desktop, 'redeem_code', redeem)
     monkeypatch.setattr(desktop, 'cmd_watch', watch)
+    monkeypatch.setattr(desktop, 'run_assistance', lambda *a, **kw: {
+        'action': 'keep', 'text': '현재 유지', 'links': []})
     def wait(root, predicate):
         deadline = time.monotonic() + 3
         while time.monotonic() < deadline:
@@ -101,6 +104,8 @@ def test_gui_connects_stops_and_reuses_saved_connection(tmp_path, monkeypatch):
         assert len(redeemed) == 1
         app.stop()
         wait(root, lambda: str(app.start_button['state']) == 'normal')
+        wait(root, lambda: app.assist_worker is None)
+        _check_purchase_report_and_reconnection(app, root, monkeypatch)
     finally:
         app.stop_event.set()
         if app.worker:
@@ -131,3 +136,44 @@ def test_elevation_restarts_independently_without_passing_credentials(tmp_path, 
     assert '--wait-for-parent' in calls[0][3]
     assert 'writer_token' not in calls[0][3] and 'sc_write_' not in calls[0][3]
     assert os.environ['PYINSTALLER_RESET_ENVIRONMENT'] == 'original'
+
+
+def _check_purchase_report_and_reconnection(app, root, monkeypatch):
+    # Reuse the connected GUI's Tcl interpreter, as a user does in one app session.
+    report = {'action': 'purchase', 'text': '메모리 후보 / 슬롯 추가 확인 / 가격 미확인',
+              'links': [{'label': '메모리 판매처', 'url': 'https://www.ebay.com/sch/i.html?_nkw=memory'}]}
+    opened = []
+    calls = []
+    monkeypatch.setattr(desktop, 'default_server', lambda: 'https://example.com')
+    def run(connection, **kwargs):
+        calls.append(kwargs)
+        return report
+    monkeypatch.setattr(desktop, 'run_assistance', run)
+    monkeypatch.setattr(desktop.webbrowser, 'open', opened.append)
+    try:
+        app.open_assistance()
+        app.assistance_window.withdraw()
+        deadline = time.monotonic() + 3
+        while time.monotonic() < deadline and app.assistance != report:
+            root.update()
+            time.sleep(.02)
+        assert app.assistance == report and calls == [{'fetch_quotes': True}]
+        assert '슬롯 추가 확인' in app.assistance_text.get('1.0', 'end')
+        app.shopping_list.selection_set(0)
+        app.open_shopping()
+        app.open_purchase_history()
+        assert opened == [report['links'][0]['url'], 'https://example.com/purchases.html']
+        # A late response in the same connection must not replace a newer request.
+        request_id = app.assistance_request_id
+        app.assistance_request_id += 1
+        app.events.put(('assistance_result', (app.assistance_generation, request_id, None, 'late failure')))
+        app.drain()
+        assert app.assistance == report
+        previous = app.assistance_generation
+        app.events.put(('paired', config()))
+        app.events.put(('assistance_result', (previous, app.assistance_request_id, report, None)))
+        app.drain()
+        assert app.assistance is None and app.shopping_list.size() == 0
+    finally:
+        if app.assist_worker:
+            app.assist_worker.join(3)
