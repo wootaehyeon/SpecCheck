@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
+import { WorkloadPanel } from './workload-panel';
 import {
   Activity,
   Bot,
@@ -507,6 +508,9 @@ function DiagnosticsHome({ preview }: { preview: string | null }) {
           resultFailed={resultFailed}
           resultScanId={diagnosisSource === 'agent' ? diagnosis?.scanId ?? null : null}
         />
+
+        {(connectionState === 'live' || connectionState === 'empty') &&
+          <WorkloadPanel key={diagnosis?.scanId} scanId={diagnosisSource === 'agent' ? diagnosis?.scanId : undefined} />}
 
         {purchaseReady && <section ref={purchasePanel} tabIndex={-1} aria-label="진단 후 구매 추천" className="mb-6 scroll-mt-20 outline-none">
           <CandidateComparison diagnosis={diagnosis!} onUpdated={async () => {

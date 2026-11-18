@@ -83,6 +83,7 @@ def _queries(system: str) -> dict[str, dict[str, Any]]:
 
 
 QUERIES: dict[str, dict[str, Any]] = {
+    "partitions": {"script": "Get-Partition | Where-Object DriveLetter | Select-Object @{n='Letter';e={[string]$_.DriveLetter}},DiskNumber"},
     # DriveType=3 = 고정 디스크. 네트워크 드라이브와 이동식 매체는 진단 대상이 아니다.
     "volume": {
         "class_name": "Win32_LogicalDisk",
@@ -160,6 +161,10 @@ class StorageHealthCollector(Collector):
             "volumes": shape_volumes(rows.get("volume", []), drive),
             "disks": disks,
         }
+        partitions = {str(p.get("Letter")).upper() + ":": _to_int(p.get("DiskNumber"))
+                      for p in rows.get("partitions", [])}
+        for volume in data["volumes"]:
+            volume["disk_index"] = partitions.get(volume["drive"])
 
         # SMART 미지원은 환경의 한계이지 수집 실패가 아니다. 다만 진단 신뢰도에는
         # 영향이 있으므로 partial로 낮춰 "못 본 것"을 명시한다.

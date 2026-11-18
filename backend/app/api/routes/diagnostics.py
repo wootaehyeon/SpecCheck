@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+from threading import Lock
 
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import JSONResponse
@@ -13,8 +16,41 @@ from app.diagnosis.explainer import ollama_status
 from app.schemas.telemetry import TelemetrySnapshot
 from app.schemas.ui_diagnosis import UiDiagnosis
 from app.services import diagnosis_service, local_scan_service, scan_service
+from app.services import workload
 
 router = APIRouter()
+_measurement = Lock()
+
+
+@router.post("/workload")
+def measure_workload(request: Request) -> dict:
+    _validate_scan_origin(request)
+    if os.name != "nt" or not request.client or request.client.host not in {"127.0.0.1", "::1"}:
+        raise HTTPException(403, "이 PC의 Windows 로컬 서비스에서 측정하세요.")
+    if not _measurement.acquire(blocking=False):
+        raise HTTPException(409, "이미 측정 중입니다.")
+    try:
+        return workload.measure()
+    except (OSError, subprocess.SubprocessError, ValueError, ArithmeticError) as exc:
+        raise HTTPException(503, "성능 카운터 측정에 실패했습니다. 다시 측정해 주세요.") from exc
+    finally:
+        _measurement.release()
+
+
+@router.get("/scans/{scan_id}/volumes")
+def scan_volumes(scan_id: str) -> list:
+    snapshot = scan_service.get_snapshot(scan_id)
+    if snapshot is None:
+        raise HTTPException(404, "스냅샷을 찾을 수 없습니다.")
+    storage = snapshot.data("storage_health")
+    models = {d["index"]: d.get("model") for d in storage.get("disks", []) if d.get("index") is not None}
+    volumes = []
+    for volume in storage.get("volumes", []):
+        index = volume.get("disk_index")
+        if index is None and volume.get("is_system"):
+            index = storage.get("system_disk_index")
+        volumes.append({**volume, "disk_index": index, "model": models.get(index)})
+    return volumes
 
 
 class ScanRequest(BaseModel):
