@@ -531,6 +531,9 @@ def to_ui_diagnosis(
         os_name = "{0} {1}".format(os_name, build)
 
     return UiDiagnosis(
+        inference={"method": result.inference_method, "modelVersion": result.model_version or "",
+                   "labelSource": result.training_label_source or "",
+                   "limitation": "기존 진단 기준을 학습한 초기 모델입니다. 실제 조치 결과로 정확도를 검증해야 합니다."},
         scanId=snapshot.snapshot_id,
         status=status,
         generatedAt=result.generated_at.isoformat(),

@@ -1,0 +1,969 @@
+{
+  "algorithm": "sklearn.tree.DecisionTreeClassifier",
+  "feature_version": 1,
+  "label_source": "legacy_rule_weak_supervision",
+  "models": {
+    "HW-DISK-001": {
+      "features": [
+        "is_hdd"
+      ],
+      "labels": {
+        "high:purchase": {
+          "action_detail": "NVMe SSD로 교체하면 CPU/GPU 교체보다 적은 비용으로 체감 성능이 가장 크게 개선됩니다.",
+          "axis": "hardware",
+          "confidence": 0.5,
+          "recommended_action": "purchase",
+          "root_cause": "OS가 설치된 저장장치의 임의 접근 속도가 SSD 대비 수십 배 느립니다.",
+          "severity": "high",
+          "title": "시스템 드라이브가 HDD"
+        }
+      },
+      "tree": [
+        [
+          0,
+          0.5,
+          1,
+          2
+        ],
+        [
+          -1,
+          "none",
+          1.0,
+          0
+        ],
+        [
+          -1,
+          "high:purchase",
+          1.0,
+          0
+        ]
+      ]
+    },
+    "HW-RAM-001": {
+      "features": [
+        "speed_ratio"
+      ],
+      "labels": {
+        "low:fix": {
+          "action_detail": "BIOS 설정에서 XMP(Intel) 또는 EXPO(AMD) 프로파일을 활성화하세요. 부품 교체는 필요하지 않습니다. 메모리가 기판에 납땜된 노트북은 해당하지 않습니다.",
+          "axis": "hardware",
+          "confidence": 0.9,
+          "recommended_action": "fix",
+          "root_cause": "BIOS에서 XMP/EXPO 프로파일이 활성화되지 않아 JEDEC 기본 클럭으로 동작하고 있습니다.",
+          "severity": "low",
+          "title": "메모리가 정격 속도로 동작하지 않음"
+        },
+        "medium:fix": {
+          "action_detail": "BIOS 설정에서 XMP(Intel) 또는 EXPO(AMD) 프로파일을 활성화하세요. 부품 교체는 필요하지 않습니다. 메모리가 기판에 납땜된 노트북은 해당하지 않습니다.",
+          "axis": "hardware",
+          "confidence": 0.9,
+          "recommended_action": "fix",
+          "root_cause": "BIOS에서 XMP/EXPO 프로파일이 활성화되지 않아 JEDEC 기본 클럭으로 동작하고 있습니다.",
+          "severity": "medium",
+          "title": "메모리가 정격 속도로 동작하지 않음"
+        }
+      },
+      "tree": [
+        [
+          0,
+          0.8046285510063171,
+          1,
+          2
+        ],
+        [
+          -1,
+          "medium:fix",
+          1.0,
+          0
+        ],
+        [
+          0,
+          0.8999499976634979,
+          3,
+          4
+        ],
+        [
+          -1,
+          "low:fix",
+          1.0,
+          0
+        ],
+        [
+          -1,
+          "none",
+          1.0,
+          0
+        ]
+      ]
+    },
+    "HW-RAM-002": {
+      "features": [
+        "total_gb"
+      ],
+      "labels": {
+        "high:purchase": {
+          "action_detail": "8GB 이상으로 증설하세요. 빈 슬롯이 있으면 기존 모듈을 유지한 채 추가할 수 있습니다.",
+          "axis": "hardware",
+          "confidence": 0.9,
+          "recommended_action": "purchase",
+          "root_cause": "메모리가 부족하면 OS가 디스크 페이징에 의존하게 되어 전체 반응 속도가 떨어집니다.",
+          "severity": "high",
+          "title": "물리 메모리 부족"
+        }
+      },
+      "tree": [
+        [
+          0,
+          7.999949932098389,
+          1,
+          2
+        ],
+        [
+          -1,
+          "high:purchase",
+          1.0,
+          0
+        ],
+        [
+          -1,
+          "none",
+          1.0,
+          0
+        ]
+      ]
+    },
+    "PF-CPU-001": {
+      "features": [
+        "cpu_avg",
+        "cpu_min"
+      ],
+      "labels": {
+        "high:fix": {
+          "action_detail": "작업 관리자에서 해당 프로세스를 확인하세요. 업데이트·인덱싱·백신 검사처럼 일시적인 작업이면 끝날 때까지 기다리면 되고, 상시 실행되는 프로그램이면 시작 프로그램에서 제외하세요. 알 수 없는 프로세스라면 Advanced Scan으로 악성 소프트웨어 여부를 확인하는 것이 다음 단계입니다.",
+          "axis": "software",
+          "confidence": 0.6,
+          "recommended_action": "fix",
+          "root_cause": "특정 프로세스가 CPU를 계속 점유하고 있습니다. 부품 성능이 아니라 실행 중인 소프트웨어가 원인일 가능성이 큽니다.",
+          "severity": "high",
+          "title": "백그라운드 CPU 점유가 지속됨"
+        }
+      },
+      "tree": [
+        [
+          0,
+          69.99995040893555,
+          1,
+          2
+        ],
+        [
+          -1,
+          "none",
+          1.0,
+          0
+        ],
+        [
+          1,
+          49.99995040893555,
+          3,
+          4
+        ],
+        [
+          -1,
+          "none",
+          1.0,
+          0
+        ],
+        [
+          -1,
+          "high:fix",
+          1.0,
+          0
+        ]
+      ]
+    },
+    "PF-MEM-001": {
+      "features": [
+        "committed_percent",
+        "available_mb"
+      ],
+      "labels": {
+        "high:purchase": {
+          "action_detail": "메모리 증설이 가장 효과가 큽니다. 먼저 시작 프로그램과 상주 프로그램을 정리해 여유가 생기는지 확인하고, 그래도 부족하면 빈 슬롯에 모듈을 추가하세요.",
+          "axis": "hardware",
+          "confidence": 0.75,
+          "recommended_action": "purchase",
+          "root_cause": "물리 메모리가 모자라 OS가 페이지 파일(디스크)로 데이터를 밀어내고 있습니다. 이 상태에서는 CPU나 GPU를 바꿔도 체감 속도가 개선되지 않습니다.",
+          "severity": "high",
+          "title": "메모리가 부족해 페이징이 발생 중"
+        }
+      },
+      "tree": [
+        [
+          1,
+          1500.0000610351562,
+          1,
+          4
+        ],
+        [
+          0,
+          89.99995040893555,
+          2,
+          3
+        ],
+        [
+          -1,
+          "none",
+          1.0,
+          0
+        ],
+        [
+          -1,
+          "high:purchase",
+          1.0,
+          0
+        ],
+        [
+          -1,
+          "none",
+          1.0,
+          0
+        ]
+      ]
+    },
+    "PF-POWER-001": {
+      "features": [
+        "is_power_saver"
+      ],
+      "labels": {
+        "medium:fix": {
+          "action_detail": "설정 > 시스템 > 전원 및 배터리에서 전원 모드를 '균형 조정' 이상으로 바꾸세요. 노트북이라면 충전기 연결 상태에서의 설정을 확인하면 됩니다. 비용은 들지 않습니다.",
+          "axis": "software",
+          "confidence": 0.95,
+          "recommended_action": "fix",
+          "root_cause": "절전 계획은 CPU 최대 클럭을 의도적으로 제한합니다. 부품 성능과 무관하게 반응 속도와 프레임이 떨어집니다.",
+          "severity": "medium",
+          "title": "전원 계획이 절전 모드"
+        }
+      },
+      "tree": [
+        [
+          0,
+          0.5,
+          1,
+          2
+        ],
+        [
+          -1,
+          "none",
+          1.0,
+          0
+        ],
+        [
+          -1,
+          "medium:fix",
+          1.0,
+          0
+        ]
+      ]
+    },
+    "PF-THROTTLE-001": {
+      "features": [
+        "clock_ratio",
+        "cpu_avg",
+        "temperature"
+      ],
+      "labels": {
+        "high:fix": {
+          "action_detail": "쿨러 먼지와 서멀 그리스 상태를 점검하고 케이스 흡·배기를 확인하세요. 노트북이라면 배터리 모드에서의 전력 제한일 수 있으니 충전기를 연결한 뒤 다시 측정하세요. 청소와 설정으로 회복되면 부품 교체는 필요하지 않습니다.",
+          "axis": "hardware",
+          "confidence": 0.65,
+          "recommended_action": "fix",
+          "root_cause": "과열 또는 전원 공급 제한으로 CPU가 스스로 클럭을 낮추고 있습니다. 부품 성능은 그대로지만 실제로 쓰이지 못하는 상태입니다.",
+          "severity": "high",
+          "title": "부하 중 CPU 클럭이 정격보다 낮음"
+        },
+        "medium:fix": {
+          "action_detail": "쿨러 먼지와 서멀 그리스 상태를 점검하고 케이스 흡·배기를 확인하세요. 노트북이라면 배터리 모드에서의 전력 제한일 수 있으니 충전기를 연결한 뒤 다시 측정하세요. 청소와 설정으로 회복되면 부품 교체는 필요하지 않습니다.",
+          "axis": "hardware",
+          "confidence": 0.65,
+          "recommended_action": "fix",
+          "root_cause": "과열 또는 전원 공급 제한으로 CPU가 스스로 클럭을 낮추고 있습니다. 부품 성능은 그대로지만 실제로 쓰이지 못하는 상태입니다.",
+          "severity": "medium",
+          "title": "부하 중 CPU 클럭이 정격보다 낮음"
+        }
+      },
+      "tree": [
+        [
+          0,
+          0.6000500023365021,
+          1,
+          6
+        ],
+        [
+          1,
+          49.99995040893555,
+          2,
+          3
+        ],
+        [
+          -1,
+          "none",
+          1.0,
+          0
+        ],
+        [
+          2,
+          89.99995040893555,
+          4,
+          5
+        ],
+        [
+          -1,
+          "medium:fix",
+          1.0,
+          0
+        ],
+        [
+          -1,
+          "high:fix",
+          1.0,
+          0
+        ],
+        [
+          -1,
+          "none",
+          1.0,
+          0
+        ]
+      ]
+    },
+    "RL-CRASH-001": {
+      "features": [
+        "crash_count"
+      ],
+      "labels": {
+        "high:fix": {
+          "action_detail": "먼저 그래픽/칩셋 드라이버를 최신으로 올리고 Windows 업데이트를 적용하세요. 그다음 이벤트 뷰어에서 중지 코드(BugCheck)를 확인하면 원인 부품이 좁혀집니다. 지금 단계에서 부품을 사는 것은 이릅니다.",
+          "axis": "software",
+          "confidence": 0.8,
+          "recommended_action": "fix",
+          "root_cause": "정상 종료 절차 없이 시스템이 멈췄습니다. 드라이버 충돌, 전원 공급 부족, 과열, 메모리 오류가 모두 같은 증상을 냅니다. 어느 쪽인지는 추가 근거가 필요합니다.",
+          "severity": "high",
+          "title": "비정상 종료가 반복됨"
+        }
+      },
+      "tree": [
+        [
+          0,
+          2.5,
+          1,
+          2
+        ],
+        [
+          -1,
+          "none",
+          1.0,
+          0
+        ],
+        [
+          -1,
+          "high:fix",
+          1.0,
+          0
+        ]
+      ]
+    },
+    "RL-DISK-001": {
+      "features": [
+        "io_error_count"
+      ],
+      "labels": {
+        "high:purchase": {
+          "action_detail": "백업 후 저장장치를 교체하세요. 이 빈도에서는 연결 문제만으로 보기 어렵습니다.",
+          "axis": "hardware",
+          "confidence": 0.85,
+          "recommended_action": "purchase",
+          "root_cause": "저장장치 읽기/쓰기가 실패해 재시도됐습니다. 매체 손상, 케이블/포트 접촉 불량, 전원 부족이 모두 원인이 될 수 있습니다.",
+          "severity": "high",
+          "title": "디스크 입출력 오류 기록"
+        },
+        "medium:fix": {
+          "action_detail": "SATA/전원 케이블을 다시 연결하고 다른 포트로 바꿔 보세요. chkdsk로 파일 시스템을 점검한 뒤 재발 여부를 확인하면 매체 문제인지 갈립니다.",
+          "axis": "hardware",
+          "confidence": 0.7,
+          "recommended_action": "fix",
+          "root_cause": "저장장치 읽기/쓰기가 실패해 재시도됐습니다. 매체 손상, 케이블/포트 접촉 불량, 전원 부족이 모두 원인이 될 수 있습니다.",
+          "severity": "medium",
+          "title": "디스크 입출력 오류 기록"
+        }
+      },
+      "tree": [
+        [
+          0,
+          9.5,
+          1,
+          4
+        ],
+        [
+          0,
+          0.5,
+          2,
+          3
+        ],
+        [
+          -1,
+          "none",
+          1.0,
+          0
+        ],
+        [
+          -1,
+          "medium:fix",
+          1.0,
+          0
+        ],
+        [
+          -1,
+          "high:purchase",
+          1.0,
+          0
+        ]
+      ]
+    },
+    "RL-WHEA-001": {
+      "features": [
+        "whea_corrected"
+      ],
+      "labels": {
+        "high:purchase": {
+          "action_detail": "MemTest86으로 메모리를 검증하고 오류가 재현되는 모듈을 교체하세요.",
+          "axis": "hardware",
+          "confidence": 0.85,
+          "recommended_action": "purchase",
+          "root_cause": "메모리나 PCIe 링크에서 발생한 오류를 하드웨어가 자동으로 정정했습니다. 지금은 데이터가 보존되지만, 정정 빈도가 늘어난다는 것은 해당 부품이 동작 한계에 가까워지고 있다는 뜻입니다.",
+          "severity": "high",
+          "title": "정정된 하드웨어 오류 누적"
+        },
+        "medium:fix": {
+          "action_detail": "먼저 BIOS에서 XMP/EXPO를 해제하고 메모리를 다시 장착해 보세요. 설정이나 접촉 불량이 원인이면 부품 교체 없이 사라집니다. 그래도 계속 쌓이면 그때 교체를 검토하세요.",
+          "axis": "hardware",
+          "confidence": 0.75,
+          "recommended_action": "fix",
+          "root_cause": "메모리나 PCIe 링크에서 발생한 오류를 하드웨어가 자동으로 정정했습니다. 지금은 데이터가 보존되지만, 정정 빈도가 늘어난다는 것은 해당 부품이 동작 한계에 가까워지고 있다는 뜻입니다.",
+          "severity": "medium",
+          "title": "정정된 하드웨어 오류 누적"
+        }
+      },
+      "tree": [
+        [
+          0,
+          19.5,
+          1,
+          4
+        ],
+        [
+          0,
+          4.5,
+          2,
+          3
+        ],
+        [
+          -1,
+          "none",
+          1.0,
+          0
+        ],
+        [
+          -1,
+          "medium:fix",
+          1.0,
+          0
+        ],
+        [
+          -1,
+          "high:purchase",
+          1.0,
+          0
+        ]
+      ]
+    },
+    "RL-WHEA-002": {
+      "features": [
+        "whea_fatal"
+      ],
+      "labels": {
+        "critical:purchase": {
+          "action_detail": "메모리를 한 개씩 분리해 어느 모듈에서 재현되는지 확인하고(MemTest86 권장), 특정 부품이 지목되면 교체하세요. 오버클럭/XMP를 사용 중이면 먼저 해제해 설정 문제인지 부품 결함인지 가려야 합니다.",
+          "axis": "hardware",
+          "confidence": 0.95,
+          "recommended_action": "purchase",
+          "root_cause": "CPU, 메모리, PCIe 장치 중 하나가 정정 불가능한 오류를 냈습니다. 운영체제나 드라이버가 아니라 부품 자체의 결함 신호입니다.",
+          "severity": "critical",
+          "title": "치명적 하드웨어 오류 발생"
+        }
+      },
+      "tree": [
+        [
+          0,
+          0.5,
+          1,
+          2
+        ],
+        [
+          -1,
+          "none",
+          1.0,
+          0
+        ],
+        [
+          -1,
+          "critical:purchase",
+          1.0,
+          0
+        ]
+      ]
+    },
+    "SEC-SYSMON-025": {
+      "features": [
+        "tampering_count"
+      ],
+      "labels": {
+        "high:fix": {
+          "action_detail": "Windows 보안 검사를 실행하고 이벤트 시각의 프로그램과 설치 출처를 확인하세요. 자동 종료·삭제는 수행하지 않습니다.",
+          "axis": "security",
+          "confidence": 0.8,
+          "recommended_action": "fix",
+          "root_cause": null,
+          "severity": "high",
+          "title": "Sysmon 프로세스 변조 이벤트 확인 필요"
+        }
+      },
+      "tree": [
+        [
+          0,
+          0.5,
+          1,
+          2
+        ],
+        [
+          -1,
+          "none",
+          1.0,
+          0
+        ],
+        [
+          -1,
+          "high:fix",
+          1.0,
+          0
+        ]
+      ]
+    },
+    "SEC-SYSMON-COVERAGE": {
+      "features": [
+        "log_gap",
+        "truncated",
+        "error_count"
+      ],
+      "labels": {
+        "info:keep": {
+          "action_detail": "미처리 이벤트 수집을 기다리고 Sysmon 로그 보관 용량과 수집 상태를 확인하세요.",
+          "axis": "security",
+          "confidence": 1.0,
+          "recommended_action": "keep",
+          "root_cause": null,
+          "severity": "info",
+          "title": "보안 관측 범위 제한"
+        }
+      },
+      "tree": [
+        [
+          2,
+          0.5,
+          1,
+          6
+        ],
+        [
+          1,
+          0.5,
+          2,
+          5
+        ],
+        [
+          0,
+          0.5,
+          3,
+          4
+        ],
+        [
+          -1,
+          "none",
+          1.0,
+          0
+        ],
+        [
+          -1,
+          "info:keep",
+          1.0,
+          0
+        ],
+        [
+          -1,
+          "info:keep",
+          1.0,
+          0
+        ],
+        [
+          -1,
+          "info:keep",
+          1.0,
+          0
+        ]
+      ]
+    },
+    "ST-SMART-001": {
+      "features": [
+        "reallocated_sectors",
+        "pending_sectors"
+      ],
+      "labels": {
+        "high:purchase": {
+          "action_detail": "즉시 백업하고 저장장치 교체를 준비하세요. 불량 섹터는 되돌아가지 않습니다.",
+          "axis": "hardware",
+          "confidence": 0.9,
+          "recommended_action": "purchase",
+          "root_cause": "저장 매체의 물리적 손상입니다. 컨트롤러가 손상된 섹터를 예비 영역으로 옮기고 있으며, 예비 영역이 소진되면 데이터 손실로 이어집니다.",
+          "severity": "high",
+          "title": "저장장치에 불량 섹터 발생"
+        },
+        "medium:fix": {
+          "action_detail": "우선 백업 주기를 짧게 하고 값의 증가 추이를 관찰하세요. 수치가 늘어나면 교체가 필요하지만, 멈춰 있으면 계속 사용할 수 있습니다.",
+          "axis": "hardware",
+          "confidence": 0.9,
+          "recommended_action": "fix",
+          "root_cause": "저장 매체의 물리적 손상입니다. 컨트롤러가 손상된 섹터를 예비 영역으로 옮기고 있으며, 예비 영역이 소진되면 데이터 손실로 이어집니다.",
+          "severity": "medium",
+          "title": "저장장치에 불량 섹터 발생"
+        }
+      },
+      "tree": [
+        [
+          0,
+          8.5,
+          1,
+          6
+        ],
+        [
+          1,
+          0.5,
+          2,
+          5
+        ],
+        [
+          0,
+          0.5,
+          3,
+          4
+        ],
+        [
+          -1,
+          "none",
+          1.0,
+          0
+        ],
+        [
+          -1,
+          "medium:fix",
+          1.0,
+          0
+        ],
+        [
+          -1,
+          "high:purchase",
+          1.0,
+          0
+        ],
+        [
+          0,
+          9.5,
+          7,
+          10
+        ],
+        [
+          1,
+          0.5,
+          8,
+          9
+        ],
+        [
+          -1,
+          "medium:fix",
+          1.0,
+          0
+        ],
+        [
+          -1,
+          "high:purchase",
+          1.0,
+          0
+        ],
+        [
+          -1,
+          "high:purchase",
+          1.0,
+          0
+        ]
+      ]
+    },
+    "ST-SMART-002": {
+      "features": [
+        "predict_failure"
+      ],
+      "labels": {
+        "critical:purchase": {
+          "action_detail": "지금 즉시 중요한 데이터를 백업하고 저장장치를 교체하세요. 이 단계에서는 소프트웨어 조치로 되돌릴 수 없습니다.",
+          "axis": "hardware",
+          "confidence": 0.98,
+          "recommended_action": "purchase",
+          "root_cause": "저장장치 펌웨어가 자체 진단에서 임계값을 넘은 속성을 발견했습니다.",
+          "severity": "critical",
+          "title": "저장장치가 임박한 고장을 보고함"
+        }
+      },
+      "tree": [
+        [
+          0,
+          0.5,
+          1,
+          2
+        ],
+        [
+          -1,
+          "none",
+          1.0,
+          0
+        ],
+        [
+          -1,
+          "critical:purchase",
+          1.0,
+          0
+        ]
+      ]
+    },
+    "ST-SPACE-001": {
+      "features": [
+        "free_percent",
+        "free_gb"
+      ],
+      "labels": {
+        "high:fix": {
+          "action_detail": "저장소 센스/디스크 정리로 임시 파일과 이전 Windows 설치본을 제거하고, 큰 파일은 다른 드라이브로 옮기세요. 전체 용량의 15% 이상을 확보하는 것이 목표입니다. 정리 후에도 부족하면 그때 증설을 검토하면 됩니다.",
+          "axis": "software",
+          "confidence": 0.95,
+          "recommended_action": "fix",
+          "root_cause": "Windows는 페이징 파일, 업데이트 임시 파일, 파일 시스템 여유 블록에 디스크 공간을 사용합니다. 여유가 부족하면 저장장치 성능과 무관하게 전체 반응 속도가 떨어지고 업데이트가 실패합니다.",
+          "severity": "high",
+          "title": "시스템 드라이브 여유 공간 부족"
+        },
+        "medium:fix": {
+          "action_detail": "저장소 센스/디스크 정리로 임시 파일과 이전 Windows 설치본을 제거하고, 큰 파일은 다른 드라이브로 옮기세요. 전체 용량의 15% 이상을 확보하는 것이 목표입니다. 정리 후에도 부족하면 그때 증설을 검토하면 됩니다.",
+          "axis": "software",
+          "confidence": 0.95,
+          "recommended_action": "fix",
+          "root_cause": "Windows는 페이징 파일, 업데이트 임시 파일, 파일 시스템 여유 블록에 디스크 공간을 사용합니다. 여유가 부족하면 저장장치 성능과 무관하게 전체 반응 속도가 떨어지고 업데이트가 실패합니다.",
+          "severity": "medium",
+          "title": "시스템 드라이브 여유 공간 부족"
+        }
+      },
+      "tree": [
+        [
+          1,
+          39.99995040893555,
+          1,
+          8
+        ],
+        [
+          0,
+          9.999949932098389,
+          2,
+          7
+        ],
+        [
+          0,
+          4.999949932098389,
+          3,
+          4
+        ],
+        [
+          -1,
+          "high:fix",
+          1.0,
+          0
+        ],
+        [
+          1,
+          14.999949932098389,
+          5,
+          6
+        ],
+        [
+          -1,
+          "high:fix",
+          1.0,
+          0
+        ],
+        [
+          -1,
+          "medium:fix",
+          1.0,
+          0
+        ],
+        [
+          -1,
+          "none",
+          1.0,
+          0
+        ],
+        [
+          -1,
+          "none",
+          1.0,
+          0
+        ]
+      ]
+    },
+    "ST-WEAR-001": {
+      "features": [
+        "wear_percent"
+      ],
+      "labels": {
+        "high:purchase": {
+          "action_detail": "교체를 준비하세요. 보증 수명을 넘긴 상태에서는 갑작스러운 읽기 전용 전환이 발생할 수 있습니다.",
+          "axis": "hardware",
+          "confidence": 0.85,
+          "recommended_action": "purchase",
+          "root_cause": "NAND 플래시는 쓰기 횟수에 수명이 있습니다. 누적 쓰기량이 보증 수명(TBW)에 가까워지면 예비 블록이 줄고 쓰기 성능과 안정성이 떨어집니다.",
+          "severity": "high",
+          "title": "저장장치 수명 소모"
+        },
+        "medium:keep": {
+          "action_detail": "아직 교체할 단계는 아닙니다. 정기 백업을 확보하고 다음 스캔에서 소모율 증가 속도를 확인하세요.",
+          "axis": "hardware",
+          "confidence": 0.85,
+          "recommended_action": "keep",
+          "root_cause": "NAND 플래시는 쓰기 횟수에 수명이 있습니다. 누적 쓰기량이 보증 수명(TBW)에 가까워지면 예비 블록이 줄고 쓰기 성능과 안정성이 떨어집니다.",
+          "severity": "medium",
+          "title": "저장장치 수명 소모"
+        }
+      },
+      "tree": [
+        [
+          0,
+          69.5,
+          1,
+          2
+        ],
+        [
+          -1,
+          "none",
+          1.0,
+          0
+        ],
+        [
+          0,
+          89.5,
+          3,
+          4
+        ],
+        [
+          -1,
+          "medium:keep",
+          1.0,
+          0
+        ],
+        [
+          -1,
+          "high:purchase",
+          1.0,
+          0
+        ]
+      ]
+    },
+    "SW-BIOS-001": {
+      "features": [
+        "age_days"
+      ],
+      "labels": {
+        "low:fix": {
+          "action_detail": "메인보드 제조사 지원 페이지에서 최신 BIOS를 확인하세요. 업데이트 중 전원이 끊기면 보드가 손상될 수 있으므로 주의가 필요합니다.",
+          "axis": "software",
+          "confidence": 0.7,
+          "recommended_action": "fix",
+          "root_cause": "펌웨어에 포함되는 CPU 마이크로코드 갱신과 보안 패치가 적용되지 않은 상태입니다.",
+          "severity": "low",
+          "title": "BIOS 펌웨어가 오래됨"
+        }
+      },
+      "tree": [
+        [
+          0,
+          1094.5,
+          1,
+          2
+        ],
+        [
+          -1,
+          "none",
+          1.0,
+          0
+        ],
+        [
+          -1,
+          "low:fix",
+          1.0,
+          0
+        ]
+      ]
+    },
+    "SW-GPU-001": {
+      "features": [
+        "age_days"
+      ],
+      "labels": {
+        "medium:fix": {
+          "action_detail": "제조사(NVIDIA/AMD/Intel) 공식 드라이버를 최신 버전으로 설치하세요. 무료이며 부품 교체보다 먼저 시도할 조치입니다.",
+          "axis": "software",
+          "confidence": 0.75,
+          "recommended_action": "fix",
+          "root_cause": "드라이버가 최신 게임/애플리케이션의 최적화 프로파일과 버그 수정을 반영하지 못하고 있습니다.",
+          "severity": "medium",
+          "title": "그래픽 드라이버가 오래됨"
+        }
+      },
+      "tree": [
+        [
+          0,
+          729.5,
+          1,
+          2
+        ],
+        [
+          -1,
+          "none",
+          1.0,
+          0
+        ],
+        [
+          -1,
+          "medium:fix",
+          1.0,
+          0
+        ]
+      ]
+    }
+  },
+  "seed": 20261118,
+  "sklearn_version": "1.8.0",
+  "teacher_sha256": "fcf3a51de65c1a7e87ec1b39b4f67008dfd6ad4d81cfc1b43e206a5faa4ca812"
+}

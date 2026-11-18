@@ -140,6 +140,18 @@ def test_shape_memory_sums_module_capacity():
     assert memory["modules"][0]["configured_speed_mhz"] < memory["modules"][0]["rated_speed_mhz"]
 
 
+def test_shape_memory_preserves_type_form_factor_and_maximum():
+    memory = shape_memory([
+        {"Capacity": 16 * 1024 ** 3, "SMBIOSMemoryType": 34, "FormFactor": 8, "Speed": 4800},
+    ], [{"MemoryDevices": 4, "MaxCapacityEx": 128 * 1024 ** 2}])
+    assert memory["modules"][0]["memory_generation"] == "DDR5"
+    assert memory["modules"][0]["form_factor"] == "DIMM"
+    assert memory["max_capacity_gb"] == 128
+    missing = shape_memory([{"Capacity": 8 * 1024 ** 3, "Speed": 5000}], [])
+    assert missing["modules"][0]["memory_generation"] is None
+    assert missing["max_capacity_gb"] is None
+
+
 def test_shape_cpu_trims_vendor_padding():
     rows = [{"Name": "  Intel(R) Core(TM) i7-13700K  ", "NumberOfCores": "16"}]
     cpu = shape_cpu(rows)[0]

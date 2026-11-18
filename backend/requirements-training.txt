@@ -1,0 +1,3 @@
+# Offline training only. Production inference uses the exported JSON trees.
+scikit-learn==1.8.0
+remotezip==0.12.3

@@ -1,14 +1,7 @@
-"""Rule Detection 엔진 (Phase 3 / M4).
+"""ML diagnosis orchestration and offline teacher registry.
 
-규칙 하나 = 클래스 하나. 각 규칙은 자신이 필요로 하는 telemetry 섹션을
-선언하고, 그 섹션이 확보되지 않았으면 조용히 건너뛴다. 없는 데이터로
-추측하지 않는 것이 이 엔진의 핵심 규약이다.
-
-새 규칙 추가:
-
-1. ``rules/`` 아래에 ``Rule`` 상속 클래스를 만든다.
-2. ``@register`` 를 붙인다.
-3. ``rules/__init__.py`` 에 import 한 줄을 더한다.
+Rule.evaluate is only used by training; live diagnosis loads fitted model artifacts.
+Action aggregation and data-availability checks are application policies.
 """
 
 from __future__ import annotations
@@ -108,19 +101,10 @@ def decide(findings: list[Finding]) -> ActionDecision:
 
 
 def diagnose(snapshot: TelemetrySnapshot, rule_ids: list[str] | None = None) -> DiagnosisResult:
-    """스냅샷에 모든 규칙을 적용해 진단 결과를 만든다."""
-    selected = registry()
-    if rule_ids:
-        selected = {rid: cls for rid, cls in selected.items() if rid in rule_ids}
+    """Run the trained models. Legacy rules are offline training teachers only."""
+    from app.diagnosis.ml import model_version, predict_findings
 
-    findings: list[Finding] = []
-    for cls in selected.values():
-        rule = cls()
-        if not rule.applicable(snapshot):
-            continue
-        finding = rule.evaluate(snapshot)
-        if finding is not None:
-            findings.append(finding)
+    findings = predict_findings(snapshot, rule_ids)
 
     # 심각한 것부터, 같은 심각도면 확신이 높은 것부터
     findings.sort(
@@ -136,4 +120,7 @@ def diagnose(snapshot: TelemetrySnapshot, rule_ids: list[str] | None = None) -> 
         decision=decide(findings),
         coverage=snapshot.coverage(),
         confidence=_coverage_confidence(snapshot),
+        inference_method="machine_learning",
+        model_version=model_version(),
+        training_label_source="legacy_rule_weak_supervision",
     )

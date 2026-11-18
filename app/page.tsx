@@ -137,28 +137,13 @@ function CandidateComparison({ diagnosis, onUpdated }: {
 
   return <Card className="border border-orange-400/15 bg-card/65">
     <CardHeader>
-      <CardDescription>진단 근거 기반 호환성 검증</CardDescription>
-      <CardTitle>진단에 맞는 추천 구매 물품</CardTitle>
+      <CardDescription>{diagnosis.decision.reason}</CardDescription>
+      <CardTitle>내 PC에 맞는 교체 부품</CardTitle>
       <CardAction><HardDrive className="size-5 text-orange-300" /></CardAction>
     </CardHeader>
     <CardContent className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2">
-        {diagnosis.recommendations.flatMap(recommendation => recommendation.candidates.filter(candidate => candidate.recommended).map(candidate => (
-          <div key={recommendation.id} className="rounded-xl border border-primary/25 bg-primary/5 p-4">
-            <Badge variant="outline" className={recommendationTone[recommendation.priority]}>{priorityLabels[recommendation.priority]} 추천</Badge>
-            <h3 className="mt-3 text-base font-semibold">{candidate.title}</h3>
-            <p className="mt-2 text-xs leading-5 text-muted-foreground">{recommendation.description}</p>
-            <p className="mt-2 text-xs text-amber-300">{candidate.compatibilityStatus === 'passed' ? '수집된 조건 일치 · 장착 환경 최종 확인' : '구매 전 장착 조건 추가 확인 필요'}</p>
-            {candidate.parts.map(part => <div key={part.key} className="mt-3 flex flex-wrap gap-3 text-xs text-primary">
-              <a href={`https://search.shopping.naver.com/search/all?query=${encodeURIComponent(part.searchQuery)}`} target="_blank" rel="noreferrer">{part.name} 구매 찾기 ↗</a>
-              <a href={`https://search.danawa.com/dsearch.php?query=${encodeURIComponent(part.searchQuery)}`} target="_blank" rel="noreferrer">다나와 가격 비교 ↗</a>
-            </div>)}
-          </div>
-        )))}
-      </div>
-      <p className="text-xs text-muted-foreground">진단이 끝나면 추천이 자동으로 표시됩니다. 판매 가격·재고는 판매처에서 확인하세요.</p>
       {diagnosis.recommendations.map((recommendation) => (
-        <section key={recommendation.id} className="border-t border-white/6 pt-5 first:border-t-0 first:pt-0">
+        <section key={recommendation.id} id={`recommendation-${recommendation.id}`} tabIndex={-1} className="scroll-mt-20 border-t border-white/6 pt-5 first:border-t-0 first:pt-0">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="font-medium">{recommendation.title}</div>
@@ -175,7 +160,7 @@ function CandidateComparison({ diagnosis, onUpdated }: {
                   ? '로컬 Gemma'
                   : recommendation.aiInsight.status === 'unavailable'
                     ? 'Gemma 연결 안 됨'
-                    : '규칙 기반 안내'}
+                    : '기본 안내'}
               </Badge>
             </div>
             <p className="mt-2 text-xs leading-5 text-muted-foreground">{recommendation.aiInsight.rationale}</p>
@@ -185,7 +170,7 @@ function CandidateComparison({ diagnosis, onUpdated }: {
             <div className="mt-2 font-mono text-[9px] text-muted-foreground">{recommendation.aiInsight.model} · PC 외부 전송 없음</div>
           </div>
           <div className="grid gap-4 xl:grid-cols-2">
-            {(recommendation.candidates ?? []).filter(candidate => candidate.recommended || expanded.has(recommendation.id)).map((candidate) => {
+            {(recommendation.candidates ?? []).filter(candidate => candidate.recommended || !recommendation.candidates.some(item => item.recommended) || expanded.has(recommendation.id)).map((candidate) => {
               return <div key={candidate.id} className={`rounded-lg border p-4 ${candidate.recommended ? 'border-primary/25 bg-primary/[.04]' : 'border-white/8 bg-white/[.02]'}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -213,6 +198,7 @@ function CandidateComparison({ diagnosis, onUpdated }: {
                           </div>}
                         </div>
                       </div>
+                      <a href={`#seller-${part.key}`} className="mt-3 mr-3 inline-flex rounded-md bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground">가격·판매처 보기</a>
                       {part.sourceUrl && <a href={part.sourceUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-[10px] text-primary">
                         {part.sourceLabel ?? '제조사 사양'} <ExternalLink className="size-3" />
                       </a>}
@@ -239,12 +225,12 @@ function CandidateComparison({ diagnosis, onUpdated }: {
               </div>;
             })}
           </div>
-          {recommendation.candidates.length > 1 && <Button variant="ghost" size="sm" className="mt-2" onClick={() => setExpanded(current => {
+          {recommendation.candidates.some(item => item.recommended) && recommendation.candidates.some(item => !item.recommended) && <Button variant="ghost" size="sm" className="mt-2" onClick={() => setExpanded(current => {
             const next = new Set(current);
             if (next.has(recommendation.id)) next.delete(recommendation.id); else next.add(recommendation.id);
             return next;
-          })}><ChevronDown className="size-4" />{expanded.has(recommendation.id) ? '다른 후보 접기' : `다른 후보 ${recommendation.candidates.length - 1}개 비교`}</Button>}
-          <div className="mt-3 font-mono text-[10px] text-muted-foreground">판정 근거: {recommendation.findingIds.join(', ')}</div>
+          })}><ChevronDown className="size-4" />{expanded.has(recommendation.id) ? '다른 후보 접기' : `다른 후보 ${recommendation.candidates.filter(item => !item.recommended).length}개 비교`}</Button>}
+
         </section>
       ))}
       <PurchaseOffers key={diagnosis.scanId} diagnosis={diagnosis} onUpdated={onUpdated} />
@@ -513,7 +499,7 @@ function DiagnosticsHome({ preview }: { preview: string | null }) {
           <WorkloadPanel key={diagnosis?.scanId} scanId={diagnosisSource === 'agent' ? diagnosis?.scanId : undefined} />}
 
         {purchaseReady && <section ref={purchasePanel} tabIndex={-1} aria-label="진단 후 구매 추천" className="mb-6 scroll-mt-20 outline-none">
-          <CandidateComparison diagnosis={diagnosis!} onUpdated={async () => {
+          <CandidateComparison key={diagnosis!.scanId} diagnosis={diagnosis!} onUpdated={async () => {
             const scanId = diagnosis!.scanId;
             const updated = await getDiagnosis(scanId);
             setDiagnosis(current => current?.scanId === scanId ? updated : current);
@@ -729,6 +715,9 @@ function DiagnosticsHome({ preview }: { preview: string | null }) {
                         <ul className="space-y-1.5 text-xs leading-5 text-muted-foreground">
                           {finding.actions.length ? finding.actions.map((item) => <li key={item}>· {item}</li>) : <li>추가 조치 없음</li>}
                         </ul>
+                        {purchaseReady && diagnosis.recommendations.filter(item => item.findingIds.includes(finding.id)).map(item =>
+                          <a key={item.id} href={`#recommendation-${item.id}`} className="mt-2 block text-xs text-primary">{item.title} · 추천 부품 보기 →</a>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -789,16 +778,19 @@ function DiagnosticsHome({ preview }: { preview: string | null }) {
               <CardContent className="space-y-4">
                 <Progress value={diagnosis.risk.score} className={tone.bar} />
                 <p className="text-sm leading-6 text-muted-foreground">{diagnosis.risk.summary}</p>
+                {diagnosis.inference?.method === 'machine_learning' && (
+                  <p className="text-xs leading-5 text-muted-foreground">머신러닝 판정 · {diagnosis.inference.limitation}</p>
+                )}
               </CardContent>
             </Card>
 
             <Card className="border border-primary/15 bg-card/75">
               <CardHeader>
                 <CardDescription className="flex items-center gap-2"><Sparkles className="size-4 text-primary" />로컬 AI 진단</CardDescription>
-                <CardTitle className="text-base">{diagnosis.ai.provider === 'ollama' ? 'Gemma 진단 설명' : '규칙 기반 진단 설명'}</CardTitle>
+                <CardTitle className="text-base">{diagnosis.ai.provider === 'ollama' ? 'Gemma 진단 설명' : '진단 결과 안내'}</CardTitle>
                 <CardAction>
                   <Badge variant="outline" className={diagnosis.ai.provider === 'ollama' ? 'border-primary/25 text-primary' : 'border-white/10 text-muted-foreground'}>
-                    {diagnosis.ai.provider === 'ollama' ? '로컬 Gemma' : '규칙 기반 안내'}
+                    {diagnosis.ai.provider === 'ollama' ? '로컬 Gemma' : '기본 안내'}
                   </Badge>
                 </CardAction>
               </CardHeader>

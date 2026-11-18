@@ -1,0 +1,17 @@
+{
+  "knowledge_sha256": "18c4171a2ea8a6eab216a0e6abe8f383f512d3701730af6051821a3b0ebc2dc1",
+  "catalog_revision": "a0400977e81fe6bb1d26712c8af22ee9efb784cc1bd73f2839c2cd5d0ec89418",
+  "attribution": "TechFuelHQ PC Builder Parts Dataset (CC BY 4.0). https://techfuelhq.com/tools/pc-builder/",
+  "weights_trained": false,
+  "human_reviewed": false,
+  "split_method": "motherboard family held out; D4 and DDR5 variants share group",
+  "counts": {
+    "train": 55,
+    "eval": 15
+  },
+  "eval_groups": [
+    "ASUS:Prime Z890-P WiFi",
+    "ASUS:ROG Strix B650-A Gaming WiFi",
+    "ASUS:ROG Strix B860-I Gaming WiFi"
+  ]
+}

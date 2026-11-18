@@ -23,6 +23,7 @@ export type MarketPrice = {
 export type MarketPricesResponse = { prices: MarketPrice[] };
 
 export type Diagnosis = {
+  inference?: { method: string; modelVersion: string; labelSource: string; limitation: string } | null;
   schemaVersion: '1.2.0';
   scanId: string;
   scanType: 'basic';

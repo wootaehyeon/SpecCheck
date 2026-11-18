@@ -13,11 +13,19 @@ _BOARD_SOCKETS = {
 
 
 def infer_board_socket(value: str | None) -> str | None:
+    from app.diagnosis.compatibility_knowledge import lookup
+    record = lookup("boards", value)
+    if record:
+        return record.get("socket")
     text = (value or "").lower()
     return next((socket for socket, keys in _BOARD_SOCKETS.items() if any(key in text for key in keys)), None)
 
 
 def infer_cpu_socket(value: str | None) -> str | None:
+    from app.diagnosis.compatibility_knowledge import lookup
+    record = lookup("cpus", value)
+    if record:
+        return record.get("socket")
     text = (value or "").lower()
     if "ryzen" in text:
         match = re.search(r"\b(?:ryzen\s+[3579]\s+)(\d{4})", text)
@@ -29,6 +37,10 @@ def infer_cpu_socket(value: str | None) -> str | None:
 
 
 def infer_memory_generation(value: str | None) -> str | None:
+    from app.diagnosis.compatibility_knowledge import lookup
+    record = lookup("boards", value)
+    if record:
+        return record.get("ram_type")
     text = (value or "").lower()
     if "ddr5" in text:
         return "DDR5"

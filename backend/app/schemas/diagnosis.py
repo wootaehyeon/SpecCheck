@@ -76,6 +76,7 @@ class Finding(BaseModel):
     action_detail: str | None = None
     evidence: list[Evidence] = Field(default_factory=list)
     confidence: float = Field(default=0.8, ge=0.0, le=1.0)
+    model_score: float | None = Field(default=None, ge=0.0, le=1.0, description="학습 트리의 클래스 비율. 실제 고장 확률이 아님")
 
 
 class ActionDecision(BaseModel):
@@ -87,6 +88,9 @@ class ActionDecision(BaseModel):
 
 
 class DiagnosisResult(BaseModel):
+    inference_method: str = "legacy_rules"  # Old persisted results without provenance stay identifiable.
+    model_version: str | None = None
+    training_label_source: str | None = None
     snapshot_id: str
     scan_mode: str
     generated_at: datetime

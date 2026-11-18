@@ -58,6 +58,23 @@ def test_catalog_changes_invalidate_saved_diagnosis(cached_scan, monkeypatch):
     assert len(calls) == 2
 
 
+def test_model_changes_invalidate_saved_diagnosis(cached_scan, monkeypatch):
+    snapshot, calls = cached_scan
+    diagnosis_service.diagnose_for_ui(snapshot)
+    monkeypatch.setattr(diagnosis_service, "model_version", lambda: "new-trained-model")
+    diagnosis_service.diagnose_for_ui(snapshot)
+    diagnosis_service.diagnose_for_ui(snapshot)
+    assert len(calls) == 2
+
+
+def test_compatibility_knowledge_changes_invalidate_saved_diagnosis(cached_scan, monkeypatch):
+    snapshot, calls = cached_scan
+    diagnosis_service.diagnose_for_ui(snapshot)
+    monkeypatch.setattr(diagnosis_service, "knowledge_version", lambda: "new-specs")
+    diagnosis_service.diagnose_for_ui(snapshot)
+    assert len(calls) == 2
+
+
 def test_purchase_changes_invalidate_saved_diagnosis(cached_scan, monkeypatch):
     snapshot, calls = cached_scan
     state, revision = diagnosis_service.offers_state()

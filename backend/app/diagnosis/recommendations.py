@@ -8,6 +8,7 @@ from app.logic.compatibility import check_compatibility, infer_board_socket, inf
 from app.schemas.diagnosis import ActionType, DiagnosisResult, Finding, Severity
 from app.schemas.telemetry import TelemetrySnapshot
 from app.services.component_catalog import load_catalog
+from app.diagnosis.compatibility_knowledge import board_for, memory_facts, memory_candidate_allowed
 from app.schemas.ui_diagnosis import (
     CandidatePart,
     CompatibilityCheck,
@@ -36,14 +37,7 @@ def _cpu_name(snapshot: TelemetrySnapshot) -> str:
 
 
 def _memory_generation(snapshot: TelemetrySnapshot) -> str | None:
-    generation = infer_memory_generation(_board_name(snapshot))
-    if generation:
-        return generation
-    modules = (_hardware(snapshot).get("memory") or {}).get("modules") or []
-    speed = next((item.get("rated_speed_mhz") for item in modules if item.get("rated_speed_mhz")), None)
-    if isinstance(speed, (int, float)):
-        return "DDR5" if speed >= 4800 else "DDR4" if speed <= 3600 else None
-    return None
+    return memory_facts(snapshot)["generation"]
 
 
 def _catalog_products() -> list[dict]:
@@ -88,7 +82,10 @@ def _verified_candidate(*, candidate_id: str, strategy: str, title: str, summary
 
 
 def _minimal_memory(snapshot: TelemetrySnapshot, target: int, product: dict) -> ReplacementCandidate | None:
+    if not memory_candidate_allowed(snapshot, product):
+        return None
     memory = _hardware(snapshot).get("memory") or {}
+    facts = memory_facts(snapshot)
     generation = _memory_generation(snapshot)
     empty_slots = memory.get("empty_slot_count")
     speed = next((item.get("rated_speed_mhz") for item in memory.get("modules") or [] if item.get("rated_speed_mhz")), None)
@@ -105,6 +102,17 @@ def _minimal_memory(snapshot: TelemetrySnapshot, target: int, product: dict) -> 
                 else "후보 키트의 모듈 수보다 빈 슬롯이 적어 기존 모듈 교체가 필요합니다." if isinstance(empty_slots, int)
                 else "전체 슬롯 수가 수집되지 않아 설치 전에 빈 슬롯을 확인해야 합니다."),
     )]
+    board = facts["board"]
+    if board:
+        checks.append(CompatibilityCheck(label="메인보드 사양 근거", status="passed" if board["verification"] == "manufacturer" else "conditional",
+            detail=f"{board['vendor']} {board['model']}: {board['ram_type']}, 슬롯 {board['ram_slots']}개, 최대 {board['ram_max_gb']}GB. 출처: {board['source']} ({board['last_verified']}, {board['verification']})"))
+    checks.append(CompatibilityCheck(label="메모리 지원 목록", status="conditional",
+        detail="CPU·BIOS 버전에 맞는 제조사 메모리 지원 목록(QVL)을 확인하세요. XMP/EXPO 표기 속도와 혼용 안정성은 보장되지 않습니다."))
+    if facts["form_factor"]:
+        checks.append(CompatibilityCheck(label="현재 메모리 형태", status="passed", detail=f"수집 또는 사양으로 확인한 형태: {facts['form_factor']}. 후보: {product['form_factor']}"))
+    if facts["max_capacity_gb"]:
+        checks.append(CompatibilityCheck(label="총 메모리 용량", status="passed",
+            detail=f"후보 키트 {product['capacity_gb']}GB는 확인된 최대 {facts['max_capacity_gb']:g}GB 이하입니다. 기존 메모리를 교체하는 기준이며 추가 장착 시 합산 용량을 확인하세요."))
     return _verified_candidate(
         candidate_id=product["id"], strategy="minimal", title=product["name"],
         summary="현재 CPU와 메인보드를 유지하고 메모리 용량 부족만 해결하는 카탈로그 후보입니다.", recommended=False,
@@ -142,6 +150,7 @@ def _storage_candidates(snapshot: TelemetrySnapshot, catalog: list[dict]) -> lis
         and int(product.get("capacity_gb") or 0) >= capacity
     ]
     candidates: list[ReplacementCandidate] = []
+    board = board_for(snapshot)
     for product in products:
         candidate = _verified_candidate(
             candidate_id=product["id"], strategy="minimal", title=product["name"],
@@ -158,13 +167,17 @@ def _storage_candidates(snapshot: TelemetrySnapshot, catalog: list[dict]) -> lis
                 CompatibilityCheck(label="용량", status="passed", detail=f"현재 시스템 디스크 {capacity}GB 이상인 {product['capacity_gb']}GB 모델입니다."),
             ], tradeoffs=["문제 부품만 교체해 비용을 최소화", "OS와 데이터 마이그레이션 필요"],
             build={"cpu": _cpu_name(snapshot), "gpu": None, "motherboard": _board_name(snapshot), "ram": None,
-                   "psu_watt": None, "storage": [{"type": interface or "SSD", "capacity_gb": product["capacity_gb"]}],
+                   "psu_watt": None, "storage": [{"type": product["interface"], "capacity_gb": product["capacity_gb"]}],
                    "existing_storage": [
                        {"type": item.get("bus_type") or item.get("interface") or item.get("media_type")}
                        for item in (_hardware(snapshot).get("storage") or [])
                    ], "use_case": None},
         )
         if candidate is not None:
+            if board:
+                candidate.checks.append(CompatibilityCheck(label="메인보드 저장장치 근거", status="conditional",
+                    detail=f"{board['vendor']} {board['model']}, M.2 슬롯 수: {board.get('m2_slots', '미확인')}. 출처: {board['source']}. 실제 빈 슬롯, NVMe/SATA 모드, 길이와 CPU별 레인 공유 조건은 별도 확인해야 합니다."))
+                candidate.compatibility_status = "conditional"
             candidates.append(candidate)
     return candidates
 
@@ -185,6 +198,9 @@ def _recommendation(finding: Finding, snapshot: TelemetrySnapshot, catalog: list
         return None
     if not candidates:
         return None
+    for candidate in candidates:
+        candidate.checks.append(CompatibilityCheck(label="현재 PC 구성", status="passed",
+            detail=f"메인보드: {_board_name(snapshot) or '미확인'}, CPU: {_cpu_name(snapshot) or '미확인'}. 미확인 정보는 호환 보장의 근거가 아닙니다."))
     candidates[0] = candidates[0].model_copy(update={"recommended": True})
     query = candidates[0].parts[0].search_query if candidates else f"{category} replacement"
     recommended = candidates[0]

@@ -16,7 +16,6 @@ const money = (amount: string, currency: string) => new Intl.NumberFormat('ko-KR
 export function PurchaseOffers({ diagnosis, onUpdated }: { diagnosis: Diagnosis; onUpdated: () => Promise<void> }) {
   const parts = [...new Map(diagnosis.recommendations.flatMap(r => r.candidates.flatMap(c => c.parts)).map(p => [p.key, p])).values()];
   const productIds = parts.map(p => p.key).sort().join(',');
-  const recommendedIds = new Set(diagnosis.recommendations.flatMap(r => r.candidates.filter(c => c.recommended).flatMap(c => c.parts.map(p => p.key))));
   const [response, setResponse] = useState<{ key: string; data: State | null; error: string } | null>(null);
   const [refreshError, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -42,18 +41,19 @@ export function PurchaseOffers({ diagnosis, onUpdated }: { diagnosis: Diagnosis;
     finally { setRevision(value => value + 1); setBusy(false); }
   }
   return <section className="space-y-4 border-t border-white/10 pt-5">
-    <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-sm font-semibold">교체 견적 비교</h3>
+    <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-sm font-semibold">부품별 가격·판매처</h3>
       <Button size="sm" variant="outline" disabled={busy || diagnosis.scanId === 'demo-purchase'} onClick={() => void refresh()}><RefreshCw className={`size-4 ${busy ? 'animate-spin' : ''}`} />{busy ? '갱신 중' : '추천 갱신'}</Button>
     </div>
     {error && <p role="alert" className="text-xs text-amber-300">가격 미확인 · {error}</p>}
     {!state && !error && <p className="text-xs text-muted-foreground">후보 판매 정보 확인 중</p>}
-    <PurchaseComparison diagnosis={diagnosis} offers={state?.offers ?? []} />
-    <details className="space-y-3"><summary className="cursor-pointer text-xs font-medium">판매 상품 상세</summary>
-    {parts.filter(part => recommendedIds.has(part.key) || state?.offers.some(o => o.product_id === part.key)).map(part => {
+    {parts.map(part => {
       const offers = state?.offers.filter(o => o.product_id === part.key) ?? [];
-      return <div key={part.key} className="space-y-2 border-b border-white/10 pb-3 text-xs">
-        <div className="flex flex-wrap items-center justify-between gap-2"><span className="font-medium">{part.name}</span>
-          <a href={`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(part.searchQuery)}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary">eBay 검색<ExternalLink className="size-3" /></a>
+      return <div key={part.key} id={`seller-${part.key}`} tabIndex={-1} className="scroll-mt-20 space-y-3 rounded-lg border border-white/10 p-4 text-xs target:border-primary/50">
+        <h4 className="text-sm font-semibold">{part.name}</h4>
+        <div className="flex flex-wrap gap-4 text-primary">
+          <a href={`https://search.shopping.naver.com/search/all?query=${encodeURIComponent(part.searchQuery)}`} target="_blank" rel="noreferrer">네이버쇼핑 상품 검색 ↗</a>
+          <a href={`https://search.danawa.com/dsearch.php?query=${encodeURIComponent(part.searchQuery)}`} target="_blank" rel="noreferrer">다나와 가격 비교 ↗</a>
+          <a href={`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(part.searchQuery)}`} target="_blank" rel="noreferrer">eBay 상품 검색 ↗</a>
         </div>
         {offers.length === 0 && state && <p className="text-muted-foreground">{state.products.find(p => p.product_id === part.key)?.message ?? '가격 미확인'}</p>}
         {offers.map(offer => <div key={offer.id} className="space-y-1 border-l border-white/10 pl-3">
@@ -64,6 +64,8 @@ export function PurchaseOffers({ diagnosis, onUpdated }: { diagnosis: Diagnosis;
         </div>)}
       </div>;
     })}
+    <details><summary className="mb-3 cursor-pointer text-sm font-medium">교체안별 총비용과 효과 비교</summary>
+      <PurchaseComparison diagnosis={diagnosis} offers={state?.offers ?? []} />
     </details>
     {state?.mode === 'technical_only' && <p className="text-xs text-muted-foreground">현재는 사양·호환성 기반 교체 제안입니다. 가격과 재고는 확인되지 않았습니다.</p>}
     <p className="text-[11px] text-muted-foreground">새 상품 · 한국 배송 기준 · 관세·부가세 제외 · 통화별 비교 · 시장 전체 최저가가 아님</p>

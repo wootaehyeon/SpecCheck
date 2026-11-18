@@ -68,6 +68,8 @@ QUERIES: dict[str, dict[str, Any]] = {
             "Manufacturer",
             "PartNumber",
             "DeviceLocator",
+            "SMBIOSMemoryType",
+            "FormFactor",
         ],
     },
     "gpu": {
@@ -237,6 +239,9 @@ def shape_memory(
             "manufacturer": _clean(row.get("Manufacturer")),
             "part_number": _clean(row.get("PartNumber")),
             "slot": _clean(row.get("DeviceLocator")),
+            "smbios_memory_type": _to_int(row.get("SMBIOSMemoryType")),
+            "memory_generation": {26: "DDR4", 34: "DDR5"}.get(_to_int(row.get("SMBIOSMemoryType"))),
+            "form_factor": {8: "DIMM", 12: "SODIMM"}.get(_to_int(row.get("FormFactor"))),
         }
         for row in rows
     ]
@@ -248,6 +253,7 @@ def shape_memory(
         "slot_count": slot_count,
         "empty_slot_count": max(slot_count - len(modules), 0) if slot_count is not None else None,
         "total_gb": round(total, 2) if modules else None,
+        "max_capacity_gb": (sum(_to_int(row.get("MaxCapacityEx")) or 0 for row in array_rows or []) / (1024 ** 2)) or None,
     }
 
 

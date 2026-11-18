@@ -1,0 +1,443 @@
+{
+  "models": {
+    "HW-RAM-001": {
+      "training_rows": 4782,
+      "external_source_rows": 0,
+      "validation_rows": 2338,
+      "teacher_agreement": 0.9991445680068435,
+      "macro_f1": 0.9976726996683847,
+      "classes": {
+        "low:fix": {
+          "precision": 0.9877300613496932,
+          "recall": 1.0,
+          "f1-score": 0.9938271604938271,
+          "support": 161.0
+        },
+        "medium:fix": {
+          "precision": 1.0,
+          "recall": 0.9983831851253031,
+          "f1-score": 0.9991909385113269,
+          "support": 1237.0
+        },
+        "none": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 940.0
+        },
+        "accuracy": 0.9991445680068435,
+        "macro avg": {
+          "precision": 0.9959100204498977,
+          "recall": 0.9994610617084344,
+          "f1-score": 0.9976726996683847,
+          "support": 2338.0
+        },
+        "weighted avg": {
+          "precision": 0.9991550641049189,
+          "recall": 0.9991445680068435,
+          "f1-score": 0.9991468621805036,
+          "support": 2338.0
+        }
+      },
+      "note": "Independent synthetic feature vectors; not real-world accuracy. Finite domains may be exhausted by training."
+    },
+    "HW-RAM-002": {
+      "training_rows": 4779,
+      "external_source_rows": 0,
+      "validation_rows": 2308,
+      "teacher_agreement": 1.0,
+      "macro_f1": 1.0,
+      "classes": {
+        "high:purchase": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 146.0
+        },
+        "none": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 2162.0
+        },
+        "accuracy": 1.0,
+        "macro avg": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 2308.0
+        },
+        "weighted avg": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 2308.0
+        }
+      },
+      "note": "Independent synthetic feature vectors; not real-world accuracy. Finite domains may be exhausted by training."
+    },
+    "HW-DISK-001": {
+      "training_rows": 2,
+      "external_source_rows": 0,
+      "validation_rows": 0,
+      "teacher_agreement": null,
+      "macro_f1": null,
+      "classes": {},
+      "note": "Independent synthetic feature vectors; not real-world accuracy. Finite domains may be exhausted by training."
+    },
+    "SW-GPU-001": {
+      "training_rows": 2822,
+      "external_source_rows": 0,
+      "validation_rows": 525,
+      "teacher_agreement": 1.0,
+      "macro_f1": 1.0,
+      "classes": {
+        "medium:fix": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 420.0
+        },
+        "none": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 105.0
+        },
+        "accuracy": 1.0,
+        "macro avg": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 525.0
+        },
+        "weighted avg": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 525.0
+        }
+      },
+      "note": "Independent synthetic feature vectors; not real-world accuracy. Finite domains may be exhausted by training."
+    },
+    "SW-BIOS-001": {
+      "training_rows": 2822,
+      "external_source_rows": 0,
+      "validation_rows": 525,
+      "teacher_agreement": 1.0,
+      "macro_f1": 1.0,
+      "classes": {
+        "low:fix": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 376.0
+        },
+        "none": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 149.0
+        },
+        "accuracy": 1.0,
+        "macro avg": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 525.0
+        },
+        "weighted avg": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 525.0
+        }
+      },
+      "note": "Independent synthetic feature vectors; not real-world accuracy. Finite domains may be exhausted by training."
+    },
+    "ST-SPACE-001": {
+      "training_rows": 6695,
+      "external_source_rows": 0,
+      "validation_rows": 3346,
+      "teacher_agreement": 1.0,
+      "macro_f1": 1.0,
+      "classes": {
+        "high:fix": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 61.0
+        },
+        "medium:fix": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 13.0
+        },
+        "none": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 3272.0
+        },
+        "accuracy": 1.0,
+        "macro avg": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 3346.0
+        },
+        "weighted avg": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 3346.0
+        }
+      },
+      "note": "Independent synthetic feature vectors; not real-world accuracy. Finite domains may be exhausted by training."
+    },
+    "ST-SMART-001": {
+      "training_rows": 4881,
+      "external_source_rows": 5000,
+      "validation_rows": 1790,
+      "teacher_agreement": 1.0,
+      "macro_f1": 1.0,
+      "classes": {
+        "high:purchase": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 1790.0
+        },
+        "accuracy": 1.0,
+        "macro avg": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 1790.0
+        },
+        "weighted avg": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 1790.0
+        }
+      },
+      "note": "Independent synthetic feature vectors; not real-world accuracy. Finite domains may be exhausted by training."
+    },
+    "ST-SMART-002": {
+      "training_rows": 2,
+      "external_source_rows": 0,
+      "validation_rows": 0,
+      "teacher_agreement": null,
+      "macro_f1": null,
+      "classes": {},
+      "note": "Independent synthetic feature vectors; not real-world accuracy. Finite domains may be exhausted by training."
+    },
+    "ST-WEAR-001": {
+      "training_rows": 151,
+      "external_source_rows": 0,
+      "validation_rows": 0,
+      "teacher_agreement": null,
+      "macro_f1": null,
+      "classes": {},
+      "note": "Independent synthetic feature vectors; not real-world accuracy. Finite domains may be exhausted by training."
+    },
+    "RL-WHEA-001": {
+      "training_rows": 997,
+      "external_source_rows": 0,
+      "validation_rows": 4,
+      "teacher_agreement": 1.0,
+      "macro_f1": 1.0,
+      "classes": {
+        "high:purchase": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 4.0
+        },
+        "accuracy": 1.0,
+        "macro avg": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 4.0
+        },
+        "weighted avg": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 4.0
+        }
+      },
+      "note": "Independent synthetic feature vectors; not real-world accuracy. Finite domains may be exhausted by training."
+    },
+    "RL-WHEA-002": {
+      "training_rows": 101,
+      "external_source_rows": 0,
+      "validation_rows": 0,
+      "teacher_agreement": null,
+      "macro_f1": null,
+      "classes": {},
+      "note": "Independent synthetic feature vectors; not real-world accuracy. Finite domains may be exhausted by training."
+    },
+    "RL-CRASH-001": {
+      "training_rows": 101,
+      "external_source_rows": 0,
+      "validation_rows": 0,
+      "teacher_agreement": null,
+      "macro_f1": null,
+      "classes": {},
+      "note": "Independent synthetic feature vectors; not real-world accuracy. Finite domains may be exhausted by training."
+    },
+    "RL-DISK-001": {
+      "training_rows": 101,
+      "external_source_rows": 0,
+      "validation_rows": 0,
+      "teacher_agreement": null,
+      "macro_f1": null,
+      "classes": {},
+      "note": "Independent synthetic feature vectors; not real-world accuracy. Finite domains may be exhausted by training."
+    },
+    "PF-MEM-001": {
+      "training_rows": 6688,
+      "external_source_rows": 0,
+      "validation_rows": 3345,
+      "teacher_agreement": 1.0,
+      "macro_f1": 1.0,
+      "classes": {
+        "high:purchase": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 83.0
+        },
+        "none": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 3262.0
+        },
+        "accuracy": 1.0,
+        "macro avg": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 3345.0
+        },
+        "weighted avg": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 3345.0
+        }
+      },
+      "note": "Independent synthetic feature vectors; not real-world accuracy. Finite domains may be exhausted by training."
+    },
+    "PF-CPU-001": {
+      "training_rows": 6714,
+      "external_source_rows": 0,
+      "validation_rows": 3337,
+      "teacher_agreement": 1.0,
+      "macro_f1": 1.0,
+      "classes": {
+        "high:fix": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 590.0
+        },
+        "none": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 2747.0
+        },
+        "accuracy": 1.0,
+        "macro avg": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 3337.0
+        },
+        "weighted avg": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 3337.0
+        }
+      },
+      "note": "Independent synthetic feature vectors; not real-world accuracy. Finite domains may be exhausted by training."
+    },
+    "PF-POWER-001": {
+      "training_rows": 2,
+      "external_source_rows": 0,
+      "validation_rows": 0,
+      "teacher_agreement": null,
+      "macro_f1": null,
+      "classes": {},
+      "note": "Independent synthetic feature vectors; not real-world accuracy. Finite domains may be exhausted by training."
+    },
+    "PF-THROTTLE-001": {
+      "training_rows": 7638,
+      "external_source_rows": 0,
+      "validation_rows": 3720,
+      "teacher_agreement": 1.0,
+      "macro_f1": 1.0,
+      "classes": {
+        "high:fix": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 292.0
+        },
+        "medium:fix": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 701.0
+        },
+        "none": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 2727.0
+        },
+        "accuracy": 1.0,
+        "macro avg": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 3720.0
+        },
+        "weighted avg": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 3720.0
+        }
+      },
+      "note": "Independent synthetic feature vectors; not real-world accuracy. Finite domains may be exhausted by training."
+    },
+    "SEC-SYSMON-025": {
+      "training_rows": 11,
+      "external_source_rows": 0,
+      "validation_rows": 0,
+      "teacher_agreement": null,
+      "macro_f1": null,
+      "classes": {},
+      "note": "Independent synthetic feature vectors; not real-world accuracy. Finite domains may be exhausted by training."
+    },
+    "SEC-SYSMON-COVERAGE": {
+      "training_rows": 44,
+      "external_source_rows": 0,
+      "validation_rows": 0,
+      "teacher_agreement": null,
+      "macro_f1": null,
+      "classes": {},
+      "note": "Independent synthetic feature vectors; not real-world accuracy. Finite domains may be exhausted by training."
+    }
+  },
+  "real_outcome_validation": false,
+  "external_source": "..\\datasets\\diagnosis\\backblaze-smart-sample.json"
+}

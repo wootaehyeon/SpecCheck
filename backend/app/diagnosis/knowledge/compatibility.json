@@ -1,0 +1,401 @@
+{
+  "schema_version": 1,
+  "attribution": "TechFuelHQ PC Builder Parts Dataset (CC BY 4.0). https://techfuelhq.com/tools/pc-builder/",
+  "license": "CC BY 4.0",
+  "source_url": "https://github.com/iBlessi/pc-builder-parts",
+  "source_git_blob": "2a75867059d06e9bdd31e2408af7b64eca3ae286",
+  "source_sha256": "585b791a208d9770fb3fbf86fb3235c5696649deaf3000bd7703b32649628b4c",
+  "curated_sha256": "04ca3689ab32a944cef1241eeffd342d1060ae9bacfa0e571eeb71c98a7cb0d7",
+  "boards": [
+    {
+      "id": "mb-asrock-a620am-x",
+      "vendor": "ASRock",
+      "model": "A620AM-X",
+      "socket": "AM5",
+      "ram_type": "DDR5",
+      "ram_slots": 2,
+      "ram_max_gb": 128,
+      "m2_slots": 2,
+      "source": "https://www.asrock.com/mb/AMD/A620AM-X/index.asp",
+      "last_verified": "2026-07-29",
+      "verification": "dataset_reported"
+    },
+    {
+      "id": "mb-asrock-b860-pro-rs",
+      "vendor": "ASRock",
+      "model": "B860 Pro RS",
+      "socket": "LGA1851",
+      "ram_type": "DDR5",
+      "ram_slots": 4,
+      "ram_max_gb": 256,
+      "m2_slots": 3,
+      "source": "https://www.asrock.com/mb/Intel/B860%20Pro%20RS/index.asp",
+      "last_verified": "2026-07-29",
+      "verification": "dataset_reported"
+    },
+    {
+      "id": "mb-asrock-b860m-x-gen5-wifi",
+      "vendor": "ASRock",
+      "model": "B860M-X Gen5 WiFi",
+      "socket": "LGA1851",
+      "ram_type": "DDR5",
+      "ram_slots": 2,
+      "ram_max_gb": 128,
+      "m2_slots": 2,
+      "source": "https://www.asrock.com/mb/Intel/B860M-X%20Gen5%20WiFi/index.asp",
+      "last_verified": "2026-07-29",
+      "verification": "dataset_reported"
+    },
+    {
+      "id": "mb-asrock-b860i-wifi",
+      "vendor": "ASRock",
+      "model": "B860I WiFi",
+      "socket": "LGA1851",
+      "ram_type": "DDR5",
+      "ram_slots": 2,
+      "ram_max_gb": 128,
+      "m2_slots": 2,
+      "source": "https://www.asrock.com/mb/Intel/B860I%20WiFi/index.asp",
+      "last_verified": "2026-07-29",
+      "verification": "dataset_reported"
+    },
+    {
+      "id": "mb-asus-rog-strix-b860-i-gaming-wifi",
+      "vendor": "ASUS",
+      "model": "ROG Strix B860-I Gaming WiFi",
+      "socket": "LGA1851",
+      "ram_type": "DDR5",
+      "ram_slots": 2,
+      "ram_max_gb": 128,
+      "m2_slots": 2,
+      "source": "https://rog.asus.com/motherboards/rog-strix/rog-strix-b860-i-gaming-wifi/spec/",
+      "last_verified": "2026-07-29",
+      "verification": "dataset_reported"
+    },
+    {
+      "id": "mb-asus-prime-b860-plus-wifi-csm",
+      "vendor": "ASUS",
+      "model": "Prime B860-PLUS WiFi-CSM",
+      "socket": "LGA1851",
+      "ram_type": "DDR5",
+      "ram_slots": 4,
+      "ram_max_gb": 256,
+      "m2_slots": 2,
+      "source": "https://www.asus.com/motherboards-components/motherboards/prime/prime-b860-plus-wifi-csm/techspec/",
+      "last_verified": "2026-07-29",
+      "verification": "dataset_reported"
+    },
+    {
+      "id": "mb-asus-prime-z890-p-wifi",
+      "vendor": "ASUS",
+      "model": "Prime Z890-P WiFi",
+      "socket": "LGA1851",
+      "ram_type": "DDR5",
+      "ram_slots": 4,
+      "ram_max_gb": 256,
+      "m2_slots": 4,
+      "source": "https://www.asus.com/motherboards-components/motherboards/prime/prime-z890-p-wifi/techspec/",
+      "last_verified": "2026-07-29",
+      "verification": "dataset_reported"
+    },
+    {
+      "id": "mb-asus-tuf-gaming-x870-plus-wifi",
+      "vendor": "ASUS",
+      "model": "TUF Gaming X870-PLUS WiFi",
+      "socket": "AM5",
+      "ram_type": "DDR5",
+      "ram_slots": 4,
+      "ram_max_gb": 256,
+      "m2_slots": 4,
+      "source": "https://www.asus.com/motherboards-components/motherboards/tuf-gaming/tuf-gaming-x870-plus-wifi/techspec/",
+      "last_verified": "2026-07-29",
+      "verification": "dataset_reported"
+    },
+    {
+      "id": "mb-asus-tuf-gaming-b850-plus-wifi",
+      "vendor": "ASUS",
+      "model": "TUF Gaming B850-PLUS WiFi",
+      "socket": "AM5",
+      "ram_type": "DDR5",
+      "ram_slots": 4,
+      "ram_max_gb": 256,
+      "m2_slots": 3,
+      "source": "https://www.asus.com/motherboards-components/motherboards/tuf-gaming/tuf-gaming-b850-plus-wifi/techspec/",
+      "last_verified": "2026-07-29",
+      "verification": "dataset_reported"
+    },
+    {
+      "id": "mb-asus-rog-strix-b850-i-gaming-wifi",
+      "vendor": "ASUS",
+      "model": "ROG Strix B850-I Gaming WiFi",
+      "socket": "AM5",
+      "ram_type": "DDR5",
+      "ram_slots": 2,
+      "ram_max_gb": 128,
+      "m2_slots": 2,
+      "source": "https://rog.asus.com/motherboards/rog-strix/rog-strix-b850-i-gaming-wifi/spec/",
+      "last_verified": "2026-07-29",
+      "verification": "dataset_reported"
+    },
+    {
+      "id": "mb-asus-rog-strix-b650-a-gaming-wifi",
+      "vendor": "ASUS",
+      "model": "ROG Strix B650-A Gaming WiFi",
+      "socket": "AM5",
+      "ram_type": "DDR5",
+      "ram_slots": 4,
+      "ram_max_gb": 192,
+      "m2_slots": 3,
+      "source": "https://rog.asus.com/motherboards/rog-strix/rog-strix-b650-a-gaming-wifi-model/spec/",
+      "last_verified": "2026-07-29",
+      "verification": "dataset_reported"
+    },
+    {
+      "id": "asus-prime-b760-plus-d4",
+      "vendor": "ASUS",
+      "model": "PRIME B760-PLUS D4",
+      "socket": "LGA1700",
+      "ram_type": "DDR4",
+      "ram_slots": 4,
+      "ram_max_gb": 128,
+      "memory_form_factor": "UDIMM",
+      "m2_slots": 3,
+      "nvme_lengths": [
+        2242,
+        2260,
+        2280,
+        22110
+      ],
+      "source": "https://www.asus.com/motherboards-components/motherboards/prime/prime-b760-plus-d4/techspec/",
+      "last_verified": "2026-11-18",
+      "verification": "manufacturer"
+    },
+    {
+      "id": "asus-prime-b760-plus",
+      "vendor": "ASUS",
+      "model": "PRIME B760-PLUS",
+      "socket": "LGA1700",
+      "ram_type": "DDR5",
+      "ram_slots": 4,
+      "ram_max_gb": 192,
+      "memory_form_factor": "UDIMM",
+      "m2_slots": 3,
+      "nvme_lengths": [
+        2242,
+        2260,
+        2280,
+        22110
+      ],
+      "source": "https://www.asus.com/motherboards-components/motherboards/prime/prime-b760-plus/techspec/",
+      "last_verified": "2026-11-18",
+      "verification": "manufacturer"
+    },
+    {
+      "id": "asus-tuf-b550-plus",
+      "vendor": "ASUS",
+      "model": "TUF GAMING B550-PLUS",
+      "socket": "AM4",
+      "ram_type": "DDR4",
+      "ram_slots": 4,
+      "ram_max_gb": 128,
+      "memory_form_factor": "UDIMM",
+      "source": "https://www.asus.com/us/motherboards-components/motherboards/tuf-gaming/tuf-gaming-b550-plus/techspec/",
+      "last_verified": "2026-11-18",
+      "verification": "manufacturer"
+    }
+  ],
+  "cpus": [
+    {
+      "id": "amd-ryzen-9-9950x3d2-dual-edition",
+      "vendor": "AMD",
+      "model": "Ryzen 9 9950X3D2 Dual Edition",
+      "socket": "AM5",
+      "source": "https://www.newegg.com/amd-ryzen-9-9950x3d2-ryzen-9-9000-series-granite-ridge-socket-am5-desktop-cpu-processor/p/N82E16819113938",
+      "last_verified": "2026-07-29"
+    },
+    {
+      "id": "amd-ryzen-9-9950x3d",
+      "vendor": "AMD",
+      "model": "Ryzen 9 9950X3D",
+      "socket": "AM5",
+      "source": "https://www.newegg.com/amd-ryzen-9-9000-series-ryzen-9-9950x3d-granite-ridge-socket-am5-desktop-cpu-processor/p/N82E16819113884",
+      "last_verified": "2026-07-29"
+    },
+    {
+      "id": "amd-ryzen-9-9950x",
+      "vendor": "AMD",
+      "model": "Ryzen 9 9950X",
+      "socket": "AM5",
+      "source": "https://www.newegg.com/amd-ryzen-9-9000-series-ryzen-9-9950x-granite-ridge-socket-am5-desktop-cpu-processor/p/N82E16819113841",
+      "last_verified": "2026-07-29"
+    },
+    {
+      "id": "amd-ryzen-9-9900x3d",
+      "vendor": "AMD",
+      "model": "Ryzen 9 9900X3D",
+      "socket": "AM5",
+      "source": "https://www.newegg.com/amd-ryzen-9-9000-series-ryzen-9-9900x3d-granite-ridge-socket-am5-desktop-cpu-processor/p/N82E16819113886",
+      "last_verified": "2026-07-29"
+    },
+    {
+      "id": "amd-ryzen-7-9850x3d",
+      "vendor": "AMD",
+      "model": "Ryzen 7 9850X3D",
+      "socket": "AM5",
+      "source": "https://www.newegg.com/amd-ryzen-7-9850x3d-ryzen-7-9000-series-granite-ridge-socket-am5-desktop-processor/p/N82E16819113934",
+      "last_verified": "2026-07-29"
+    },
+    {
+      "id": "cpu-intel-core-ultra-9-285k",
+      "vendor": "Intel",
+      "model": "Core Ultra 9 285K",
+      "socket": "LGA1851",
+      "source": "https://www.newegg.com/intel-core-ultra-9-285k-arrow-lake-lga-1851-desktop-cpu-processor/p/N82E16819118505",
+      "last_verified": "2026-07-29"
+    },
+    {
+      "id": "cpu-intel-core-ultra-7-265kf",
+      "vendor": "Intel",
+      "model": "Core Ultra 7 265KF",
+      "socket": "LGA1851",
+      "source": "https://www.newegg.com/intel-core-ultra-7-265kf-arrow-lake-lga-1851-desktop-cpu-processor/p/N82E16819118507",
+      "last_verified": "2026-07-29"
+    },
+    {
+      "id": "cpu-intel-core-ultra-5-245kf",
+      "vendor": "Intel",
+      "model": "Core Ultra 5 245KF",
+      "socket": "LGA1851",
+      "source": "https://www.newegg.com/intel-core-ultra-5-245kf-arrow-lake-lga-1851-desktop-cpu-processor/p/N82E16819118509",
+      "last_verified": "2026-07-29"
+    },
+    {
+      "id": "cpu-intel-core-ultra-5-225f",
+      "vendor": "Intel",
+      "model": "Core Ultra 5 225F",
+      "socket": "LGA1851",
+      "source": "https://www.newegg.com/intel-core-ultra-5-225f-arrow-lake-lga-1851-desktop-cpu-processor/p/N82E16819118578",
+      "last_verified": "2026-07-29"
+    },
+    {
+      "id": "cpu-intel-core-ultra-5-225",
+      "vendor": "Intel",
+      "model": "Core Ultra 5 225",
+      "socket": "LGA1851",
+      "source": "https://www.newegg.com/intel-core-ultra-5-225-arrow-lake-lga-1851-desktop-cpu-processor/p/N82E16819118577",
+      "last_verified": "2026-07-29"
+    },
+    {
+      "id": "cpu-intel-core-i7-14700k",
+      "vendor": "Intel",
+      "model": "Core i7-14700K",
+      "socket": "LGA1700",
+      "source": "https://www.newegg.com/intel-core-i7-14th-gen-core-i7-14700k-raptor-lake-lga-1700-desktop-cpu-processor/p/N82E16819118466",
+      "last_verified": "2026-07-29"
+    },
+    {
+      "id": "cpu-intel-core-i7-14700kf",
+      "vendor": "Intel",
+      "model": "Core i7-14700KF",
+      "socket": "LGA1700",
+      "source": "https://www.newegg.com/intel-core-i7-14th-gen-core-i7-14700kf-raptor-lake-lga-1700-desktop-cpu-processor/p/N82E16819118468",
+      "last_verified": "2026-07-29"
+    },
+    {
+      "id": "cpu-intel-core-i9-14900k",
+      "vendor": "Intel",
+      "model": "Core i9-14900K",
+      "socket": "LGA1700",
+      "source": "https://www.newegg.com/intel-core-i9-14th-gen-core-i9-14900k-raptor-lake-lga-1700-desktop-cpu-processor/p/N82E16819118462",
+      "last_verified": "2026-07-29"
+    },
+    {
+      "id": "cpu-intel-core-i9-14900kf",
+      "vendor": "Intel",
+      "model": "Core i9-14900KF",
+      "socket": "LGA1700",
+      "source": "https://www.newegg.com/intel-core-i9-14th-gen-core-i9-14900kf-raptor-lake-lga-1700-desktop-cpu-processor/p/N82E16819118464",
+      "last_verified": "2026-07-29"
+    },
+    {
+      "id": "amd-ryzen-9-7950x3d",
+      "vendor": "AMD",
+      "model": "Ryzen 9 7950X3D",
+      "socket": "AM5",
+      "source": "https://www.newegg.com/amd-ryzen-9-7950x3d-ryzen-9-7000-series-raphael-zen-4-socket-am5/p/N82E16819113791",
+      "last_verified": "2026-07-29"
+    },
+    {
+      "id": "amd-ryzen-9-7950x",
+      "vendor": "AMD",
+      "model": "Ryzen 9 7950X",
+      "socket": "AM5",
+      "source": "https://www.newegg.com/amd-ryzen-9-7950x-ryzen-9-7000-series-raphael-zen-4-socket-am5/p/N82E16819113771",
+      "last_verified": "2026-07-29"
+    },
+    {
+      "id": "amd-ryzen-9-7900x",
+      "vendor": "AMD",
+      "model": "Ryzen 9 7900X",
+      "socket": "AM5",
+      "source": "https://www.newegg.com/amd-ryzen-9-7900x-ryzen-9-7000-series-raphael-zen-4-socket-am5/p/N82E16819113769",
+      "last_verified": "2026-07-29"
+    },
+    {
+      "id": "amd-ryzen-9-7900",
+      "vendor": "AMD",
+      "model": "Ryzen 9 7900",
+      "socket": "AM5",
+      "source": "https://www.newegg.com/amd-ryzen-9-7900-ryzen-9-7000-series-raphael-zen-4-socket-am5/p/N82E16819113785",
+      "last_verified": "2026-07-29"
+    },
+    {
+      "id": "amd-ryzen-7-7800x3d",
+      "vendor": "AMD",
+      "model": "Ryzen 7 7800X3D",
+      "socket": "AM5",
+      "source": "https://www.newegg.com/amd-ryzen-7-7800x3d-ryzen-7-7000-series-raphael-zen-4-socket-am5/p/N82E16819113793",
+      "last_verified": "2026-07-29"
+    },
+    {
+      "id": "amd-ryzen-7-7700x",
+      "vendor": "AMD",
+      "model": "Ryzen 7 7700X",
+      "socket": "AM5",
+      "source": "https://www.newegg.com/amd-ryzen-7-7700x-ryzen-7-7000-series-raphael-zen-4-socket-am5/p/N82E16819113768",
+      "last_verified": "2026-07-29"
+    },
+    {
+      "id": "amd-ryzen-5-7600x",
+      "vendor": "AMD",
+      "model": "Ryzen 5 7600X",
+      "socket": "AM5",
+      "source": "https://www.newegg.com/amd-ryzen-5-7600x-ryzen-5-7000-series-raphael-zen-4-socket-am5/p/N82E16819113770",
+      "last_verified": "2026-07-29"
+    },
+    {
+      "id": "amd-ryzen-5-7600",
+      "vendor": "AMD",
+      "model": "Ryzen 5 7600",
+      "socket": "AM5",
+      "source": "https://www.newegg.com/amd-ryzen-5-7000-series-ryzen-5-7600-raphael-socket-am5-desktop-cpu-processor/p/N82E16819113787",
+      "last_verified": "2026-07-29"
+    },
+    {
+      "id": "amd-ryzen-7-8700g",
+      "vendor": "AMD",
+      "model": "Ryzen 7 8700G",
+      "socket": "AM5",
+      "source": "https://www.newegg.com/amd-ryzen-7-8700g-ryzen-7-8000-g-series-phoenix-zen-4-socket-am5/p/N82E16819113811",
+      "last_verified": "2026-07-29"
+    },
+    {
+      "id": "amd-ryzen-5-8600g",
+      "vendor": "AMD",
+      "model": "Ryzen 5 8600G",
+      "socket": "AM5",
+      "source": "https://www.newegg.com/amd-ryzen-5-8600g-ryzen-5-8000-g-series-phoenix-zen-4-socket-am5/p/N82E16819113814",
+      "last_verified": "2026-07-29"
+    }
+  ]
+}

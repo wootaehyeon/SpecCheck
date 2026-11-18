@@ -210,6 +210,7 @@ class Recommendation(UiModel):
 
 
 class UiDiagnosis(UiModel):
+    inference: dict[str, str] | None = None
     schema_version: Literal["1.2.0"] = Field(default="1.2.0", alias="schemaVersion")
     scan_id: str = Field(alias="scanId")
     scan_type: Literal["basic"] = Field(default="basic", alias="scanType")

@@ -1,0 +1,8 @@
+{
+  "reviewed_at": "2026-11-18",
+  "boards": [
+    {"id":"asus-prime-b760-plus-d4","vendor":"ASUS","model":"PRIME B760-PLUS D4","socket":"LGA1700","ram_type":"DDR4","ram_slots":4,"ram_max_gb":128,"memory_form_factor":"UDIMM","m2_slots":3,"nvme_lengths":[2242,2260,2280,22110],"source":"https://www.asus.com/motherboards-components/motherboards/prime/prime-b760-plus-d4/techspec/","last_verified":"2026-11-18","verification":"manufacturer"},
+    {"id":"asus-prime-b760-plus","vendor":"ASUS","model":"PRIME B760-PLUS","socket":"LGA1700","ram_type":"DDR5","ram_slots":4,"ram_max_gb":192,"memory_form_factor":"UDIMM","m2_slots":3,"nvme_lengths":[2242,2260,2280,22110],"source":"https://www.asus.com/motherboards-components/motherboards/prime/prime-b760-plus/techspec/","last_verified":"2026-11-18","verification":"manufacturer"},
+    {"id":"asus-tuf-b550-plus","vendor":"ASUS","model":"TUF GAMING B550-PLUS","socket":"AM4","ram_type":"DDR4","ram_slots":4,"ram_max_gb":128,"memory_form_factor":"UDIMM","source":"https://www.asus.com/us/motherboards-components/motherboards/tuf-gaming/tuf-gaming-b550-plus/techspec/","last_verified":"2026-11-18","verification":"manufacturer"}
+  ]
+}

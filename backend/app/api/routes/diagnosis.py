@@ -24,6 +24,16 @@ from app.services import diagnosis_service
 router = APIRouter()
 
 
+@router.get("/model")
+def model_info() -> dict:
+    """Expose model provenance without confusing teacher agreement with accuracy."""
+    from app.diagnosis.ml import load_model
+    artifact, version = load_model()
+    return {"method": "machine_learning", "algorithm": artifact["algorithm"],
+            "model_version": version, "label_source": artifact["label_source"],
+            "categories": list(artifact["models"]), "real_outcome_validation": False}
+
+
 def _run(snapshot: TelemetrySnapshot, with_explanation: bool) -> DiagnosisResult:
     result = diagnose(snapshot)
     if with_explanation:

@@ -210,7 +210,7 @@ Scan은 일회성 진단으로 끝나지 않는다. 예측한 결과와 실제 �
 | M1 | Hardware Inventory | WMI/CIM 수집 |
 | M2 | Basic Health Scan | WHEA + Storage + Resource |
 | M3 | Data Pipeline | Normalization + SQLite |
-| M4 | Rule Detection | 기본 이상 탐지 |
+| M4 | ML Diagnosis | 기존 규칙으로 초기 학습한 19개 CART 모델 |
 | M5 | Local AI Diagnosis | Gemma 기반 설명 |
 | **MVP** | **Basic Scan 완성** | **실제 사용자 진단 가능** |
 | M6 | Sysmon 기반 구축 | Advanced Scan |
@@ -355,3 +355,9 @@ API 연결이 없거나 조회가 실패해도 eBay·네이버쇼핑·다나와 
 ## 👥 Team Info
 
 * **개발기간**: 2026년 4월 29일 ~
+
+## 머신러닝 진단
+
+기본 진단 경로는 학습된 모델 파일을 사용합니다. 기존 규칙은 오프라인 초기 학습용 라벨 생성에만 사용합니다. 학습·데이터 출처·검증 한계·재학습 방법은 [ML_DIAGNOSIS.md](docs/ML_DIAGNOSIS.md)를 참고하세요.
+
+Gemma 부품 추천은 출처가 있는 메인보드 사양과 수집한 메모리 규격으로 후보를 검증합니다. 추가 학습용 자료와 적용 범위는 [GEMMA_COMPATIBILITY.md](docs/GEMMA_COMPATIBILITY.md)를 참고하세요. Gemma 가중치 추가 학습은 아직 수행하지 않았습니다.
